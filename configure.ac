@@ -5,7 +5,7 @@ AC_PREREQ([2.65])
 # ====================
 # Version informations
 # ====================
-AC_INIT([cups-filters], [2.0b1], [https://github.com/OpenPrinting/cups-filters/issues], [cups-filters], [https://github.com/OpenPrinting/cups-filters/])
+AC_INIT([libcupsfilters], [2.0b1], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
 cups_filters_version="AC_PACKAGE_VERSION"
 cups_filters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{print $1}'`"
 cups_filters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{printf("%d\n",$2);}'`"
@@ -57,24 +57,12 @@ AM_ICONV
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
-AS_LN_SRF_PREPARE
-AC_PROG_LN_SRF
 AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
 PKG_PROG_PKG_CONFIG([0.20])
 
 AM_GNU_GETTEXT_VERSION([0.18.3])
 AM_GNU_GETTEXT([external])
-
-# ========================================
-# Specify the fontdir patch if not default
-# ========================================
-AC_ARG_WITH([fontdir],
-	[AS_HELP_STRING([--with-fontdir=path], [Specify path to font config directory (default: fonts/conf.d/).])],
-	[FONTDIR="$withval"],
-	[FONTDIR="fonts/conf.d"]
-)
-AC_SUBST(FONTDIR)
 
 # ================================
 # Find CUPS internals (no pc file)
@@ -115,68 +103,8 @@ CUPS_SERVERBIN="`$CUPSCONFIG --serverbin`"
 AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN", [Path to CUPS binaries dir])
 AC_SUBST(CUPS_SERVERBIN)
 
-AX_COMPARE_VERSION([$CUPS_VERSION],[gt],[1.4], [
-	AC_DEFINE(CUPS_1_4, 1, [CUPS Version is 1.4 or newer])
-])
-
-AC_ARG_ENABLE([driverless], [AS_HELP_STRING([--enable-driverless], [enable PPD generator for driverless printing in /usr/lib/cups/driver/, for manual setup of driverless printers with printer setup tool.])],
-        [enable_driverless="$enableval"],
-        [enable_driverless=yes]
-)
-AX_COMPARE_VERSION([$CUPS_VERSION],[lt],[1.6], [
-	enable_driverless=no
-])
-AM_CONDITIONAL([ENABLE_DRIVERLESS],
-[test "x$enable_driverless" != "xno"])
-
 AC_DEFINE(PDFTOPDF, [], [Needed for pdftopdf filter compilation])
 AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])
-
-AC_ARG_ENABLE([auto-setup-local-only], [AS_HELP_STRING([--enable-auto-setup-local-only], [enable automatic setup of only local IPP printers.])],
-        [enable_auto_setup_local_only="$enableval"],
-        [enable_auto_setup_local_only=no]
-)
-if test "x$enable_auto_setup_local_only" != "xno"; then
-	AC_DEFINE([ONLY_LOCAL_IPP_PRINTERS_AUTO_SETUP], [], [Auto-setup only local IPP network printers?])
-fi
-
-AC_ARG_ENABLE([auto-setup-driverless-only], [AS_HELP_STRING([--enable-auto-setup-driverless-only], [enable automatic setup of only IPP network printers with driverless printing support.])],
-        [enable_auto_setup_driverless_only="$enableval"],
-        [enable_auto_setup_driverless_only=no]
-)
-if test "x$enable_auto_setup_driverless_only" != "xno"; then
-	AC_DEFINE([ONLY_DRIVERLESS_IPP_PRINTERS_AUTO_SETUP], [], [Auto-setup only driverless IPP network printers?])
-fi
-
-if test "x$enable_auto_setup_local_only" != "xno"; then
-	enable_auto_setup_driverless_only=no
-	enable_auto_setup_all=no
-else
-	if test "x$enable_auto_setup_driverless_only" != "xno"; then
-		enable_auto_setup_all=no
-	else
-		enable_auto_setup_all=yes
-	fi
-fi
-
-AC_ARG_ENABLE([ppdc-utils], [AS_HELP_STRING([--enable-ppdc-utils], [enable ppdc utilities, to build PPD files from driver information files (*.drv).])],
-        [enable_ppdc_utils="$enableval"],
-        [enable_ppdc_utils="no"])
-AM_CONDITIONAL([ENABLE_PPDC_UTILS],
-[test "x$enable_ppdc_utils" != "xno"])
-
-PPDC_DATADIR="$datadir/ppdc"
-AC_DEFINE_UNQUOTED(PPDC_DATADIR, "$PPDC_DATADIR", [ppdc include dir])
-AC_SUBST(PPDC_DATADIR)
-
-AC_SEARCH_LIBS([dlopen],
-	[dl],
-	[AS_IF([test "$ac_cv_search_dlopen" != "none required"], [
-		DLOPEN_LIBS="$ac_cv_search_dlopen"
-	])],
-	AC_MSG_ERROR([unable to find the dlopen() function])
-)
-AC_SUBST(DLOPEN_LIBS)
 
 # Transient run-time state dir of CUPS
 CUPS_STATEDIR=""
@@ -193,32 +121,6 @@ AC_ARG_WITH(cups-rundir, [  --with-cups-rundir           set transient run-time 
         esac])
 AC_DEFINE_UNQUOTED(CUPS_STATEDIR, "$CUPS_STATEDIR", [Transient run-time state dir of CUPS])
 AC_SUBST(CUPS_STATEDIR)
-
-# Domain socket of CUPS...
-CUPS_DEFAULT_DOMAINSOCKET=""
-AC_ARG_WITH(cups-domainsocket, [  --with-cups-domainsocket     set unix domain socket name used by CUPS
-],
-        default_domainsocket="$withval",
-        default_domainsocket="")
-
-if test x$enable_domainsocket != xno -a x$default_domainsocket != xno; then
-        if test "x$default_domainsocket" = x; then
-                case "$uname" in
-                        Darwin*)
-                                # Darwin and MaxOS X do their own thing...
-                                CUPS_DEFAULT_DOMAINSOCKET="$localstatedir/run/cupsd"
-                                ;;
-                        *)
-                                # All others use FHS standard...
-                                CUPS_DEFAULT_DOMAINSOCKET="$CUPS_STATEDIR/cups.sock"
-                                ;;
-                esac
-        else
-                CUPS_DEFAULT_DOMAINSOCKET="$default_domainsocket"
-        fi
-fi
-AC_DEFINE_UNQUOTED(CUPS_DEFAULT_DOMAINSOCKET, "$CUPS_DEFAULT_DOMAINSOCKET", "Domain socket of CUPS")
-AC_SUBST(CUPS_DEFAULT_DOMAINSOCKET)
 
 # ======================
 # Check system functions
@@ -305,10 +207,6 @@ AS_IF([test x"$with_tiff" != "xno"], [
 	AC_SUBST(LIBTIFF_LIBS)
 ])
 
-# ==================================
-# Check for modules needed by utils/
-# ==================================
-
 dnl including EXIF library
 EXIF_LIBS=""
 EXIF_CFLAGS=""
@@ -335,7 +233,9 @@ fi
 AC_SUBST(EXIF_LIBS)
 AC_SUBST(EXIF_CFLAGS)
 
-dnl Avahi for cups-browsed
+# ======================
+# Avahi (DNS-SD support)
+# ======================
 AVAHI_LIBS=""
 AVAHI_CFLAGS=""
 AVAHI_GLIB_CFLAGS=""
@@ -363,50 +263,6 @@ fi
 AC_SUBST(AVAHI_LIBS)
 AC_SUBST(AVAHI_CFLAGS)
 
-dnl
-dnl   LDAP configuration stuff for CUPS.
-dnl
-dnl   Copyright 2007-2011 by Apple Inc.
-dnl   Copyright 2003-2006 by Easy Software Products, all rights reserved.
-dnl
-dnl   These coded instructions, statements, and computer programs are the
-dnl   property of Apple Inc. and are protected by Federal copyright
-dnl   law.  Distribution and use rights are outlined in the file "COPYING"
-dnl   which should have been included with this file.
-dnl
-
-AC_ARG_ENABLE([ldap], [AS_HELP_STRING([--disable-ldap], [disable LDAP support.])],
-        [enable_ldap="$enableval"],
-        [enable_ldap=yes]
-)
-AC_ARG_WITH([ldap-libs], [AS_HELP_STRING([--with-ldap-libs], [set directory for LDAP library.])],
-    LDFLAGS="-L$withval $LDFLAGS"
-    DSOFLAGS="-L$withval $DSOFLAGS",)
-AC_ARG_WITH([ldap-includes], [AS_HELP_STRING([--with-ldap-includes], [set directory for LDAP includes.])],
-    CFLAGS="-I$withval $CFLAGS"
-    CPPFLAGS="-I$withval $CPPFLAGS",)
-
-if test x$enable_ldap != xno; then
-
-    AC_CHECK_HEADER([ldap.h], [
-	AC_SEARCH_LIBS([ldap_initialize], [ldap], [
-	    AC_DEFINE([HAVE_LDAP], [], [Define if LDAP support should be enabled])
-	    AC_DEFINE([HAVE_OPENLDAP], [], [If LDAP support is that of OpenLDAP])
-	    AC_CHECK_LIB([ldap], [ldap_start_tls],
-		AC_DEFINE([HAVE_LDAP_SSL], [], [If LDAP has SSL/TLS support enabled]))],[
-
-	    AC_CHECK_LIB([ldap], [ldap_init], [
-		AC_DEFINE([HAVE_LDAP], [], [Define if LDAP support should be enabled])
-		AC_DEFINE([HAVE_MOZILLA_LDAP], [], [If LDAP support is that of Mozilla])
-		AC_CHECK_HEADERS([ldap_ssl.h], [], [], [#include <ldap.h>])
-		AC_CHECK_LIB([ldap], [ldapssl_init],
-		    AC_DEFINE([HAVE_LDAP_SSL], [], [If LDAP has SSL/TLS support enabled]))])]
-	)
-	AC_CHECK_LIB([ldap], [ldap_set_rebind_proc], AC_DEFINE([HAVE_LDAP_REBIND_PROC], [], [If libldap implements ldap_set_rebind_proc]))
-    ])
-
-fi
-
 PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.30.2])
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
@@ -426,83 +282,9 @@ PKG_CHECK_MODULES(GIO_UNIX, [gio-unix-2.0])
 AC_SUBST(GIO_UNIX_CFLAGS)
 AC_SUBST(GIO_UNIX_LIBS)
 
-AC_ARG_WITH([browseremoteprotocols],
-	[AS_HELP_STRING([--with-browseremoteprotocols=value], [Set which protocols to listen for in cups-browsed (default: dnssd cups)])],
-	[with_browseremoteprotocols="$withval"],
-	[with_browseremoteprotocols="dnssd cups"]
-)
-BROWSEREMOTEPROTOCOLS="$with_browseremoteprotocols"
-AC_SUBST(BROWSEREMOTEPROTOCOLS)
-
-dnl Setup init.d locations...
-AC_ARG_WITH(rcdir, [AS_HELP_STRING([--with-rcdir], [Set path for rc scripts])],rcdir="$withval",rcdir="")
-AC_ARG_WITH(rclevels, [AS_HELP_STRING([--with-rclevels], [Set run levels for rc scripts])],rclevels="$withval",rclevels="2 3 5")
-AC_ARG_WITH(rcstart, [AS_HELP_STRING([--with-rcstart], [Set start number for rc scripts])],rcstart="$withval",rcstart="99")
-AC_ARG_WITH(rcstop, [AS_HELP_STRING([--with-rcstop], [Set stop number for rc scripts])],rcstop="$withval",rcstop="00")
-
-INITDIR=""
-INITDDIR=""
-RCLEVELS="$rclevels"
-RCSTART="$rcstart"
-RCSTOP="$rcstop"
-
-if test x$rcdir = x; then
-	case "`uname`" in
-		FreeBSD* | OpenBSD* | MirBSD* | ekkoBSD*)
-			# FreeBSD and OpenBSD
-			;;
-
-		Linux | GNU | GNU/k*BSD*)
-			# Linux/HURD seems to choose an init.d directory at random...
-			if test -d /sbin/init.d; then
-				# SuSE
-				INITDIR="/sbin/init.d"
-			else
-				if test -d /etc/init.d; then
-					# Others
-					INITDIR="/etc"
-				else
-					# RedHat
-					INITDIR="/etc/rc.d"
-				fi
-			fi
-			RCSTART="82"
-			RCSTOP="35"
-			;;
-
-		NetBSD*)
-			# NetBSD
-			INITDDIR="/etc/rc.d"
-			;;
-
-		*)
-			INITDIR="/etc"
-			;;
-
-	esac
-elif test "x$rcdir" != xno; then
-	if test "x$rclevels" = x; then
-		INITDDIR="$rcdir"
-	else
-		INITDIR="$rcdir"
-	fi
-fi
-
-AM_CONDITIONAL([RCLINKS], [test "x$INITDIR" != "x"])
-
-if test "x${INITDIR}" != "x" -a "x${INITDDIR}" = "x"; then
-   INITDDIR="${INITDIR}/init.d"
-fi
-
-AC_SUBST(INITDIR)
-AC_SUBST(INITDDIR)
-AC_SUBST(RCLEVELS)
-AC_SUBST(RCSTART)
-AC_SUBST(RCSTOP)
-
-# ======================================
-# Check for various pdf required modules
-# ======================================
+# ==========================================
+# Check for various required modules for PDF
+# ==========================================
 PKG_CHECK_MODULES([LCMS], [lcms2], [lcms2=yes], [lcms2=no])
 AS_IF([test x"$lcms2" = "xno"], [
 	PKG_CHECK_MODULES([LCMS], [lcms])
@@ -552,9 +334,9 @@ AS_IF([test x"$long_long_found" = "xyes"], [
 	AC_DEFINE([HAVE_LONG_LONG], [], [Platform supports long long type])
 ])
 
-# ================
-# Check for pdf2ps
-# ================
+# =====================================================
+# Check for Ghostscript and PDF-to-PostScript converter
+# =====================================================
 AC_ARG_ENABLE([ghostscript],
 	[AS_HELP_STRING([--disable-ghostscript], [Disable filters using Ghostscript.])],
 	[enable_ghostscript="$enableval"],
@@ -691,7 +473,7 @@ AS_IF([test "x$enable_pdftops" != "xyes"], [
 ])
 
 # ================
-# Check for Mutool
+# Check for mutool
 # ================
 AC_ARG_ENABLE([mutool],
 	[AS_HELP_STRING([--disable-mutool], [Disable filters using mutool.])],
@@ -733,6 +515,9 @@ AC_ARG_ENABLE([pdftocairo],
 	[enable_pdftocairo=yes]
 )
 
+# ====================
+# Check for pdftocairo
+# ====================
 CUPS_PDFTOCAIRO=""
 AS_IF([test "x$enable_pdftocairo" != "xyes"], [
 	with_pdftocairo_path=""
@@ -750,6 +535,9 @@ AS_IF([test "x$enable_pdftocairo" != "xyes"], [
 	])
 ])
 
+# ==================
+# Check for acroread
+# ==================
 AC_ARG_ENABLE([acroread],
 	[AS_HELP_STRING([--disable-acroread], [Disable filters using acroread.])],
 	[enable_acroread="$enableval"],
@@ -771,83 +559,34 @@ AS_IF([test "x$enable_acroread" != "xyes"], [
 	])
 ])
 
+# =============================================================
+# Check for hybrid PDF-to-PostScript (Ghostscript plus Poppler)
+# =============================================================
 AS_IF([test "x$CUPS_GHOSTSCRIPT" != "x" -a "x$CUPS_PDFTOPS" != "x"], [
 	AS_IF([test x"$with_pdftops" = xhybrid -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=HYBRID])
 ])
 
-AS_IF([test "x$with_ippfind_path" != "xsystem"], [
-	CUPS_IPPFIND="$with_ippfind_path"
-], [
-	CUPS_IPPFIND="ippfind"
-])
 
 AC_DEFINE_UNQUOTED([CUPS_GHOSTSCRIPT], "$CUPS_GHOSTSCRIPT", [gs binary to use])
 AC_DEFINE_UNQUOTED([CUPS_MUTOOL],"$CUPS_MUTOOL",[mutool binary to use])
 AC_DEFINE_UNQUOTED([CUPS_POPPLER_PDFTOPS], "$CUPS_PDFTOPS", [pdftops binary to use.])
 AC_DEFINE_UNQUOTED([CUPS_POPPLER_PDFTOCAIRO], "$CUPS_PDFTOCAIRO", [pdftocairo binary to use.])
 AC_DEFINE_UNQUOTED([CUPS_ACROREAD], "$CUPS_ACROREAD", [acroread binary to use.])
-AC_DEFINE_UNQUOTED([CUPS_IPPFIND], "$CUPS_IPPFIND", [ippfind binary to use.])
 AC_DEFINE_UNQUOTED([CUPS_PDFTOPS_MAX_RESOLUTION], [$CUPS_PDFTOPS_MAXRES], [max resolution used for pdftops when converting images])
 AC_DEFINE_UNQUOTED([CUPS_PDFTOPS_RENDERER], [$CUPS_PDFTOPS_RENDERER], [Define default renderer])
 
-# ==================
-# Check for foomatic
-# ==================
-AC_ARG_ENABLE([foomatic],
-	[AS_HELP_STRING([--disable-foomatic], [Disable Foomatic-based filters.])],
-	[enable_foomatic="$enableval"],
-	[enable_foomatic=yes]
-)
-AM_CONDITIONAL([ENABLE_FOOMATIC], [test "x$enable_foomatic" = "xyes"])
-
-# ================
-# Check for pstops
-# ================
-AC_ARG_ENABLE([pstops],
-	[AS_HELP_STRING([--enable-pstops], [Enable our own pstops filter.])],
-	[enable_pstops="$enableval"],
-	[enable_pstops=no]
-)
-AM_CONDITIONAL([ENABLE_PSTOPS], [test "x$enable_pstops" = "xyes"])
-
-# =====================
-# Check for rastertopwg
-# =====================
-AC_ARG_ENABLE([rastertopwg],
-	[AS_HELP_STRING([--enable-rastertopwg], [Enable our own rastertopwg filter.])],
-	[enable_rastertopwg="$enableval"],
-	[enable_rastertopwg=no]
-)
-AM_CONDITIONAL([ENABLE_RASTERTOPWG], [test "x$enable_rastertopwg" = "xyes"])
-
-# ===============================
-# Check for universal CUPS filter
-# ===============================
-AC_ARG_ENABLE([universal-cups-filter],
-	[AS_HELP_STRING([--enable-universal-cups-filter], [Use a single, universal CUPS filter executable for all filter functions.])],
-	[enable_universal_cups_filter="$enableval"],
-	[enable_universal_cups_filter=yes]
-)
-AS_IF([test "x$CUPS_GHOSTSCRIPT" == "x" -a "x$CUPS_PDFTOPS" == "x"], [
-	enable_universal_cups_filter=no
+# =================
+# Check for ippfind
+# =================
+AS_IF([test "x$with_ippfind_path" != "xsystem"], [
+	CUPS_IPPFIND="$with_ippfind_path"
+], [
+	CUPS_IPPFIND="ippfind"
 ])
-AM_CONDITIONAL([ENABLE_UNIVERSAL_CUPS_FILTER],
-[test "x$enable_universal_cups_filter" != "xno"])
-
-
-# =================================
-# Check for individual CUPS filters
-# =================================
-AC_ARG_ENABLE([individual-cups-filters],
-	[AS_HELP_STRING([--enable-individual-cups-filters], [Use individual CUPS filter executables for each filter function.])],
-        [enable_individual_cups_filters="$enableval"],
-        [enable_individual_cups_filters=no]
-)
-AM_CONDITIONAL([ENABLE_INDIVIDUAL_CUPS_FILTERS],
-[test "x$enable_individual_cups_filters" != "xno"])
+AC_DEFINE_UNQUOTED([CUPS_IPPFIND], "$CUPS_IPPFIND", [ippfind binary to use.])
 
 # =========
-# Test ARGS
+# Test Font
 # =========
 AC_ARG_WITH([test-font-path],
 	[AS_HELP_STRING([--with-test-font-path=value], [Set path to font used for tests (default: /usr/share/fonts/dejavu/DejaVuSans.ttf).])],
@@ -861,7 +600,7 @@ AS_IF([test "x$cross_compiling" != "xyes" && ! test -f "$with_test_font_path"],
 AC_DEFINE_UNQUOTED([TESTFONT], ["$with_test_font_path"], [Path to font used in tests])
 
 # ================
-# Check for cflags
+# Check for CFLAGS
 # ================
 AC_ARG_ENABLE([werror],
 	[AS_HELP_STRING([--enable-werror], [Treat all warnings as errors, useful for development.])],
@@ -879,136 +618,18 @@ AS_IF([test x"$GCC" = "xyes"], [
 CFLAGS="$CFLAGS -D_GNU_SOURCE"
 CXXFLAGS="$CXXFLAGS -D_GNU_SOURCE"
 
-# ==========================
-# Braille embossing/liblouis
-# ==========================
-AC_ARG_ENABLE(braille, AS_HELP_STRING([--enable-braille],[enable Braille embosing filters, requires liblouis]),
-	      enable_braille=$enableval,enable_braille=yes)
-AC_MSG_CHECKING(for liblouis)
-PKG_CHECK_EXISTS([liblouis], [
-	AC_MSG_RESULT(yes)
-	if test "x$enable_braille" = xyes; then
-		TABLESDIR=`$PKG_CONFIG --variable=tablesdir liblouis`
-	else
-		TABLESDIR=/usr/share/liblouis/tables
-	fi
-], [
-	AC_MSG_RESULT(no)
-	TABLESDIR=/usr/share/liblouis/tables
-])
-AM_CONDITIONAL(ENABLE_BRAILLE, test "x$enable_braille" = xyes)
-AC_SUBST(TABLESDIR)
-
-# ===============================================
-# Should we keep generated queues after shutdown?
-# ===============================================
-AC_ARG_ENABLE(saving-created-queues, AS_HELP_STRING([--enable-saving-created-queues], [enable saving created queues during shutdown]),
-	      [SAVING_CREATED_QUEUES=$enableval],[SAVING_CREATED_QUEUES="no"])
-
-AS_IF([test "x$SAVING_CREATED_QUEUES" != "xno"],
-      [AC_DEFINE([SAVING_CREATED_QUEUES], [1], [Define whether we save queues during shutdown])]
-)
-
-# =========================================
-# Local queue naming for remote CUPS queues
-# =========================================
-AC_ARG_WITH([remote-cups-local-queue-naming],
-	[AS_HELP_STRING([--with-remote-cups-local-queue-naming=DNS-SD|MakeModel|RemoteName], [Choose the origin of local queue naming for remote CUPS queues, default based on DNS-SD ID])],
-	[case "x$withval" in
-		"xMakeModel")
-			REMOTE_CUPS_LOCAL_QUEUE_NAMING="MakeModel"
-	                AC_DEFINE([NAMING_MAKE_MODEL], [1], [Define that we create local queues for remote CUPS queues based on printer Make-Model])
-			;;
-		"xRemoteName")
-			REMOTE_CUPS_LOCAL_QUEUE_NAMING="RemoteName"
-	                AC_DEFINE([NAMING_REMOTE_NAME], [1], [Define that we create local queues for remote CUPS queues based on their print queue name on the server])
-			;;
-		*)
-			REMOTE_CUPS_LOCAL_QUEUE_NAMING="DNS-SD"
-	                AC_DEFINE([NAMING_DNSSD], [1], [Define that we create local queues for remote CUPS queues based on DNS-SD name])
-			;;
-	esac],
-	[REMOTE_CUPS_LOCAL_QUEUE_NAMING="DNS-SD"
-	 AC_DEFINE([NAMING_DNSSD], [1], [Define that we create local queues for remote CUPS queues based on DNS-SD name])]
-)
-
-# =========================================================
-# Select a different shell instead of the default /bin/bash
-# =========================================================
-AC_ARG_WITH([shell],
-	[AS_HELP_STRING([--with-shell=path], [Specify path for a modern shell.])],
-	[with_shell="$withval"],
-	[with_shell="/bin/bash"]
-)
-AC_DEFINE_UNQUOTED([SHELL], "$with_shell", [Path for a modern shell])
-
-# ============================
-# Debugging options for libppd
-# ============================
-AC_ARG_ENABLE(debug_guards, [  --enable-debug-guards   build libppd with memory allocat
-ion guards])
-AC_ARG_ENABLE(debug_printfs, [  --enable-debug-printfs  build libppd with CUPS_DEBUG_LOG support])
-
-dnl Debug printfs can slow things down, so provide a separate option for that
-if test x$enable_debug_printfs = xyes; then
-        CFLAGS="$CFLAGS -DDEBUG"
-        CXXFLAGS="$CXXFLAGS -DDEBUG"
-fi
-
-dnl Debug guards use an extra 4 bytes for some structures like strings in the
-dnl string pool, so provide a separate option for that
-if test x$enable_debug_guards = xyes; then
-        CFLAGS="$CFLAGS -DDEBUG_GUARDS"
-        CXXFLAGS="$CXXFLAGS -DDEBUG_GUARDS"
-fi
-
-# =========================================================
-# Turn on/off network interface updates for each found entry
-# ==========================================================
-AC_ARG_ENABLE([frequent_netif_update],
-              [AS_HELP_STRING([--enable-frequent-netif-update], [Enable network interface update after each found entry to prevent network issues])],
-              [FREQUENT_NETIF_UPDATE=$enableval],
-              [FREQUENT_NETIF_UPDATE=yes]
-)
-
-AS_IF([test "x$FREQUENT_NETIF_UPDATE" != "xno"],
-      [AC_DEFINE([FREQUENT_NETIF_UPDATE], [1], [Define whether we want network interface update after each found entry])]
-)
-
 # =====================
 # Prepare all .in files
 # =====================
 AC_CONFIG_FILES([
 	libcupsfilters.pc
-	libppd.pc
 	Makefile
-	utils/cups-browsed
-	utils/cups-browsed.conf
-	filter/foomatic-rip/foomatic-rip.1
-	filter/braille/drivers/index/indexv4.sh
-	filter/braille/drivers/index/indexv3.sh
-	filter/braille/drivers/index/index.sh
-	filter/braille/drivers/index/textbrftoindexv3
-	filter/braille/drivers/index/imageubrltoindexv3
-	filter/braille/drivers/index/imageubrltoindexv4
-	filter/braille/drivers/generic/brftoembosser
-	filter/braille/filters/cups-braille.sh
-	filter/braille/filters/imagetobrf
-	filter/braille/filters/texttobrf
-	filter/braille/filters/brftopagedbrf
-	filter/braille/filters/vectortopdf
-	filter/braille/filters/vectortobrf
-	filter/braille/filters/musicxmltobrf
-	filter/braille/filters/liblouis1.defs.gen
-])
-AC_CONFIG_COMMANDS([executable-scripts], [
-	chmod +x filter/braille/filters/liblouis1.defs.gen
 ])
 AC_OUTPUT
 
-# ==============================================
-# Display final informations about configuration
-# ==============================================
+# =============================================
+# Display final information about configuration
+# =============================================
 AC_MSG_NOTICE([
 ==============================================================================
 Environment settings:
@@ -1017,10 +638,6 @@ Environment settings:
 	LDFLAGS:                                   ${LDFLAGS}
 Build configuration:
 	cups-config:     ${with_cups_config}
-	font directory:  ${sysconfdir}/${FONTDIR}
-	foomatic:        ${enable_foomatic}
-	init directory:  ${INITDDIR}
-	cups dom socket: ${CUPS_DEFAULT_DOMAINSOCKET}
 	poppler:         ${enable_poppler}
 	ghostscript:     ${enable_ghostscript}
 	gs-path:         ${with_gs_path}
@@ -1039,26 +656,10 @@ Build configuration:
 	Poppler's pdftops: ${enable_pdftops}
 	pdftops-path:    ${with_pdftops_path}
 	png:             ${with_png}
-	pstops:          ${enable_pstops}
-	rastertopwg:     ${enable_rastertopwg}
-	shell:           ${with_shell}
 	test-font:       ${with_test_font_path}
 	tiff:            ${with_tiff}
 	avahi:           ${enable_avahi}
 	dbus:            ${enable_dbus}
-	browsing:        ${with_browseremoteprotocols}
 	werror:          ${enable_werror}
-	braille:	 ${enable_braille}
-	braille tables:  ${TABLESDIR}
-	universal CUPS filter: ${enable_universal_cups_filter}
-	individual CUPS filters: ${enable_individual_cups_filters}
-	driverless:      ${enable_driverless}
-	ppdc utilities:  ${enable_ppdc_utils}
-	local queue naming for remote CUPS queues: ${REMOTE_CUPS_LOCAL_QUEUE_NAMING}
-	keep generated queues during shutdown:     ${SAVING_CREATED_QUEUES}
-	update network interfaces after each found entry:     ${FREQUENT_NETIF_UPDATE}
-	all ipp printer auto-setup: ${enable_auto_setup_all}
-	only driverless auto-setup: ${enable_auto_setup_driverless_only}
-	only local auto-setup: ${enable_auto_setup_local_only}
 ==============================================================================
 ])
