@@ -1,4 +1,4 @@
-# CHANGES - OpenPrinting CUPS Filters v2.0b1 - 2022-11-14
+# CHANGES - OpenPrinting libcupsfilters v2.0b1 - 2022-11-14
 
 ## CHANGES IN V2.0b1 (TBA)
 
