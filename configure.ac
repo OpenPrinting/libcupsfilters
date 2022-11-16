@@ -334,70 +334,29 @@ AS_IF([test x"$long_long_found" = "xyes"], [
 	AC_DEFINE([HAVE_LONG_LONG], [], [Platform supports long long type])
 ])
 
-# =====================================================
-# Check for Ghostscript and PDF-to-PostScript converter
-# =====================================================
+# =====================
+# Check for Ghostscript
+# =====================
 AC_ARG_ENABLE([ghostscript],
 	[AS_HELP_STRING([--disable-ghostscript], [Disable filters using Ghostscript.])],
 	[enable_ghostscript="$enableval"],
 	[enable_ghostscript=yes]
-)
-AC_ARG_ENABLE([pdftops],
-	[AS_HELP_STRING([--disable-pdftops], [Disable filters using Poppler's pdftops.])],
-	[enable_pdftops="$enableval"],
-	[enable_pdftops=yes]
-)
-AC_ARG_WITH([pdftops],
-	[AS_HELP_STRING([--with-pdftops=value], [Set which pdftops to use (gs,pdftops,pdftocairo,acroread,mupdf,hybrid).])],
-	[with_pdftops="$withval"],
-	[with_pdftops=hybrid]
-)
-AS_CASE([x$with_pdftops],
-        [xgs|xpdftops|xpdftocairo|xacroread|xmupdf|xhybrid], [],
-        [AC_MSG_ERROR([Unknown value of with-pdftops provided: $with_pdftops])]
 )
 AC_ARG_WITH([gs-path],
 	[AS_HELP_STRING([--with-gs-path=value], [Set path to ghostcript binary (default: system).])],
 	[with_gs_path="$withval"],
 	[with_gs_path=system]
 )
-AC_ARG_WITH([pdftops-path],
-        [AS_HELP_STRING([--with-pdftops-path=value], [Set path to pdftops/ghostscript binary (default: system).])],
-        [with_pdftops_path="$withval"],
-        [with_pdftops_path=system]
-)
-AC_ARG_WITH([pdftocairo-path],
-        [AS_HELP_STRING([--with-pdftocairo-path=value], [Set path to pdftocairo binary (default: system).])],
-        [with_pdftocairo_path="$withval"],
-        [with_pdftocairo_path=system]
-)
-AC_ARG_WITH([acroread-path],
-        [AS_HELP_STRING([--with-acroread-path=value], [Set path to acroread binary (default: system).])],
-        [with_acroread_path="$withval"],
-        [with_acroread_path=system]
-)
 AC_ARG_WITH([ippfind-path],
         [AS_HELP_STRING([--with-ippfind-path=value], [Set path to ippfind binary (default: system).])],
         [with_ippfind_path="$withval"],
         [with_ippfind_path=system]
-)
-AC_ARG_WITH([pdftops-maxres],
-	[AS_HELP_STRING([--with-pdftops-maxres=value], [Set maximum image rendering resolution for pdftops filter (0, 75, 150, 300, 600, 1200, 2400, 4800, 90, 180, 360, 720, 1440, 2880, 5760, unlimited). Default: 1440])],
-	[with_pdftops_maxres="$withval"],
-	[with_pdftops_maxres=1440]
-)
-AS_CASE([x$with_pdftops_maxres],
-	[x0|x75|x150|x300|x600|x1200|x2400|x4800|x90|x180|x360|x720|x1440|x2880|x5760], [CUPS_PDFTOPS_MAXRES=$with_pdftops_maxres],
-	[xunlimited], [CUPS_PDFTOPS_MAXRES=0],
-	[AC_MSG_ERROR([Unknown value of with-pdftops-maxres provided: $with_pdftops])]
 )
 AC_ARG_ENABLE([gs-ps2write],
 	[AS_HELP_STRING([--disable-gs-ps2write], [Ghostscript doesn't support ps2write device.])],
 	[enable_gs_ps2write="$enableval"],
 	[enable_gs_ps2write=yes]
 )
-
-CUPS_PDFTOPS_RENDERER=""
 
 CUPS_GHOSTSCRIPT=""
 AS_IF([test "x$enable_ghostscript" != "xyes"], [
@@ -416,20 +375,6 @@ AS_IF([test "x$enable_ghostscript" != "xyes"], [
 		AC_MSG_ERROR([Required gs binary is missing. Please install ghostscript package.])
 	])
 	AC_DEFINE([HAVE_GHOSTSCRIPT], [], [Define that we provide ghostscript binary])
-	AS_IF([test x"$with_pdftops" = xgs -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=GS])
-
-	AS_IF([test "x$cross_compiling" != "xyes"], [
-		AC_MSG_CHECKING(whether gs supports the ps2write device)
-		AS_IF([`$CUPS_GHOSTSCRIPT -h 2>&1 | grep -q ps2write`], [
-			AC_MSG_RESULT([yes])
-		], [
-			AC_MSG_RESULT([no])
-			enable_gs_ps2write=no
-		])
-	])
-	AS_IF([test x"$enable_gs_ps2write" = "xyes"], [
-		AC_DEFINE([HAVE_GHOSTSCRIPT_PS2WRITE], [], [gs supports ps2write])
-	])
 ])
 AM_CONDITIONAL(ENABLE_GHOSTSCRIPT, test "x$enable_ghostscript" = xyes)
 AC_SUBST(CUPS_GHOSTSCRIPT)
@@ -515,65 +460,9 @@ AC_ARG_ENABLE([pdftocairo],
 	[enable_pdftocairo=yes]
 )
 
-# ====================
-# Check for pdftocairo
-# ====================
-CUPS_PDFTOCAIRO=""
-AS_IF([test "x$enable_pdftocairo" != "xyes"], [
-	with_pdftocairo_path=""
-], [
-	AS_IF([test "x$with_pdftocairo_path" != "xsystem"], [
-		CUPS_PDFTOCAIRO="$with_pdftocairo_path"
-	], [
-		CUPS_PDFTOCAIRO="pdftocairo"
-	])
-	AS_IF([test "x$CUPS_PDFTOCAIRO" != "x"], [
-		AC_DEFINE([HAVE_PDFTOCAIRO], [], [Define that we provide pdftocairo binary])
-		AS_IF([test x"$with_pdftops" = xpdftocairo -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=PDFTOCAIRO])
-	], [
-		AC_MSG_ERROR([Required pdftocairo is missing. Please install Poppler developer packages.])
-	])
-])
-
-# ==================
-# Check for acroread
-# ==================
-AC_ARG_ENABLE([acroread],
-	[AS_HELP_STRING([--disable-acroread], [Disable filters using acroread.])],
-	[enable_acroread="$enableval"],
-	[enable_acroread=yes]
-)
-
-CUPS_ACROREAD=""
-AS_IF([test "x$enable_acroread" != "xyes"], [
-	with_acroread_path=""
-], [
-	AS_IF([test "x$with_acroread_path" != "xsystem"], [
-		CUPS_ACROREAD="$with_acroread_path"
-	], [
-		CUPS_ACROREAD="acroread"
-	])
-	AS_IF([test "x$CUPS_ACROREAD" != "x"], [
-		AC_DEFINE([HAVE_ACROREAD], [], [Define that we provide acroread binary])
-		AS_IF([test x"$with_pdftops" = xacroread -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=ACROREAD])
-	])
-])
-
-# =============================================================
-# Check for hybrid PDF-to-PostScript (Ghostscript plus Poppler)
-# =============================================================
-AS_IF([test "x$CUPS_GHOSTSCRIPT" != "x" -a "x$CUPS_PDFTOPS" != "x"], [
-	AS_IF([test x"$with_pdftops" = xhybrid -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=HYBRID])
-])
-
 
 AC_DEFINE_UNQUOTED([CUPS_GHOSTSCRIPT], "$CUPS_GHOSTSCRIPT", [gs binary to use])
 AC_DEFINE_UNQUOTED([CUPS_MUTOOL],"$CUPS_MUTOOL",[mutool binary to use])
-AC_DEFINE_UNQUOTED([CUPS_POPPLER_PDFTOPS], "$CUPS_PDFTOPS", [pdftops binary to use.])
-AC_DEFINE_UNQUOTED([CUPS_POPPLER_PDFTOCAIRO], "$CUPS_PDFTOCAIRO", [pdftocairo binary to use.])
-AC_DEFINE_UNQUOTED([CUPS_ACROREAD], "$CUPS_ACROREAD", [acroread binary to use.])
-AC_DEFINE_UNQUOTED([CUPS_PDFTOPS_MAX_RESOLUTION], [$CUPS_PDFTOPS_MAXRES], [max resolution used for pdftops when converting images])
-AC_DEFINE_UNQUOTED([CUPS_PDFTOPS_RENDERER], [$CUPS_PDFTOPS_RENDERER], [Define default renderer])
 
 # =================
 # Check for ippfind
@@ -641,25 +530,17 @@ Build configuration:
 	poppler:         ${enable_poppler}
 	ghostscript:     ${enable_ghostscript}
 	gs-path:         ${with_gs_path}
-	gs ps2write:     ${enable_gs_ps2write}
 	mutool:          ${enable_mutool}
 	mutool-path:     ${with_mutool_path}
 	ippfind-path:    ${with_ippfind_path}
 	imagefilters:    ${enable_imagefilters}
 	jpeg:            ${with_jpeg}
 	exif:            ${enable_exif}
-	pdftocairo:      ${enable_pdftocairo}
-	pdftocairo-path: ${with_pdftocairo_path}
-	acroread:        ${enable_acroread}
-	acroread-path:   ${with_acroread_path}
-	pdftops:         ${CUPS_PDFTOPS_RENDERER}
-	Poppler's pdftops: ${enable_pdftops}
-	pdftops-path:    ${with_pdftops_path}
 	png:             ${with_png}
-	test-font:       ${with_test_font_path}
 	tiff:            ${with_tiff}
 	avahi:           ${enable_avahi}
 	dbus:            ${enable_dbus}
 	werror:          ${enable_werror}
+	test-font:       ${with_test_font_path}
 ==============================================================================
 ])
