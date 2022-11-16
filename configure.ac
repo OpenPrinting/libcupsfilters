@@ -352,11 +352,6 @@ AC_ARG_WITH([ippfind-path],
         [with_ippfind_path="$withval"],
         [with_ippfind_path=system]
 )
-AC_ARG_ENABLE([gs-ps2write],
-	[AS_HELP_STRING([--disable-gs-ps2write], [Ghostscript doesn't support ps2write device.])],
-	[enable_gs_ps2write="$enableval"],
-	[enable_gs_ps2write=yes]
-)
 
 CUPS_GHOSTSCRIPT=""
 AS_IF([test "x$enable_ghostscript" != "xyes"], [
@@ -453,13 +448,6 @@ AS_IF([test "x$enable_mutool" != "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_MUTOOL, test "x$enable_mutool" = xyes)
 AC_SUBST(CUPS_MUTOOL)
-
-AC_ARG_ENABLE([pdftocairo],
-	[AS_HELP_STRING([--disable-pdftocairo], [Disable filters using pdftocairo.])],
-	[enable_pdftocairo="$enableval"],
-	[enable_pdftocairo=yes]
-)
-
 
 AC_DEFINE_UNQUOTED([CUPS_GHOSTSCRIPT], "$CUPS_GHOSTSCRIPT", [gs binary to use])
 AC_DEFINE_UNQUOTED([CUPS_MUTOOL],"$CUPS_MUTOOL",[mutool binary to use])
