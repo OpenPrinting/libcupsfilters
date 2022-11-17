@@ -41,39 +41,26 @@ BEFORE YOU BEGIN
 
 COMPILING THE GIT REPOSITORY CODE
 
-    The CUPS Filters GIT repository doesn't hold a copy of the pre-built
-    configure script.  You'll need to run the GNU autoconf software (2.65 or
-    higher) to create it:
+    The libcupsfilters GIT repository doesn't hold a copy of the
+    pre-built configure script.  You'll need to run the GNU autoconf
+    software (2.65 or higher) to create it:
 
         ./autogen.sh
 
 
 CONFIGURATION
 
-    CUPS Filters uses GNU autoconf, so you should find the usual "configure"
-    script in the main CUPS Filters source directory.  To configure CUPS 
-    Filters for your system, type:
+    libcupsfilters uses GNU autoconf, so you should find the usual
+    "configure" script in the main libcupsfilters source directory.
+    To configure libcupsfilters for your system, type:
 
 	./configure
 
-    The default installation will put the CUPS Filters software in the
-    "/etc" and "/usr" directories on your system, which will overwrite
-    some of the original filters and their auxiliary files of CUPS
-    1.5.x or earlier and the auxiliary files of bannertops in all CUPS
-    versions including version 1.6.x (see also the section "PACKAGING
-    THE SOFTWARE FOR OPERATING SYSTEM DISTRIBUTIONS" below). The
-    system will still have the same functionality as before, but CUPS
-    will not convert all incoming files into PostScript any more, it
-    will convert them into PDF instead and after applying page
-    management (N-up, selected pages, reverse order, ...) by the
-    pdftopdf filter and convert PDF into the printer's native format
-    then (PDF-based printing workflow). CUPS 1.6.x or later does not
-    contain any filters which this package provides. It requires the
-    installation of this package for printing with filters and drivers
-    under Linux (or other non-Mac-OS-X operation systems).
+    The default installation will put the libcupsfilters software in
+    the "/usr" directories on your system.
 
-    Use the "--prefix" option to install the CUPS Filters software in another
-    location:
+    Use the "--prefix" option to install the libcupsfilters software
+    in another location:
 
 	./configure --prefix=/some/directory
 
