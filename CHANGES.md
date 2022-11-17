@@ -1,6 +1,6 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0b1 - 2022-11-14
+# CHANGES - OpenPrinting libcupsfilters v2.0b1 - 2022-11-17
 
-## CHANGES IN V2.0b1 (TBA)
+## CHANGES IN V2.0b1 (17th November 2022)
 
 - Introduced the filter functions concept converting filter
   executables into library functions with common call scheme, moving
