@@ -2,6 +2,9 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- configure.ac: Added "foreign" to to AM_INIT_AUTOMAKE() call. Makes
+  automake not require a file named README.
+
 - libcupsfilters does not use glib, removed the check in configure.ac.
 
 ## CHANGES IN V2.0b1 (17th November 2022)
