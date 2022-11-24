@@ -238,8 +238,6 @@ AC_SUBST(EXIF_CFLAGS)
 # ======================
 AVAHI_LIBS=""
 AVAHI_CFLAGS=""
-AVAHI_GLIB_CFLAGS=""
-AVAHI_GLIB_LIBS=""
 
 AC_ARG_ENABLE([avahi],
 	[AS_HELP_STRING([--disable-avahi], [Disable DNS Service Discovery support using Avahi.])],
@@ -262,25 +260,6 @@ fi
 
 AC_SUBST(AVAHI_LIBS)
 AC_SUBST(AVAHI_CFLAGS)
-
-PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.30.2])
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-
-if test x$enable_avahi != xno; then
-	PKG_CHECK_MODULES(AVAHI_GLIB, [avahi-glib])
-fi
-
-AC_SUBST(AVAHI_GLIB_CFLAGS)
-AC_SUBST(AVAHI_GLIB_LIBS)
-
-PKG_CHECK_MODULES(GIO, [gio-2.0])
-AC_SUBST(GIO_CFLAGS)
-AC_SUBST(GIO_LIBS)
-
-PKG_CHECK_MODULES(GIO_UNIX, [gio-unix-2.0])
-AC_SUBST(GIO_UNIX_CFLAGS)
-AC_SUBST(GIO_UNIX_LIBS)
 
 # ==========================================
 # Check for various required modules for PDF

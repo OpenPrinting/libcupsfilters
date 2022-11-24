@@ -1,5 +1,9 @@
 # CHANGES - OpenPrinting libcupsfilters v2.0b1 - 2022-11-17
 
+## CHANGES IN V2.0b2 (TBA)
+
+- libcupsfilters does not use glib, removed the check in configure.ac.
+
 ## CHANGES IN V2.0b1 (17th November 2022)
 
 - Introduced the filter functions concept converting filter
