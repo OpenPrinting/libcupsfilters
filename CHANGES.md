@@ -2,6 +2,8 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- libcupsfilters.pc.in: Added libqpdf under "Libs.private".
+
 - configure.ac: Added "foreign" to to AM_INIT_AUTOMAKE() call. Makes
   automake not require a file named README.
 

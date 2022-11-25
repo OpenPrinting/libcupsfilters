@@ -8,5 +8,5 @@ Description: Library providing everything for filtering/converting print/scan jo
 Version: @VERSION@
 
 Libs: -L${libdir} -lcupsfilters
-Libs.private: @CUPS_LIBS@ @LIBJPEG_LIBS@ @LIBPNG_LIBS@ @LIBTIFF_LIBS@
+Libs.private: @CUPS_LIBS@ @LIBJPEG_LIBS@ @LIBPNG_LIBS@ @LIBTIFF_LIBS@ @LIBQPDF_LIBS@
 Cflags: -I${includedir}/cupsfilters
