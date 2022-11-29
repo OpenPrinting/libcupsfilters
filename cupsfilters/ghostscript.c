@@ -285,10 +285,13 @@ header_to_gs_args(gs_page_header *h,
     if (h->OutputFaceUp)
       cupsArrayAdd(gs_args, strdup("-dOutputFaceUp"));
   }
-  snprintf(tmpstr, sizeof(tmpstr), "-dDEVICEWIDTHPOINTS=%d", h->PageSize[0]);
-  cupsArrayAdd(gs_args, strdup(tmpstr));
-  snprintf(tmpstr, sizeof(tmpstr), "-dDEVICEHEIGHTPOINTS=%d", h->PageSize[1]);
-  cupsArrayAdd(gs_args, strdup(tmpstr));
+  if (h->PageSize[0] > 0 && h->PageSize[1] > 0)
+  {
+    snprintf(tmpstr, sizeof(tmpstr), "-dDEVICEWIDTHPOINTS=%d", h->PageSize[0]);
+    cupsArrayAdd(gs_args, strdup(tmpstr));
+    snprintf(tmpstr, sizeof(tmpstr), "-dDEVICEHEIGHTPOINTS=%d", h->PageSize[1]);
+    cupsArrayAdd(gs_args, strdup(tmpstr));
+  }
   if (outformat == CF_FILTER_OUT_FORMAT_CUPS_RASTER ||
       outformat == CF_FILTER_OUT_FORMAT_PWG_RASTER ||
       outformat == CF_FILTER_OUT_FORMAT_APPLE_RASTER)

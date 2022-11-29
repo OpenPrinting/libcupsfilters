@@ -2,6 +2,11 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- cfFilterGhostscript(): Never supply "-dDEVICEWIDTHPOINTS=0
+  -dDEVICEHEIGHTPOINTS=0", if no page size got requested with the job
+  (page dimensions are zero in raster header) skip these arguments so
+  that Ghostscript uses the page dimensions of the input page.
+
 - libcupsfilters.pc.in: Added libqpdf under "Libs.private".
 
 - configure.ac: Added "foreign" to to AM_INIT_AUTOMAKE() call. Makes
