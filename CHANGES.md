@@ -2,6 +2,10 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- cfFilterTextToPDF(): If no output page dimensions specified, use US
+  Letter. Before, the page dimensions were set to 0x0, ending up with
+  one empty page per character in the input file being produced.
+
 - cfFilterPDFToPDF(): Initialize output page dimensions to easily
   identify if no dimensions were supplied, to fall back to default
   size Letter.  Otherwise we get invalid PDF output if we do not

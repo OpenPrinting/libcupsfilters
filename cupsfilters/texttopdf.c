@@ -778,6 +778,20 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     }
   }
 
+  if (doc.PageWidth <= 0.0 || doc.PageLength <= 0.0 ||
+      doc.PageLeft >= doc.PageRight ||
+      doc.PageBottom >= doc.PageTop)
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "cfFilterTextToPDF: No valid page dimensions specified, using US Letter.");
+    doc.PageLeft = 18.0f;	// Left margin
+    doc.PageRight = 594.0f;	// Right margin
+    doc.PageBottom = 36.0f;	// Bottom margin
+    doc.PageTop = 756.0f;	// Top margin
+    doc.PageWidth = 612.0f;	// Total page width
+    doc.PageLength = 792.0f;	// Total page length
+  }
+
   if ((val = cupsGetOption("wrap", data->num_options, data->options)) == NULL)
     doc.WrapLines = 1;
   else
