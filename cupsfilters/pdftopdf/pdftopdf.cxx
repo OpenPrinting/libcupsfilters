@@ -888,6 +888,9 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
     param.title = data->job_title;
     param.num_copies = data->copies;
     param.copies_to_be_logged = data->copies;
+    param.page.width = param.page.height = 0;
+    param.page.left = param.page.bottom = -1;
+    param.page.right = param.page.top = -1;
 
     // TODO?! sanity checks
 

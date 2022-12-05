@@ -2,6 +2,12 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- cfFilterPDFToPDF(): Initialize output page dimensions to easily
+  identify if no dimensions were supplied, to fall back to default
+  size Letter.  Otherwise we get invalid PDF output if we do not
+  specify the output page dimensions (no printer IPP attributes) but
+  need them (for print-scaling=fit/fill, numper-up, booklet).
+
 - cfFilterGhostscript(): Never supply "-dDEVICEWIDTHPOINTS=0
   -dDEVICEHEIGHTPOINTS=0", if no page size got requested with the job
   (page dimensions are zero in raster header) skip these arguments so
