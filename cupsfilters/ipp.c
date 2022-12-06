@@ -1776,8 +1776,9 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
     {
       if (*(attr_name + 1))
       {
-	if ((attr = ippFindAttribute(printer_attrs, attr_name + 1,
-				   IPP_TAG_ZERO)) != NULL)
+	if (printer_attrs &&
+	    (attr = ippFindAttribute(printer_attrs, attr_name + 1,
+				     IPP_TAG_ZERO)) != NULL)
         {
 	  // String from IPP attribute
 	  ippAttributeString(attr, valstr, sizeof(valstr));
@@ -1971,6 +1972,94 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 
 
 void
+cfSetPageDimensionsToDefault(float *width,  // IO - Width (in pt, 1/72 inches)
+			     float *height, // IO - Height
+			     float *left,   // IO - Left margin
+			     float *bottom, // IO - Bottom margin
+			     float *right,  // IO - Right margin
+			     float *top,    // IO - Top margin
+			     cf_logfunc_t log, // I - Log function
+			     void  *ld)     // I  - Log function data
+{
+  if (width && height && (*width <= 0.0 || *height <= 0.0))
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "Could not determine the output page dimensions, falling back to US Letter format");
+    *width = 612.0;
+    *height = 792.0;
+  }
+
+  if (left && *left < 0.0)
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "cfFilterPDFToPDF: Could not determine the width of the left margin, falling back to 18 pt/6.35 mm");
+    *left = 18.0;
+  }
+
+  if (bottom && *bottom < 0.0)
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "cfFilterPDFToPDF: Could not determine the width of the bottom margin, falling back to 36 pt/12.7 mm");
+    *bottom = 36.0;
+  }
+
+  if (right && *right < 0.0)
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "cfFilterPDFToPDF: Could not determine the width of the right margin, falling back to 18 pt/6.35 mm");
+    *right = 18.0;
+  }
+
+  if (top && *top < 0.0)
+  {
+    if (log) log(ld, CF_LOGLEVEL_WARN,
+		 "cfFilterPDFToPDF: Could not determine the width of the top margin, falling back to 36 pt/12.7 mm");
+    *top = 36.0;
+  }
+}
+
+
+static pwg_media_t *
+dimensions_for_name(char *size_name,
+		    char *size_name_buf,
+		    int *search_width,
+		    int *search_length,
+		    int *borderless)
+{
+  // Find the dimensions for the page size name we got as search term
+  char *ptr;
+  pwg_media_t *search = NULL;
+  int is_transverse = (strcasestr(size_name, ".Transverse") ? 1 : 0);
+  *borderless = (strcasestr(size_name, ".Fullbleed") ||
+		 strcasestr(size_name, ".Borderless") ||
+		 strcasestr(size_name, ".FB")) ? 1 : 0;
+  if (size_name != size_name_buf)
+    strlcpy(size_name_buf, size_name, IPP_MAX_NAME);
+  if ((ptr = strchr(size_name_buf, '.')) != NULL &&
+      strncasecmp(size_name_buf, "Custom.", 7) != 0)
+    *ptr = '\0';
+  if ((search = pwgMediaForPWG(size_name_buf)) == NULL)
+    if ((search = pwgMediaForPPD(size_name_buf)) == NULL)
+      search = pwgMediaForLegacy(size_name_buf);
+  if (search != NULL)
+  {
+    // Set the appropriate dimensions
+    if (is_transverse)
+    {
+      *search_width = search->length;
+      *search_length = search->width;
+    }
+    else
+    {
+      *search_width = search->width;
+      *search_length = search->length;
+    }
+  }
+  return (search);
+}
+
+
+void
 cfGenerateSizes(ipp_t *response,
 		cf_gen_sizes_mode_t mode,
 		cups_array_t **sizes,
@@ -2007,7 +2096,6 @@ cfGenerateSizes(ipp_t *response,
   const char               *psname;
   const char               *entry_name;
   char                     size_name_buf[IPP_MAX_NAME + 1] = "";
-  pwg_media_t              *search = NULL;
   int                      search_width = 0,
                            search_length = 0,
                            search_left = -1,
@@ -2018,6 +2106,48 @@ cfGenerateSizes(ipp_t *response,
   long long                min_border_mismatch = LLONG_MAX,
                            border_mismatch;
 
+
+  // If no printer attributes are suppied, we simply return without
+  // modifying the dimensions/margins to be checked, making the caller
+  // simply accepting them.
+  //
+  // If a size name (PWG/IPP, PPD, legacy) is supplied and dimensions
+  // are found by libcups, these dimensions are used. If the name is
+  // supplied with ".Borderless", ".Fullbleed", or ".FB" variant, we
+  // return zero borders instead of the originally given ones, and
+  // with the ".Transverse" variant we swap width and length
+  // dimensions.
+  if (!response)
+  {
+    int borderless = 0;
+    if (size_name == NULL || width == NULL || length == NULL)
+      // Name or variables to drop the size dimensions not supplied
+      return;
+    dimensions_for_name(size_name, size_name_buf, width, length, &borderless);
+    if (borderless)
+    {
+      if (left)
+	*left = 0;
+      if (bottom)
+	*bottom = 0;
+      if(right)
+	*right = 0;
+      if (top)
+	*top = 0;
+    }
+    else
+    {
+      if (left && *left < 0)
+	*left = 635;
+      if (bottom && *bottom < 0)
+	*bottom = 1270;
+      if (right && *right < 0)
+	*right = 635;
+      if (top && *top < 0)
+	*top = 1270;
+    }
+    return;
+  }
 
   if (media_col_entry)
     *media_col_entry = NULL;
@@ -2207,33 +2337,15 @@ cfGenerateSizes(ipp_t *response,
   else
   {
     // Find the dimensions for the page size name we got as search term
-    char *ptr;
-    int is_transverse = (strcasestr(size_name, ".Transverse") ? 1 : 0);
-    if (strcasestr(size_name, ".Fullbleed") ||
-	strcasestr(size_name, ".Borderless") ||
-	strcasestr(size_name, ".FB"))
-      mode = CF_GEN_SIZES_SEARCH_BORDERLESS_ONLY;
-    if (size_name != size_name_buf)
-      strlcpy(size_name_buf, size_name, IPP_MAX_NAME);
-    if ((ptr = strchr(size_name_buf, '.')) != NULL &&
-	strncasecmp(size_name_buf, "Custom.", 7) != 0)
-      *ptr = '\0';
-    if ((search = pwgMediaForPWG(size_name_buf)) == NULL)
-      if ((search = pwgMediaForPPD(size_name_buf)) == NULL)
-	search = pwgMediaForLegacy(size_name_buf);
-    if (search != NULL)
+    int borderless = 0;
+    if (size_name[0] &&
+	dimensions_for_name(size_name, size_name_buf,
+			    &search_width, &search_length, &borderless))
     {
-      // Set the appropriate dimensions
-      if (is_transverse)
-      {
-	search_width = search->length;
-	search_length = search->width;
-      }
-      else
-      {
-	search_width = search->width;
-	search_length = search->length;
-      }
+      // Supplied size name was borderless variant, so search only for
+      // borderless sizes
+      if (borderless)
+	mode = CF_GEN_SIZES_SEARCH_BORDERLESS_ONLY;
     }
     else
     {

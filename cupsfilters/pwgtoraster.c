@@ -1385,7 +1385,8 @@ out_page(pwgtoraster_doc_t *doc,
   }
 
   memset(paperdimensions, 0, sizeof(paperdimensions));
-  memset(margins, 0, sizeof(margins));
+  for (i = 0; i < 4; i ++)
+    margins[i] = -1.0;
   if (data->printer_attrs)
   {
     // Find dimensions/margins of requested page size

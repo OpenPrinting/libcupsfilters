@@ -583,6 +583,7 @@ generate_banner_pdf(banner_t *banner,
 		    void *ld,
 		    FILE *outputfp)
 {
+  int i;
   char *buf;
   size_t len;
   FILE *s;
@@ -607,8 +608,9 @@ generate_banner_pdf(banner_t *banner,
     return (1);
   }
 
-  memset(media_limits, 0, sizeof(media_limits));
-  if (data != NULL && (data->printer_attrs) != NULL)
+  for (i = 0; i < 4; i ++)
+    media_limits[i] = -1.0;
+  if (data != NULL)
   {
     cfGetPageDimensions(data->printer_attrs, data->job_attrs,
 			num_options, options,
@@ -617,6 +619,12 @@ generate_banner_pdf(banner_t *banner,
 			&(media_limits[0]), &(media_limits[1]),
 			&(media_limits[2]), &(media_limits[3]),
 			NULL, NULL);
+
+    cfSetPageDimensionsToDefault(&(page_width), &(page_length),
+				 &(media_limits[0]), &(media_limits[1]),
+				 &(media_limits[2]), &(media_limits[3]),
+				 log, ld);
+
     media_limits[2] = page_width - media_limits[2];
     media_limits[3] = page_length - media_limits[3];
   }

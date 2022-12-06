@@ -343,12 +343,22 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
     *h = *(data->header); // Copy sample header
   else
     raster_base_header(h, data, 1 - cupsrasterheader);
-  if (cfGetPageDimensions(data->printer_attrs, data->job_attrs,
+  memset(dimensions, 0, sizeof(dimensions));
+  for (i = 0; i < 4; i ++)
+    margins[i] = -1.0;
+  i = cfGetPageDimensions(data->printer_attrs, data->job_attrs,
 			  data->num_options, data->options, h, 0,
 			  &(dimensions[0]), &(dimensions[1]),
 			  &(margins[0]), &(margins[1]),
 			  &(margins[2]), &(margins[3]), size_name_buf,
-			  NULL) < 0)
+			  NULL);
+
+  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
+			       &(margins[0]), &(margins[1]),
+			       &(margins[2]), &(margins[3]),
+			       log, ld);
+
+  if (i < 0)
   {
     pwg_media_t *pwg_media;
     

@@ -1633,8 +1633,9 @@ out_page(pdftoraster_doc_t *doc,
       (unsigned)(doc->header.cupsImagingBBox[i]);
 
   memset(paperdimensions, 0, sizeof(paperdimensions));
-  memset(margins, 0, sizeof(margins));
-  if (data != NULL && (data->printer_attrs) != NULL)
+  for (i = 0; i < 4; i ++)
+    margins[i] = -1.0;
+  if (data != NULL)
   {
     i = cfGetPageDimensions(data->printer_attrs, data->job_attrs,
 			    data->num_options, data->options,
@@ -1642,6 +1643,12 @@ out_page(pdftoraster_doc_t *doc,
 			    &(paperdimensions[0]), &(paperdimensions[1]),
 			    &(margins[0]), &(margins[1]),
 			    &(margins[2]), &(margins[3]), NULL, NULL);
+
+    cfSetPageDimensionsToDefault(&(paperdimensions[0]), &(paperdimensions[1]),
+				 &(margins[0]), &(margins[1]),
+				 &(margins[2]), &(margins[3]),
+				 log, ld);
+
     // Overspray borderless page size: If the dimensions of the page
     // size are up to 10% larger than the ones of the input page, zoom
     // the image by rendering with an appropriately larger fake

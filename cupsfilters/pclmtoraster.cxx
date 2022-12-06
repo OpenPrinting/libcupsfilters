@@ -793,6 +793,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
 	 cf_filter_data_t *filter_data,	// I - filter data
 	 conversion_function_t *convert)// I - Conversion functions
 {
+  int                   i;
   long long		rotate = 0,
 			height,
 			width;
@@ -844,8 +845,9 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   }
 
   memset(paperdimensions, 0, sizeof(paperdimensions));
-  memset(margins, 0, sizeof(margins));
-  if (filter_data != NULL && (filter_data->printer_attrs) != NULL)
+  for (i = 0; i < 4; i ++)
+    margins[i] = -1.0;
+  if (filter_data != NULL)
   {
     cfGetPageDimensions(filter_data->printer_attrs, filter_data->job_attrs,
 			filter_data->num_options, filter_data->options,
@@ -853,6 +855,12 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
 			&(paperdimensions[0]), &(paperdimensions[1]),
 			&(margins[0]), &(margins[1]),
 			&(margins[2]), &(margins[3]), NULL, NULL);
+
+    cfSetPageDimensionsToDefault(&(paperdimensions[0]), &(paperdimensions[1]),
+				 &(margins[0]), &(margins[1]),
+				 &(margins[2]), &(margins[3]),
+				 log, ld);
+
     if (data->outformat != CF_FILTER_OUT_FORMAT_CUPS_RASTER)
       memset(margins, 0, sizeof(margins));
   }

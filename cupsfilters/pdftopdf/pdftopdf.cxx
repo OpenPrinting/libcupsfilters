@@ -321,50 +321,21 @@ getParameters(cf_filter_data_t *data,
   else
     param.no_orientation = true;
 
-  if (printer_attrs != NULL)
-    param.pagesize_requested =
-      (cfGetPageDimensions(printer_attrs, job_attrs, num_options, options, NULL,
-			   0,
-			   &(param.page.width), &(param.page.height),
-			   &(param.page.left), &(param.page.bottom),
-			   &(param.page.right), &(param.page.top),
-			   NULL, NULL) == 1);
+  param.pagesize_requested =
+    (cfGetPageDimensions(printer_attrs, job_attrs, num_options, options, NULL,
+			 0,
+			 &(param.page.width), &(param.page.height),
+			 &(param.page.left), &(param.page.bottom),
+			 &(param.page.right), &(param.page.top),
+			 NULL, NULL) == 1);
 
-  if (param.page.width <= 0 || param.page.height <= 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_WARN,
-				   "cfFilterPDFToPDF: Could not determine the output page dimensions, falling back to US Letter format");
-    param.page.width = 612;
-    param.page.height = 792;
-  }
-  if (param.page.left < 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_WARN,
-				   "cfFilterPDFToPDF: Could not determine the width of the left margin, falling back to 18 pt/6.35 mm");
-    param.page.left = 18.0;
-  }
-  if (param.page.bottom < 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_WARN,
-				   "cfFilterPDFToPDF: Could not determine the width of the bottom margin, falling back to 36 pt/12.7 mm");
-    param.page.bottom = 36.0;
-  }
-  if (param.page.right < 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_WARN,
-				   "cfFilterPDFToPDF: Could not determine the width of the right margin, falling back to 18 pt/6.35 mm");
-    param.page.right = param.page.width - 18.0;
-  }
-  else
-    param.page.right = param.page.width - param.page.right;
-  if (param.page.top < 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_WARN,
-				   "cfFilterPDFToPDF: Could not determine the width of the top margin, falling back to 36 pt/12.7 mm");
-    param.page.top = param.page.height - 36.0;
-  }
-  else
-    param.page.top = param.page.height - param.page.top;
+  cfSetPageDimensionsToDefault(&(param.page.width), &(param.page.height),
+			       &(param.page.left), &(param.page.bottom),
+			       &(param.page.right), &(param.page.top),
+			       doc->logfunc, doc->logdata);
+
+  param.page.right = param.page.width - param.page.right;
+  param.page.top = param.page.height - param.page.top;
 
   param.paper_is_landscape = (param.page.width > param.page.height);
 

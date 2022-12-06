@@ -2,6 +2,13 @@
 
 ## CHANGES IN V2.0b2 (TBA)
 
+- Manage page dimensions when no printer properties are given.
+  If a filter function is called without printer IPP attributes
+  (classic CUPS filter wrapper without PPD file) any page size/media
+  attributes given are accepted, when no page dimensions are given, US
+  Letter is used, and when no margins are given, non-zero default
+  margins are used.
+
 - cfFilterTextToPDF(): If no output page dimensions specified, use US
   Letter. Before, the page dimensions were set to 0x0, ending up with
   one empty page per character in the input file being produced.
