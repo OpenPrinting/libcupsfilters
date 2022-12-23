@@ -11,6 +11,7 @@ doc_DATA = \
 	CHANGES.md \
 	CHANGES-1.x.md \
 	INSTALL \
+	NOTICE \
 	README.md \
 	DEVELOPING.md \
 	CONTRIBUTING.md
