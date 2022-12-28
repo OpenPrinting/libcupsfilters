@@ -93,8 +93,10 @@ typedef struct catalog_opt_strings_s {
 //
 
 int             cfGetURI(const char *url, char *name, size_t namesize);
-const char      *cfCatalogSearchDir(const char *dirname);
-const char      *cfCatalogFind(const char *preferreddir);
+const char	*cfCatalogSearchDirLang(const char *dirname, const char *lang);
+const char	*cfCatalogSearchDirLocale(const char *dirname, const char *locale);
+const char      *cfCatalogSearchDir(const char *dirname, const char *preferredlocale);
+const char      *cfCatalogFind(const char *preferreddir, const char *preferredlocale);
 void            cfCatalogFreeChoiceStrings(void* entry, void* user_data);
 void            cfCatalogFreeOptionStrings(void* entry, void* user_data);
 cups_array_t    *cfCatalogOptionArrayNew();
@@ -111,7 +113,9 @@ char            *cfCatalogLookUpOption(char *name, cups_array_t *options,
 char            *cfCatalogLookUpChoice(char *name, char *opt_name,
 				       cups_array_t *options,
 				       cups_array_t *printer_options);
-void            cfCatalogLoad(const char *location, cups_array_t *options);
+void            cfCatalogLoad(const char *location,
+			      const char *preferredlocale,	
+			      cups_array_t *options);
 
 
 #  ifdef __cplusplus
