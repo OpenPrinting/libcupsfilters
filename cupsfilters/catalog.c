@@ -83,8 +83,85 @@ cfGetURI(const char *url,		// I  - URL to get
 //                     for IPP printers
 //
 
-const char *
-cfCatalogSearchDir(const char *dirname)
+char *
+cfCatalogSearchDirLocale(const char *dirname, const char *locale)
+{
+  char catalogpath[2048];
+  const char *catalog = NULL;
+
+  if (!dirname || !locale)
+    return (NULL);
+
+  snprintf(catalogpath, sizeof(catalogpath),
+            "%s/%s/cups_%s.po", dirname, locale, locale);
+  if (access(catalogpath, R_OK) == 0)
+    // found
+    catalog = strdup(catalogpath);
+
+  return (catalog);
+}
+
+char *
+cfCatalogSearchDirLang(const char *dirname, const char *lang)
+{
+  size_t lang_len;
+  const char *catalog = NULL, *c1, *c2;
+  cups_dir_t *dir = NULL, *subdir;
+  cups_dentry_t *subdirentry, *catalogentry;
+  char subdirpath[1024], catalogpath[2048];
+
+  if (!dirname || !lang)
+    return (NULL);
+  
+  if ((dir = cupsDirOpen(dirname)) == NULL)
+    return (NULL);
+  
+  lang_len = strlen(lang);
+  while ((subdirentry = cupsDirRead(dir)) != NULL)
+  {
+    // Do we actually have a subdir?
+    if (!S_ISDIR(subdirentry->fileinfo.st_mode))
+      continue;
+    // Check for language prefix match
+    c1 = subdirentry->filename;
+    if ((strncmp(c1, lang, lang_len) != 0) ||
+        (c1[lang_len] != '_' && c1[lang_len] != '\0'))
+      continue;
+    snprintf(subdirpath, sizeof(subdirpath), "%s/%s", dirname, c1);
+    if ((subdir = cupsDirOpen(subdirpath)) != NULL)
+    {
+      while ((catalogentry = cupsDirRead(subdir)) != NULL)
+      {
+        // Do we actually have a regular file?
+        if (!S_ISREG(catalogentry->fileinfo.st_mode))
+          continue;
+        // Check format of catalog name
+        c2 = catalogentry->filename;
+        if (strlen(c2) < 10 || strncmp(c2, "cups_", 5) != 0 ||
+            strncmp(c2 + 5, lang, lang_len) != 0 ||
+            strcmp(c2 + strlen(c2) - 3, ".po"))
+          continue;
+        // Is catalog readable ?
+        snprintf(catalogpath, sizeof(catalogpath), "%s/%s", subdirpath, c2);
+        if (access(catalogpath, R_OK) != 0)
+          continue;
+        // Found
+        catalog = strdup(catalogpath);
+        break;
+      }
+      cupsDirClose(subdir);
+      subdir = NULL;
+      if (catalog != NULL)
+        break;
+    }
+  }
+
+  cupsDirClose(dir);
+  return (catalog);
+}
+
+char *
+cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
 {
   const char *catalog = NULL, *c1, *c2;
   cups_dir_t *dir = NULL, *subdir;
@@ -95,14 +172,35 @@ cfCatalogSearchDir(const char *dirname)
   if (dirname == NULL)
     return (NULL);
 
-  // Check first whether we have an English file and prefer this
-  snprintf(catalogpath, sizeof(catalogpath), "%s/en/cups_en.po", dirname);
-  if (access(catalogpath, R_OK) == 0)
+  if (preferredlocale)
   {
-    // Found
-    catalog = strdup(catalogpath);
-    return (catalog);
+    // Check first for an exact match
+    catalog = cfCatalogSearchDirLocale(dirname, preferredlocale);
+
+    // Check for language match, with any region
+    // Cover both cases, whether locale has region suffix or 
+    if ((i = strcspn(preferredlocale, "_")) >= sizeof(lang))
+      i = sizeof(lang) - 1;
+    strncpy(lang, preferredlocale, i);
+    lang[i] = '\0';
+    catalog = cfCatalogSearchDirLang(dirname, lang);
+    if (catalog != NULL)
+      return (catalog);
+  
+    // If still not found, default to en_US, en_GB, en_... respectively
+    // Finally, default to any catalog file found
   }
+
+  catalog = cfCatalogSearchDirLocale(dirname, "en_US");
+  if (catalog)
+    return (catalog);
+  catalog = cfCatalogSearchDirLocale(dirname, "en_GB");
+  if (catalog)
+    return (catalog);
+  catalog = cfCatalogSearchDirLang(dirname, "en");
+  if (catalog)
+    return (catalog);
+  
 
   if ((dir = cupsDirOpen(dirname)) == NULL)
     return (NULL);
@@ -167,19 +265,20 @@ cfCatalogSearchDir(const char *dirname)
 }
 
 
-const char *
-cfCatalogFind(const char *preferreddir)
+char *
+cfCatalogFind(const char *preferreddir, const char *preferredlocale)
 {
   const char *catalog = NULL, *c;
   char buf[1024];
 
   // Directory supplied by calling program, from config file,
   // environment variable, ...
-  if ((catalog = cfCatalogSearchDir(preferreddir)) != NULL)
+  if ((catalog = cfCatalogSearchDir(preferreddir, preferredlocale)) != NULL)
     goto found;
 
   // Directory supplied by environment variable CUPS_LOCALEDIR
-  if ((catalog = cfCatalogSearchDir(getenv("CUPS_LOCALEDIR"))) != NULL)
+  if ((catalog = cfCatalogSearchDir(getenv("CUPS_LOCALEDIR"), 
+                                    preferredlocale)) != NULL)
     goto found;
 
   // Determine CUPS datadir (usually /usr/share/cups)
@@ -189,19 +288,19 @@ cfCatalogFind(const char *preferreddir)
   // Search /usr/share/cups/locale/ (location which
   // Debian/Ubuntu package of CUPS is using)
   snprintf(buf, sizeof(buf), "%s/locale", c);
-  if ((catalog = cfCatalogSearchDir(buf)) != NULL)
+  if ((catalog = cfCatalogSearchDir(buf, preferredlocale)) != NULL)
     goto found;
 
   // Search /usr/(local/)share/locale/ (standard location
   // which CUPS is using on Linux)
   snprintf(buf, sizeof(buf), "%s/../locale", c);
-  if ((catalog = cfCatalogSearchDir(buf)) != NULL)
+  if ((catalog = cfCatalogSearchDir(buf, preferredlocale)) != NULL)
     goto found;
 
   // Search /usr/(local/)lib/locale/ (standard location
   // which CUPS is using on many non-Linux systems)
   snprintf(buf, sizeof(buf), "%s/../../lib/locale", c);
-  if ((catalog = cfCatalogSearchDir(buf)) != NULL)
+  if ((catalog = cfCatalogSearchDir(buf, preferredlocale)) != NULL)
     goto found;
 
  found:
@@ -418,6 +517,7 @@ cfCatalogLookUpChoice(char *name,
 
 void
 cfCatalogLoad(const char *location,
+              const char *preferredlocale,
 	      cups_array_t *options)
 {
   char tmpfile[1024];
@@ -444,7 +544,7 @@ cfCatalogLoad(const char *location,
 	(stat(location, &statbuf) == 0 &&
 	 S_ISDIR(statbuf.st_mode))) // directory?
     {
-      filename = cfCatalogFind(location);
+      filename = cfCatalogFind(location, preferredlocale);
       if (filename)
         found_in_catalog = 1;
     }
