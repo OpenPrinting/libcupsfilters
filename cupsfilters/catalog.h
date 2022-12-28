@@ -55,8 +55,6 @@ extern "C" {
 // Include necessary headers...
 //
 
-#include <config.h>
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
