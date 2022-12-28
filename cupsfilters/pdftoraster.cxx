@@ -10,15 +10,13 @@
 // information.
 //
 
+#include <config.h>
+#include "filter.h"
+#ifdef HAVE_POPPLER
 #include "colormanager.h"
 #include "image.h"
-#include "filter.h"
 #include "ipp.h"
-#include <config.h>
 #include <cups/cups.h>
-#if (CUPS_VERSION_MAJOR > 1) || (CUPS_VERSION_MINOR > 6)
-#define HAVE_CUPS_1_7 1
-#endif
 
 #define USE_CMS
 
@@ -1887,6 +1885,7 @@ set_poppler_color_profile(pdftoraster_doc_t *doc,
   }
   return (0);
 }
+#endif // HAVE_POPPLER
 
 
 int
@@ -1898,6 +1897,7 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
 		    void *parameters)       // I - Filter-specific parameters
                                             //     (unused)
 {
+#ifdef HAVE_POPPLER
   const char                 *val;
   cf_filter_out_format_t     outformat;
   pdftoraster_doc_t          doc;
@@ -1905,17 +1905,29 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
   int                        npages = 0;
   cups_raster_t              *raster = NULL;
   cups_file_t	             *inputfp;		// Print file
+#endif // HAVE_POPPLER
   cf_logfunc_t               log = data->logfunc;
   void                       *ld = data->logdata;
+#ifdef HAVE_POPPLER
   int                        deviceCopies = 1;
   bool                       deviceCollate = false;
   conversion_function_t      convert;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
   void                       *icd = data->iscanceleddata;
   int                        ret = 0;
+#endif // HAVE_POPPLER
 
   (void)inputseekable;
   (void)parameters;
+
+#ifndef HAVE_POPPLER
+  close(inputfd);
+  close(outputfd);
+
+  if (log) log(ld, CF_LOGLEVEL_ERROR,
+	       "cfFilterPDFToRaster: Poppler-based PDF file conversion not supported having built libcupsfilters without libpoppler.");
+  return (1);
+#else
 
   cmsSetLogErrorHandler(lcms_error_handler);
 
@@ -2175,7 +2187,9 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
     cmsDeleteTransform(doc.colour_profile.colorTransform);
 
   return (ret);
+#endif // HAVE_POPPLER
 }
+#ifdef HAVE_POPPLER
 
 // Replace memory allocation methods for memory check
 // For compatibility with g++ >= 4.7 compilers _GLIBCXX_THROW
@@ -2205,3 +2219,5 @@ void operator delete[](void *p) throw ()
   free(p);
 }
 #endif // 0
+
+#endif // HAVE_POPPLER

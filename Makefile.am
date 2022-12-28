@@ -213,8 +213,11 @@ libcupsfilters_la_LIBADD = \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
-	$(POPPLER_LIBS) \
 	-lm
+if ENABLE_POPPLER
+libcupsfilters_la_LIBADD += \
+	$(POPPLER_LIBS)
+endif
 libcupsfilters_la_CFLAGS = \
 	-I$(srcdir)/cupsfilters/fontembed/ \
 	$(FONTCONFIG_CFLAGS) \

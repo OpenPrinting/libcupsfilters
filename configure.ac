@@ -103,7 +103,7 @@ CUPS_SERVERBIN="`$CUPSCONFIG --serverbin`"
 AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN", [Path to CUPS binaries dir])
 AC_SUBST(CUPS_SERVERBIN)
 
-AC_DEFINE(PDFTOPDF, [], [Needed for pdftopdf filter compilation])
+AC_DEFINE(PDFTOPDF, [1], [Needed for pdftopdf filter compilation])
 AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])
 
 # Transient run-time state dir of CUPS
@@ -171,7 +171,7 @@ AC_ARG_WITH([jpeg],
 	[with_jpeg=yes]
 )
 AS_IF([test x"$with_jpeg" != "xno"], [
-	AC_DEFINE([HAVE_LIBJPEG], [], [Defines if we provide jpeg library.])
+	AC_DEFINE([HAVE_LIBJPEG], [1], [Defines if we provide jpeg library.])
 	AC_CHECK_HEADERS([jpeglib.h])
 	AC_SEARCH_LIBS([jpeg_destroy_decompress],
 		[jpeg],
@@ -188,7 +188,7 @@ AC_ARG_WITH([png],
 )
 AS_IF([test x"$with_png" != "xno"], [
 	PKG_CHECK_MODULES([LIBPNG], [libpng])
-	AC_DEFINE([HAVE_LIBPNG], [], [Defines if we provide png library.])
+	AC_DEFINE([HAVE_LIBPNG], [1], [Defines if we provide png library.])
 ])
 
 AC_ARG_WITH([tiff],
@@ -197,7 +197,7 @@ AC_ARG_WITH([tiff],
 	[with_tiff=yes]
 )
 AS_IF([test x"$with_tiff" != "xno"], [
-	AC_DEFINE([HAVE_LIBTIFF], [], [Defines if we provide tiff library.])
+	AC_DEFINE([HAVE_LIBTIFF], [1], [Defines if we provide tiff library.])
 	AC_CHECK_HEADERS([tiff.h])
 	AC_SEARCH_LIBS([TIFFReadScanline],
 		[tiff],
@@ -227,7 +227,7 @@ AC_ARG_WITH(exif-includes,
 
 if test "x$enable_exif" != xno; then
 	PKG_CHECK_MODULES(EXIF, libexif,
-		[AC_DEFINE(HAVE_EXIF, [], [Define if you have the libexif library])])
+		[AC_DEFINE(HAVE_EXIF, [1], [Define if you have the libexif library])])
 fi
 
 AC_SUBST(EXIF_LIBS)
@@ -255,7 +255,7 @@ AC_ARG_WITH(avahi-includes,
 
 if test "x$enable_avahi" != xno; then
 	PKG_CHECK_MODULES(AVAHI, avahi-client,
-		[AC_DEFINE(HAVE_AVAHI, [], [Define if you have the avahi library])])
+		[AC_DEFINE(HAVE_AVAHI, [1], [Define if you have the avahi library])])
 fi
 
 AC_SUBST(AVAHI_LIBS)
@@ -272,7 +272,7 @@ AS_IF([test x"$lcms2" = "xno"], [
 PKG_CHECK_MODULES([FREETYPE], [freetype2], [AC_DEFINE([HAVE_FREETYPE_H], [1], [Have FreeType2 include files])])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 PKG_CHECK_MODULES([ZLIB], [zlib])
-AC_DEFINE([HAVE_LIBZ], [], [Define that we use zlib])
+AC_DEFINE([HAVE_LIBZ], [1], [Define that we use zlib])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
 
 # =================
@@ -280,10 +280,11 @@ PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
 # =================
 AC_ARG_ENABLE(poppler, AS_HELP_STRING([--enable-poppler],[enable Poppler-based filters]),
 	      enable_poppler=$enableval,enable_poppler=yes)
-AM_CONDITIONAL(ENABLE_POPPLER, test x$enable_poppler = xyes)
+AM_CONDITIONAL([ENABLE_POPPLER], test x$enable_poppler = xyes)
 if test x$enable_poppler = xyes; then
 	PKG_CHECK_MODULES([POPPLER], [poppler-cpp >= 0.19])
-	AC_CHECK_HEADER([poppler/cpp/poppler-version.h], [AC_DEFINE([HAVE_CPP_POPPLER_VERSION_H],,[Define if you have Poppler's "cpp/poppler-version.h" header file.])], [])
+	AC_CHECK_HEADER([poppler/cpp/poppler-version.h], [AC_DEFINE([HAVE_CPP_POPPLER_VERSION_H],[1],[Define if you have Poppler's "cpp/poppler-version.h" header file.])], [])
+	AC_DEFINE([HAVE_POPPLER], [1], [Define that we provide Poppler library])
 fi
 
 # ===============
@@ -310,7 +311,7 @@ AC_SUBST(LARGEFILE)
 
 AC_CHECK_TYPE(long long, [long_long_found=yes], [long_long_found=no])
 AS_IF([test x"$long_long_found" = "xyes"], [
-	AC_DEFINE([HAVE_LONG_LONG], [], [Platform supports long long type])
+	AC_DEFINE([HAVE_LONG_LONG], [1], [Platform supports long long type])
 ])
 
 # =====================
@@ -348,48 +349,10 @@ AS_IF([test "x$enable_ghostscript" != "xyes"], [
 	AS_IF([test "x$CUPS_GHOSTSCRIPT" = "x"], [
 		AC_MSG_ERROR([Required gs binary is missing. Please install ghostscript package.])
 	])
-	AC_DEFINE([HAVE_GHOSTSCRIPT], [], [Define that we provide ghostscript binary])
+	AC_DEFINE([HAVE_GHOSTSCRIPT], [1], [Define that we provide ghostscript binary])
 ])
 AM_CONDITIONAL(ENABLE_GHOSTSCRIPT, test "x$enable_ghostscript" = xyes)
 AC_SUBST(CUPS_GHOSTSCRIPT)
-
-AS_IF([test "x$enable_pdftops" != "xyes"], [
-       with_pdftops_path=""
-], [
-	AS_IF([test "x$with_pdftops_path" != "xsystem"], [
-		CUPS_PDFTOPS="$with_pdftops_path"
-	], [
-		AS_IF([test "x$cross_compiling" = "xyes"], [
-			CUPS_PDFTOPS="/usr/bin/pdftops"
-		], [
-			AC_CHECK_PROG(CUPS_PDFTOPS, pdftops, /usr/bin/pdftops)
-		])
-		AS_IF([test "x$CUPS_PDFTOPS" = "x"], [
-			AC_MSG_ERROR([Required pdftops is missing. Please install the pdftops utility of Poppler.])
-		])
-	])
-	AS_IF([test "x$CUPS_PDFTOPS" != "x"], [
-		AC_DEFINE([HAVE_POPPLER_PDFTOPS], [], [Define that we provide poppler pdftops.])
-		AS_IF([test x"$with_pdftops" = xpdftops -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=PDFTOPS])
-
-		AS_IF([test "x$cross_compiling" != "xyes"], [
-			AC_MSG_CHECKING([whether pdftops supports -origpagesizes])
-			AS_IF([`$CUPS_PDFTOPS -h 2>&1 | grep -q -- -origpagesizes`], [
-				AC_MSG_RESULT([yes])
-				AC_DEFINE([HAVE_POPPLER_PDFTOPS_WITH_ORIGPAGESIZES], [] , [pdftops supports -origpagesizes.])
-			], [
-				AC_MSG_RESULT([no])
-			])
-			AC_MSG_CHECKING([whether pdftops supports -r])
-			AS_IF([`$CUPS_PDFTOPS -h 2>&1 | grep -q -- '-r '`], [
-				AC_MSG_RESULT([yes])
-				AC_DEFINE([HAVE_POPPLER_PDFTOPS_WITH_RESOLUTION], [] , [pdftops supports -r argument.])
-			], [
-				AC_MSG_RESULT([no])
-			])
-		])
-	])
-])
 
 # ================
 # Check for mutool
@@ -422,7 +385,7 @@ AS_IF([test "x$enable_mutool" != "xyes"], [
 	AS_IF([test "x$CUPS_MUTOOL" = "x"], [
 		AC_MSG_ERROR([Required mutool binary is missing. Please install mutool.])
 	])
-	AC_DEFINE([HAVE_MUTOOL], [], [Define that we provide mutool binary])
+	AC_DEFINE([HAVE_MUTOOL], [1], [Define that we provide mutool binary])
 	AS_IF([test x"$with_pdftops" = xmupdf -o x"$CUPS_PDFTOPS_RENDERER" = x], [CUPS_PDFTOPS_RENDERER=MUPDF])
 ])
 AM_CONDITIONAL(ENABLE_MUTOOL, test "x$enable_mutool" = xyes)
