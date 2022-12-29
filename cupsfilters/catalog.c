@@ -86,8 +86,8 @@ cfGetURI(const char *url,		// I  - URL to get
 char *
 cfCatalogSearchDirLocale(const char *dirname, const char *locale)
 {
+  char *catalog = NULL;
   char catalogpath[2048];
-  const char *catalog = NULL;
 
   if (!dirname || !locale)
     return (NULL);
@@ -105,7 +105,8 @@ char *
 cfCatalogSearchDirLang(const char *dirname, const char *lang)
 {
   size_t lang_len;
-  const char *catalog = NULL, *c1, *c2;
+  const char *c1, *c2;
+  char *catalog = NULL;
   cups_dir_t *dir = NULL, *subdir;
   cups_dentry_t *subdirentry, *catalogentry;
   char subdirpath[1024], catalogpath[2048];
@@ -163,7 +164,8 @@ cfCatalogSearchDirLang(const char *dirname, const char *lang)
 char *
 cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
 {
-  const char *catalog = NULL, *c1, *c2;
+  const char *c1, *c2;
+  char *catalog = NULL;
   cups_dir_t *dir = NULL, *subdir;
   cups_dentry_t *subdirentry, *catalogentry;
   char subdirpath[1024], catalogpath[2048], lang[8];
@@ -178,7 +180,7 @@ cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
     catalog = cfCatalogSearchDirLocale(dirname, preferredlocale);
 
     // Check for language match, with any region
-    // Cover both cases, whether locale has region suffix or 
+    // Cover both cases, whether locale has region suffix or not
     if ((i = strcspn(preferredlocale, "_")) >= sizeof(lang))
       i = sizeof(lang) - 1;
     strncpy(lang, preferredlocale, i);
@@ -268,8 +270,9 @@ cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
 char *
 cfCatalogFind(const char *preferreddir, const char *preferredlocale)
 {
-  const char *catalog = NULL, *c;
+  const char *c;
   char buf[1024];
+  char *catalog = NULL;
 
   // Directory supplied by calling program, from config file,
   // environment variable, ...
