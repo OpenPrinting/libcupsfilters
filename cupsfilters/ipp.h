@@ -16,8 +16,6 @@ extern "C" {
 // Include necessary headers...
 //
 
-#include <config.h>
-
 #include "filter.h"
 #include <ctype.h>
 #include <stdio.h>
