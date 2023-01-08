@@ -24,12 +24,55 @@
   (page dimensions are zero in raster header) skip these arguments so
   that Ghostscript uses the page dimensions of the input page.
 
+- cfCatalog...() API: Add support to specify the UI
+  language/locale. Before, the functions only served for getting
+  English human-readable strings for options and choices of options,
+  not translations in a requested language.  As the human-readable
+  strings are taken from the translation tables of CUPS and also of
+  IPP printers, language support is trivial, only adding a parameter
+  to supply the desired language (in `xx` or `xx_YY` format) (PR #2,
+  #3).
+
+- cfCatalog...() API: Removed "const" qualifier from output string
+  pointers as these strings get allocated by the functions.
+
+- Let API header files catalog.h and ipp.h not include config.h.
+
+- Fixed building libcupsfilters with and without libpoppler. By
+  default, libpoppler is used, to not use it, supply the
+  "--disable-poppler" option to "./configure".
+
+- Without libpoppler the cfFilterUniversal requires Ghostscript to
+  turn PDF input into any of the Raster formats, built with both
+  "--disable-poppler" and "--disable-ghostscript", the universal
+  filter function is not able to rasterize PDF.
+
+- The cfFilterPDFToRaster() gets non-functional when building
+  libcupsfilters without libpoppler. Calling it simply produces an
+  error message in the log.
+
+- Unnecessary "./configure" options for the former PDF-to-PostScript
+  filter function (has moved to libppd as ppdFilterPDFToPS) which were
+  forgotten during the separation, are removed now.
+
+- All "AC_DEFINE" macro calls in configure.ac got corrected, setting
+  the macros in config.h really to 1 after testing positive.
+
+- libcupsfilters does not use glib, removed the check in configure.ac.
+
 - libcupsfilters.pc.in: Added libqpdf under "Libs.private".
+
+- Makefile.am: Include NOTICE in distribution tarball
 
 - configure.ac: Added "foreign" to to AM_INIT_AUTOMAKE() call. Makes
   automake not require a file named README.
 
-- libcupsfilters does not use glib, removed the check in configure.ac.
+- Cleaned up .gitignore
+
+- Tons of fixes in the source code documentation: README.md, INSTALL,
+  DEVELOPING.md, CONTRIBUTING.md, COPYING, NOTICE, ... Adapted to the
+  libcupsfilters component, added links.
+
 
 ## CHANGES IN V2.0b1 (17th November 2022)
 
