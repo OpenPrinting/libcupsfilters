@@ -5,7 +5,7 @@ AC_PREREQ([2.65])
 # ====================
 # Version informations
 # ====================
-AC_INIT([libcupsfilters], [2.0b1], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
+AC_INIT([libcupsfilters], [2.0b2], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
 libcupsfilters_version="AC_PACKAGE_VERSION"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{print $1}'`"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{printf("%d\n",$2);}'`"

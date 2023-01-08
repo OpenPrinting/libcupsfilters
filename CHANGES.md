@@ -1,6 +1,6 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0b1 - 2022-11-17
+# CHANGES - OpenPrinting libcupsfilters v2.0b2 - 2023-01-08
 
-## CHANGES IN V2.0b2 (TBA)
+## CHANGES IN V2.0b2 (8th January 2023)
 
 - Manage page dimensions when no printer properties are given.
   If a filter function is called without printer IPP attributes
