@@ -2087,7 +2087,7 @@ cfGenerateSizes(ipp_t *response,
                            *name;                // Media size name
   ipp_t                    *media_col,           // Media collection
                            *media_size;          // Media size collection
-  int                      i, x = 0, y = 0, count = 0;
+  int                      i, j, x = 0, y = 0, count = 0;
   pwg_media_t              *pwg, *pwg_by_name;   // PWG media size
   int                      local_min_width, local_min_length,
                            local_max_width, local_max_length;
@@ -2105,6 +2105,15 @@ cfGenerateSizes(ipp_t *response,
                            borderless = 0;
   long long                min_border_mismatch = LLONG_MAX,
                            border_mismatch;
+  // 2 attributes which hold a list of media-col structures. Paesing is the
+  // same for them, so we use the same code. "media-col-database" is parsed
+  // first as it is more complete an accurate, "media-col-ready" is more
+  // a fallback if there is no "media-col-database".
+  const char * const col_attrs[] =
+  {
+    "media-col-database",
+    "media-col-ready",
+  };
 
 
   // If no printer attributes are suppied, we simply return without
@@ -2400,7 +2409,9 @@ cfGenerateSizes(ipp_t *response,
 			   (cups_acopy_func_t)pwg_copy_size,
 			   (cups_afree_func_t)free);
 
-  if ((attr = ippFindAttribute(response, "media-col-database",
+  // Go through all attributes which are lists of media-col structures
+  for (j = 0; j < sizeof(col_attrs) / sizeof(col_attrs[0]); j ++)
+  if ((attr = ippFindAttribute(response, col_attrs[j],
 			       IPP_TAG_BEGIN_COLLECTION)) != NULL)
   {
     for (i = 0, count = ippGetCount(attr); i < count; i ++)
@@ -2615,7 +2626,7 @@ cfGenerateSizes(ipp_t *response,
     if (min_border_mismatch < LLONG_MAX)
     {
       // If we have found a matching page size in the media-col-database
-      // we stop searching
+      // or media-col-ready we stop searching
       min_border_mismatch = 0;
     }
   }
