@@ -417,9 +417,41 @@ cfGetPrinterAttributes5(http_t *http_printer,
       else
       {
 	// Suitable response, we are done
+	// if we did not succeed to obtain the "media-col-database" attribute
+	// try to get it separately
+	if (cap &&
+	    ippFindAttribute(response, "media-col-database", IPP_TAG_ZERO) ==
+	    NULL)
+	{
+	  ipp_t *response2 = NULL;
+
+	  log_printf(cf_get_printer_attributes_log,
+		     "Polling \"media-col-database\" attribute separately.\n");
+	  request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+	  ippSetVersion(request, 2, 0);
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
+		       "printer-uri", NULL, uri);
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+		       "requested-attributes", NULL, "media-col-database");
+	  response2 = cupsDoRequest(http_printer, request, resource);
+	  ipp_status = cupsLastError();
+	  if (response2)
+	  {
+	    if ((attr = ippFindAttribute(response2, "media-col-database",
+					 IPP_TAG_ZERO)) != NULL)
+	    {
+	      // Copy "media-col-database" attribute into the original
+	      // IPP response
+	      log_printf(cf_get_printer_attributes_log,
+			 "\"media-col-database\" attribute found.\n");
+	      ippCopyAttribute(response, attr, 0);
+	    }
+	    ippDelete(response2);
+	  }
+	}
 	if (have_http == 0) httpClose(http_printer);
 	if (uri) free(uri);
-	return response;
+	return (response);
       }
     }
     else
