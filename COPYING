@@ -4,13 +4,13 @@ Upstream-Contact: OpenPrinting <printing-architecture@lists.linux-foundation.org
 Source: http://www.openprinting.org/download/libcupsfilters/
 
 Files: *
-Copyright: 2011-2022 OpenPrinting
+Copyright: 2011-2023 OpenPrinting
  1993-2007 Easy Software Products
  2003-2015 Tim Waugh
  2003-2006 Red Hat, Inc.
  2006-2012 BBR Inc.
  2007-2019 Apple Inc.
- 2008-2022 Till Kamppeter
+ 2008-2023 Till Kamppeter
  2008-2012 Tobias Hoffmann
  2008 Lars Karlitski (formerly Übernickel)
  2010 Neil 'Superna' Armstrong
@@ -31,8 +31,8 @@ Copyright: 2011-2022 OpenPrinting
  2021 Suraj Kulriya
  2021 Pratyush Ranjan
  2021 Pranshu Kharkwal
- 2022 Chandresh Soni
- 2022 Sachin Thakan
+ 2022-2023 Chandresh Soni
+ 2022-2023 Sachin Thakan
 Licence: Apache-2.0-with-GPL2-LGPL2-Exception
 
 Files: ltmain.sh
