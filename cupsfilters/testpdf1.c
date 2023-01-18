@@ -5,23 +5,23 @@
 // information.
 //
 
-#include "pdfutils.h"
+#include "pdfutils-private.h"
 #include "debug-internal.h"
 #include <string.h>
 
 int
 main()
 {
-  cf_pdf_out_t *pdf;
+  _cf_pdf_out_t *pdf;
 
-  pdf = cfPDFOutNew();
+  pdf = _cfPDFOutNew();
   DEBUG_assert(pdf);
 
-  cfPDFOutBeginPDF(pdf);
+  _cfPDFOutBeginPDF(pdf);
 
   // bad font
-  int font_obj = cfPDFOutAddXRef(pdf);
-  cfPDFOutPrintF(pdf,
+  int font_obj = _cfPDFOutAddXRef(pdf);
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "<</Type/Font\n"
 		 "  /Subtype /Type1\n" // /TrueType,/Type3
@@ -31,9 +31,9 @@ main()
 		 font_obj, "Courier");
   // test
   const int PageWidth = 595, PageLength = 842;
-  int cobj = cfPDFOutAddXRef(pdf);
+  int cobj = _cfPDFOutAddXRef(pdf);
   const char buf[] = "BT /a 10 Tf (abc) Tj ET";
-  cfPDFOutPrintF(pdf,
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "<</Length %ld\n"
 		 ">>\n"
@@ -43,8 +43,8 @@ main()
 		 "endobj\n",
 		 cobj, strlen(buf), buf);
 
-  int obj = cfPDFOutAddXRef(pdf);
-  cfPDFOutPrintF(pdf,
+  int obj = _cfPDFOutAddXRef(pdf);
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "<</Type/Page\n"
 		 "  /Parent 1 0 R\n"
@@ -55,10 +55,10 @@ main()
 		 "endobj\n",
 		 obj, PageWidth, PageLength, cobj, font_obj);
                                                      // TODO: into pdf->
-  cfPDFOutAddPage(pdf, obj);
-  cfPDFOutFinishPDF(pdf);
+  _cfPDFOutAddPage(pdf, obj);
+  _cfPDFOutFinishPDF(pdf);
 
-  cfPDFOutFree(pdf);
+  _cfPDFOutFree(pdf);
 
   return (0);
 }

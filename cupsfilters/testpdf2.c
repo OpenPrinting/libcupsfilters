@@ -5,7 +5,7 @@
 // information.
 //
 
-#include "pdfutils.h"
+#include "pdfutils-private.h"
 #include "config.h"
 #include "debug-internal.h"
 #include "cupsfilters/fontembed-private.h"
@@ -13,7 +13,7 @@
 #include <stdio.h>
 
 static inline void
-write_string(cf_pdf_out_t *pdf,
+write_string(_cf_pdf_out_t *pdf,
 	     _cf_fontembed_emb_params_t *emb,
 	     const char *str) // {{{
 {
@@ -40,7 +40,7 @@ write_string(cf_pdf_out_t *pdf,
       _cfFontEmbedEmbGet(emb, (unsigned char)str[iA]);
       // TODO: pdf: otf_from_pdf_default_encoding
     }
-    cfPDFOutputString(pdf, str, -1);
+    _cfPDFOutputString(pdf, str, -1);
   }
 }
 // }}}
@@ -50,12 +50,12 @@ int
 main(int  argc,
      char *argv[])
 {
-  cf_pdf_out_t *pdf;
+  _cf_pdf_out_t *pdf;
 
-  pdf = cfPDFOutNew();
+  pdf = _cfPDFOutNew();
   DEBUG_assert(pdf);
 
-  cfPDFOutBeginPDF(pdf);
+  _cfPDFOutBeginPDF(pdf);
 
   // font, pt.1 
   const char *fn = TESTFONT;
@@ -80,36 +80,36 @@ main(int  argc,
 
   // test
   const int PageWidth = 595, PageLength = 842;
-  const int cobj = cfPDFOutAddXRef(pdf);
-  cfPDFOutPrintF(pdf,
+  const int cobj = _cfPDFOutAddXRef(pdf);
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "<</Length %d 0 R\n"
 		 ">>\n"
 		 "stream\n",
 		 cobj, cobj + 1);
   long streamlen = -pdf->filepos;
-  cfPDFOutPrintF(pdf, "BT /a 10 Tf ");
+  _cfPDFOutPrintF(pdf, "BT /a 10 Tf ");
   write_string(pdf, emb, "Test");
-  cfPDFOutPrintF(pdf, " Tj ET");
+  _cfPDFOutPrintF(pdf, " Tj ET");
 
   streamlen += pdf->filepos;
-  cfPDFOutPrintF(pdf,
+  _cfPDFOutPrintF(pdf,
 		 "\nendstream\n"
 		 "endobj\n");
-  const int clobj = cfPDFOutAddXRef(pdf);
+  const int clobj = _cfPDFOutAddXRef(pdf);
   DEBUG_assert(clobj == cobj + 1);
-  cfPDFOutPrintF(pdf,
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "%ld\n"
 		 "endobj\n",
 		 clobj, streamlen);
 
   // font
-  int font_obj = cfPDFOutWriteFont(pdf, emb);
+  int font_obj = _cfPDFOutWriteFont(pdf, emb);
   DEBUG_assert(font_obj);
 
-  int obj = cfPDFOutAddXRef(pdf);
-  cfPDFOutPrintF(pdf,
+  int obj = _cfPDFOutAddXRef(pdf);
+  _cfPDFOutPrintF(pdf,
 		 "%d 0 obj\n"
 		 "<</Type/Page\n"
 		 "  /Parent 1 0 R\n"
@@ -120,10 +120,10 @@ main(int  argc,
 		 "endobj\n",
 		 obj, PageWidth, PageLength, cobj, font_obj);
                                                   // TODO: into pdf->
-  cfPDFOutAddPage(pdf, obj);
-  cfPDFOutFinishPDF(pdf);
+  _cfPDFOutAddPage(pdf, obj);
+  _cfPDFOutFinishPDF(pdf);
 
-  cfPDFOutFree(pdf);
+  _cfPDFOutFree(pdf);
 
   _cfFontEmbedEmbClose(emb);
 
