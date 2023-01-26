@@ -1591,6 +1591,15 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
     else if (h.cupsColorSpace == CUPS_CSPACE_SRGB)
       cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
   }
+  else if (!cm_disabled &&
+	   outformat == CF_FILTER_OUT_FORMAT_PXL)
+  {
+    // Set standard output ICC profile sGray/sRGB
+    if (pxlcolor == 0)
+      cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=sgray.icc"));
+    else if (pxlcolor == 1)
+      cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
+  }
   else if (!cm_disabled)
     cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
 
