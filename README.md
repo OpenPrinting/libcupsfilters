@@ -60,8 +60,8 @@ Applications, like image and raster graphics handling,
 make/model/device ID matching, ...
 
 For compiling and using this package CUPS (2.2.2 or newer),
-libqpdf (10.3.2 or newer), libjpeg, libpng, libtiff, freetype,
-fontconfig, liblcms (liblcms2 recommended) and libdbus are needed.
+libqpdf (10.3.2 or newer), libjpeg, libpng, libtiff, fontconfig,
+liblcms (liblcms2 recommended) and libdbus are needed.
 It is highly recommended, especially if non-PDF printers are used,
 to have at least one of Ghostscript (preferred), Poppler, or MuPDF.
 

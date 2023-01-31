@@ -240,7 +240,6 @@ AS_IF([test x"$lcms2" = "xno"], [
 	PKG_CHECK_MODULES([LCMS], [lcms])
 	AC_DEFINE([USE_LCMS1], [1], [Defines if use lcms1])
 ])
-PKG_CHECK_MODULES([FREETYPE], [freetype2], [AC_DEFINE([HAVE_FREETYPE_H], [1], [Have FreeType2 include files])])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
 
