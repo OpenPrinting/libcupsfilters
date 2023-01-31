@@ -147,7 +147,6 @@ AC_CHECK_HEADERS([stdlib.h])
 AC_CHECK_HEADERS([sys/stat.h])
 AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([unistd.h])
-AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([endian.h])
 AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
@@ -233,34 +232,6 @@ fi
 AC_SUBST(EXIF_LIBS)
 AC_SUBST(EXIF_CFLAGS)
 
-# ======================
-# Avahi (DNS-SD support)
-# ======================
-AVAHI_LIBS=""
-AVAHI_CFLAGS=""
-
-AC_ARG_ENABLE([avahi],
-	[AS_HELP_STRING([--disable-avahi], [Disable DNS Service Discovery support using Avahi.])],
-	[enable_avahi="$enableval"],
-	[enable_avahi=yes]
-)
-AM_CONDITIONAL([ENABLE_AVAHI], [test "x$enable_avahi" != "xno"])
-
-AC_ARG_WITH(avahi-libs,
-	[AS_HELP_STRING([--with-avahi-libs], [Set directory for Avahi library.])],
-	AVAHI_LIBS="-L$withval $AVAHI_LIBS",)
-AC_ARG_WITH(avahi-includes,
-	[AS_HELP_STRING([--with-avahi-includes], [Set directory for Avahi includes])],
-	AVAHI_CFLAGS="-I$withval $AVAHI_CFLAGS",)
-
-if test "x$enable_avahi" != xno; then
-	PKG_CHECK_MODULES(AVAHI, avahi-client,
-		[AC_DEFINE(HAVE_AVAHI, [1], [Define if you have the avahi library])])
-fi
-
-AC_SUBST(AVAHI_LIBS)
-AC_SUBST(AVAHI_CFLAGS)
-
 # ==========================================
 # Check for various required modules for PDF
 # ==========================================
@@ -269,10 +240,7 @@ AS_IF([test x"$lcms2" = "xno"], [
 	PKG_CHECK_MODULES([LCMS], [lcms])
 	AC_DEFINE([USE_LCMS1], [1], [Defines if use lcms1])
 ])
-PKG_CHECK_MODULES([FREETYPE], [freetype2], [AC_DEFINE([HAVE_FREETYPE_H], [1], [Have FreeType2 include files])])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
-PKG_CHECK_MODULES([ZLIB], [zlib])
-AC_DEFINE([HAVE_LIBZ], [1], [Define that we use zlib])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
 
 # =================
@@ -468,7 +436,6 @@ Build configuration:
 	exif:            ${enable_exif}
 	png:             ${with_png}
 	tiff:            ${with_tiff}
-	avahi:           ${enable_avahi}
 	dbus:            ${enable_dbus}
 	werror:          ${enable_werror}
 	test-font:       ${with_test_font_path}

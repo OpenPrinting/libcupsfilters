@@ -26,7 +26,7 @@ BEFORE YOU BEGIN
     programs shipped by Compaq, HP, SGI, and Sun.  BSD users should
     use GNU make (gmake) since BSD make does not support "include".
 
-    Poppler, freetype, fontconfig, liblcms (liblcms2 recommended), and
+    Poppler, fontconfig, liblcms (liblcms2 recommended), and
     QPDF must be installed to be able to compile this package.
 
     Note that Poppler has to be compiled with the
@@ -34,7 +34,7 @@ BEFORE YOU BEGIN
     "libpoppler-cpp-dev(el)" package has to be installed if the
     Poppler packages from a Linux distribution are used).
 
-    Besides these tools you'll want the JPEG, PNG, TIFF, ZLIB, and
+    Besides these tools you'll want the JPEG, PNG, TIFF and
     EXIF libraries for image support. libcupsfilters will compile and
     run without these, however you'll miss out on many of the features
     provided by libcupsfilters.
