@@ -1,6 +1,6 @@
 # CHANGES - OpenPrinting libcupsfilters v2.0b2 - 2023-01-08
 
-## CHANGES IN V2.0b3 (31th January 2023)
+## CHANGES IN V2.0b3 (31st January 2023)
 
 - cfFilterGhostscript(): Select correct ICC profile for PCL-XL.
   When using the cfFilterGhostscript() filter function to generate
@@ -11,27 +11,28 @@
 
 - cfGetPrinterAttributes(): Poll "media-col-database" separately if needed
   Some printers are not able to handle a get-printer-attributes
-  querying both the "all" group attribute and the "nedia-col-database"
-  atrribute, so query the latter with a separate call in such cases.
+  request querying both the "all" group attribute and the
+  "nedia-col-database" atrribute, so query the latter with a separate
+  call in such cases.
 
 - cfGenerateSizes(): Also parse the "media-col-ready" IPP attribute
-  for page sizes and margins. This often reveal extra margin variants,
-  like borderless.
+  for page sizes and margins. This often reveals extra margin
+  variants, like borderless.
 
 - Removed public cfPDFOut...() API (cupsfilters/pdfutils.h)
   This API only makes sense if the API of fontembed is also public,
   but this we made private earlier.
 
-- Build system, README.md: Remove unused dependencies overlooked
+- Build system, README.md: Remove unnecessary dependencies overlooked
   during the separation: zlib (only needed by libppd), Freetype (not
   needed any more after removal of pdftoopvp), Avahi and GLib (both
-  only needed by cups-browsd). Thanks a lot, Zdenek Dohnal (Pull
+  only needed by cups-browsed). Thanks a lot, Zdenek Dohnal (Pull
   request #7).
 
 - COPYING, NOTICE: Simplification for autotools-generated files
   autotools-generated files can be included under the license of the
   upstream code, and FSF copyright added to upstream copyright
-  list. Simplified debian/copyright appropriately.
+  list. Simplified COPYING appropriately.
 
 - COPYING, NOTICE: Added copyright year 2023
 
