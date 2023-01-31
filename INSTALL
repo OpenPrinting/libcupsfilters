@@ -34,7 +34,7 @@ BEFORE YOU BEGIN
     "libpoppler-cpp-dev(el)" package has to be installed if the
     Poppler packages from a Linux distribution are used).
 
-    Besides these tools you'll want the JPEG, PNG, TIFF, ZLIB, and
+    Besides these tools you'll want the JPEG, PNG, TIFF and
     EXIF libraries for image support. libcupsfilters will compile and
     run without these, however you'll miss out on many of the features
     provided by libcupsfilters.

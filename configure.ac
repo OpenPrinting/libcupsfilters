@@ -147,7 +147,6 @@ AC_CHECK_HEADERS([stdlib.h])
 AC_CHECK_HEADERS([sys/stat.h])
 AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([unistd.h])
-AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([endian.h])
 AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
@@ -271,8 +270,6 @@ AS_IF([test x"$lcms2" = "xno"], [
 ])
 PKG_CHECK_MODULES([FREETYPE], [freetype2], [AC_DEFINE([HAVE_FREETYPE_H], [1], [Have FreeType2 include files])])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
-PKG_CHECK_MODULES([ZLIB], [zlib])
-AC_DEFINE([HAVE_LIBZ], [1], [Define that we use zlib])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
 
 # =================
