@@ -61,10 +61,9 @@ make/model/device ID matching, ...
 
 For compiling and using this package CUPS (2.2.2 or newer),
 libqpdf (10.3.2 or newer), libjpeg, libpng, libtiff, freetype,
-fontconfig, liblcms (liblcms2 recommended), libavahi-common,
-libavahi-client, libdbus, and glib are needed. It is highly
-recommended, especially if non-PDF printers are used, to have at
-least one of Ghostscript (preferred), Poppler, or MuPDF.
+fontconfig, liblcms (liblcms2 recommended) libdbus and glib are needed.
+It is highly recommended, especially if non-PDF printers are used,
+to have at least one of Ghostscript (preferred), Poppler, or MuPDF.
 
 It also needs gcc (C compiler), automake, autoconf, autopoint, and
 libtool. On Debian, Ubuntu, and distributions derived from them
