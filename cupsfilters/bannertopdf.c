@@ -951,7 +951,9 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 	    "cfFilterBannerToPDF: Unable to open output data stream.");
     }
 
-    fclose(inputfp);
+    if (!inputfd)
+      fclose(inputfp);
+
     return (1);
   }
 
