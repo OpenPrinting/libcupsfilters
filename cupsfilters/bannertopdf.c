@@ -880,7 +880,7 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   int num_options = 0;
   int ret;
   FILE *inputfp = NULL;
-  FILE *outputfp;
+  FILE *outputfp = NULL;
   int tempfd;
   cups_option_t *options = NULL;
   char tempfile[1024], buffer[1024];
@@ -971,6 +971,9 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 
     if (inputfp)
       fclose(inputfp);
+
+    if (outputfp)
+      fclose(outputfp);
 
     return (1);
   }
