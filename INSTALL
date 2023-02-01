@@ -16,28 +16,45 @@ called "README.md". A complete change log can be found in
 
 BEFORE YOU BEGIN
 
-    You'll need ANSI-compliant C and C++ compilers, plus a make
-    program and POSIX-compliant shell (/bin/sh).  The GNU compiler
-    tools and Bash work well and we have tested the current CUPS code
-    against several versions of GCC with excellent results.
+    The following is required to have for compilation:
+    - ANSI-compliant C and C++ compilers (the project mostly written in C,
+      pdftoraster, pclmtoraster, pwgtopdf and pdftopdf written in C++)
+    - make program
+    - POSIX-compliant shell (/bin/sh)
+    - autoconf, autopoint, automake and libtool for ./autogen.sh to generate compilation scripts
+    - CUPS devel files of version 2.2.2 or higher
+    - Poppler (with --enable-poppler-cpp options) devel files for pdftoraster
+    - fontconfig devel files for texttopdf
+    - liblcms (liblcms2 recommended) devel files for color management in functions which use
+      rasters (pdftoraster, pwgtoraster, pwgtopdf)
+    - QPDF devel files for PDF related functions (pwgtopdf, pdftopdf, bannertopdf) and pclmtoraster
+
+    Then at least one of the following binaries is required for supporting non-PDF printers:
+    - Ghostscript 10.0.0 or higher built with support for output devices - "pdfwrite", "ps2write", "cups",
+      "pwgraster", "appleraster", "pclm", "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
+
+    or
+
+    - MuPDF at version 1.15 to prevent bugs
+
+    Libcupsfilters provides an additional features, which are optional for the compilation,
+    but the library misses several file format support/feature support without them:
+    - libdbus devel files for dBUS communication with colord for color profiles support
+    - libjpeg devel files for JPEG file support
+    - libpng devel files for PNG file support
+    - libtiff devel files for TIFF file support
+    - libexif devel files for getting image resolution
+    - Dejavu Sans fonts for internal test suite
+
+    The GNU compiler tools and Bash work well and we have tested
+    the current CUPS code against several versions of GCC
+    with excellent results.
 
     The Makefiles used by the project should work with most versions
     of make.  We've tested them with GNU make as well as the make
     programs shipped by Compaq, HP, SGI, and Sun.  BSD users should
     use GNU make (gmake) since BSD make does not support "include".
 
-    Poppler, fontconfig, liblcms (liblcms2 recommended), and
-    QPDF must be installed to be able to compile this package.
-
-    Note that Poppler has to be compiled with the
-    "--enable-poppler-cpp" configure option (or the
-    "libpoppler-cpp-dev(el)" package has to be installed if the
-    Poppler packages from a Linux distribution are used).
-
-    Besides these tools you'll want the JPEG, PNG, TIFF and
-    EXIF libraries for image support. libcupsfilters will compile and
-    run without these, however you'll miss out on many of the features
-    provided by libcupsfilters.
 
 COMPILING THE GIT REPOSITORY CODE
 
@@ -110,6 +127,17 @@ INSTALLING THE SOFTWARE
     or for FreeBSD, NetBSD, or OpenBSD:
 
 	gmake install ENTER
+
+
+RUNTIME DEPENDENCIES
+
+    There are several packages which are required to be installed and working to get full capabalities
+    of software using cupsfilters:
+
+    - in case libcupsfilters is built dBUS support, a dBUS provider (dbus-broker/dbus-daemon) and colord
+      have to be installed and running to get color profile support
+    - Ghostscript or MuPDF or both (based on your configuration)
+    - a monospace font (f.e. liberation-mono-fonts) for texttopdf
 
 PACKAGING THE SOFTWARE FOR OPERATING SYSTEM DISTRIBUTIONS
 
