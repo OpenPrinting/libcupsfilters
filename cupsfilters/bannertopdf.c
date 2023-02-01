@@ -919,6 +919,8 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterBannerToPDF: Unable to copy input file: %s",
 		 strerror(errno));
+    if (inputfp)
+      fclose(inputfp);
     return (1);
   }
 
