@@ -178,6 +178,8 @@ cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
   {
     // Check first for an exact match
     catalog = cfCatalogSearchDirLocale(dirname, preferredlocale);
+    if (catalog != NULL)
+      return (catalog);
 
     // Check for language match, with any region
     // Cover both cases, whether locale has region suffix or not
