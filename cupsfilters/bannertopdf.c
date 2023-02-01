@@ -879,7 +879,7 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   banner_t *banner;
   int num_options = 0;
   int ret;
-  FILE *inputfp;
+  FILE *inputfp = NULL;
   FILE *outputfp;
   int tempfd;
   cups_option_t *options = NULL;
@@ -968,6 +968,10 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   {
     if (log)
       log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Could not read banner file");
+
+    if (inputfp)
+      fclose(inputfp);
+
     return (1);
   }
 
