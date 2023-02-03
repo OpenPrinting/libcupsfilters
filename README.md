@@ -59,34 +59,7 @@ several API functions useful for developing printer drivers/Printer
 Applications, like image and raster graphics handling,
 make/model/device ID matching, ...
 
-For compiling and using this package CUPS (2.2.2 or newer),
-libqpdf (10.3.2 or newer), libjpeg, libpng, libtiff, fontconfig,
-liblcms (liblcms2 recommended) and libdbus are needed.
-It is highly recommended, especially if non-PDF printers are used,
-to have at least one of Ghostscript (preferred), Poppler, or MuPDF.
-
-It also needs gcc (C compiler), automake, autoconf, autopoint, and
-libtool. On Debian, Ubuntu, and distributions derived from them
-you could also install the "build-essential" package to
-auto-install most of these packages.
-
-If Ghostscript is used (via the `cfFilterGhostscript()` or the
-`cfFilterUniversal()` filter functions), Ghostscript 10.00.0 is
-required (10.01.0 is highly recommended) and it has to be built at
-least with the "pdfwrite", "ps2write", "cups", "pwgraster",
-"appleraster", "pclm", "pclm8", "pdfimage24", "pdfimage8", "pxlcolor",
-and "pxlmono" output devices. libcups of CUPS 2.2.2 or newer is
-required to build Ghostscript this way.
-
-The Poppler-based pdftoraster filter needs a C++ compiler which
-supports C++11 and Poppler being built with the "./configure"
-option "-DENABLE_CPP=ON" for building the C++ support library
-libpoppler-cpp. This is the case for most modern Linux
-distributions.
-
-If you use MuPDF as PDF renderer make sure to use at least version
-1.15, as the older versions have bugs and so some files get not
-printed correctly.
+For compiling and using this package see the INSTALL file.
 
 Report bugs to
 
