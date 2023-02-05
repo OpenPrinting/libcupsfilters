@@ -382,12 +382,12 @@ cfImageOpenFP(
   img->xppi      = 200;
   img->yppi      = 200;
 
-#if defined(HAVE_LIBPNG) && defined(HAVE_LIBZ)
+#ifdef HAVE_LIBPNG
   if (!memcmp(header, "\211PNG", 4))
     status = _cfImageReadPNG(img, fp, primary, secondary, saturation, hue,
 			     lut);
   else
-#endif // HAVE_LIBPNG && HAVE_LIBZ
+#endif // HAVE_LIBPNG
 #ifdef HAVE_LIBJPEG
   if (!memcmp(header, "\377\330\377", 3) &&	// Start-of-Image
       header[3] >= 0xe0 && header[3] <= 0xef)	// APPn

@@ -18,7 +18,7 @@
 
 #include "image-private.h"
 
-#if defined(HAVE_LIBPNG) && defined(HAVE_LIBZ)
+#ifdef HAVE_LIBPNG
 #  include <png.h>	// Portable Network Graphics (PNG) definitions
 
 
@@ -315,4 +315,4 @@ _cfImageReadPNG(
 
   return (0);
 }
-#endif // HAVE_LIBPNG && HAVE_LIBZ
+#endif // HAVE_LIBPNG
