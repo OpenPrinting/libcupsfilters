@@ -739,7 +739,8 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     // The page size name in te header corresponds to the actual size of
     // the media, so find the size dimensions
     pwg_media_t *size_found = NULL;
-    strncpy(keyword, doc.h.cupsPageSizeName, sizeof(keyword));
+    strncpy(keyword, doc.h.cupsPageSizeName, sizeof(keyword) - 1);
+    keyword[sizeof(keyword) - 1] = '\0';
     if ((keyptr = strchr(keyword, '.')) != NULL)
       *keyptr = '\0';
     if ((size_found = pwgMediaForPPD(keyword)) != NULL ||
