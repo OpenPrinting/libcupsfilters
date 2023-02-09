@@ -365,7 +365,7 @@ cfImageOpenFP(
   // Allocate memory...
   //
 
-  img = calloc(sizeof(cf_image_t), 1);
+  img = calloc(1, sizeof(cf_image_t));
 
   if (img == NULL)
   {
@@ -634,7 +634,7 @@ cfImageCrop(cf_image_t* img,
 	    int height)
 {
   int image_width = cfImageGetWidth(img);
-  cf_image_t* temp = calloc(sizeof(cf_image_t), 1);
+  cf_image_t* temp = calloc(1, sizeof(cf_image_t));
   cf_ib_t *pixels = (cf_ib_t*)malloc(img->xsize * cfImageGetDepth(img));
 
   temp->cachefile = -1;
@@ -750,10 +750,10 @@ get_tile(cf_image_t *img,		// I - Image
 
     DEBUG_printf(("Creating tile array (%dx%d)\n", xtiles, ytiles));
 
-    if ((img->tiles = calloc(sizeof(cf_itile_t *), ytiles)) == NULL)
+    if ((img->tiles = calloc(ytiles, sizeof(cf_itile_t *))) == NULL)
       return (NULL);
 
-    if ((tile = calloc(xtiles * sizeof(cf_itile_t), ytiles)) == NULL)
+    if ((tile = calloc(ytiles, xtiles * sizeof(cf_itile_t))) == NULL)
       return (NULL);
 
     for (tiley = 0; tiley < ytiles; tiley ++)
@@ -775,8 +775,8 @@ get_tile(cf_image_t *img,		// I - Image
   {
     if (img->num_ics < img->max_ics)
     {
-      if ((ic = calloc(sizeof(cf_ic_t) +
-                       bpp * CF_TILE_SIZE * CF_TILE_SIZE, 1)) == NULL)
+      if ((ic = calloc(1, sizeof(cf_ic_t) +
+                       bpp * CF_TILE_SIZE * CF_TILE_SIZE)) == NULL)
       {
         if (img->num_ics == 0)
 	  return (NULL);

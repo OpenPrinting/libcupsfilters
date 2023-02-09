@@ -864,7 +864,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     goto out;
   }
 
-  doc.Page    = calloc(sizeof(lchar_t *), doc.SizeLines);
+  doc.Page    = calloc(doc.SizeLines, sizeof(lchar_t *));
   if (!doc.Page)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -873,7 +873,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     goto out;
   }
 
-  doc.Page[0] = calloc(sizeof(lchar_t), doc.SizeColumns * doc.SizeLines);
+  doc.Page[0] = calloc(doc.SizeColumns * doc.SizeLines, sizeof(lchar_t));
   if (!doc.Page[0])
   {
     free(doc.Page);
