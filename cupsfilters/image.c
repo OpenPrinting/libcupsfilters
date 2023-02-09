@@ -940,6 +940,8 @@ _cfImageReadEXIF(cf_image_t *img,
   if (buf == NULL || bufSize <= 0 ||
       (ed = exif_data_new_from_data(buf, bufSize)) == NULL)
   {
+    if (buf)
+      free(buf);
     DEBUG_printf(("DEBUG: No EXIF data found"));
     return (2);
   }
@@ -954,6 +956,8 @@ _cfImageReadEXIF(cf_image_t *img,
 
   if (entryX == NULL || entryY == NULL)
   {
+    if (buf)
+      free(buf);
     DEBUG_printf(("DEBUG: No EXIF data found"));
     return (2);
   }
