@@ -877,7 +877,6 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
   doc.Page[0] = calloc(doc.SizeColumns * doc.SizeLines, sizeof(lchar_t));
   if (!doc.Page[0])
   {
-    free(doc.Page);
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterTextToPDF: cannot allocate memory for page");
     ret = 1;
@@ -1434,7 +1433,8 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
   if (doc.Page)
   {
-    free(doc.Page[0]);
+    if (doc.Page[0])
+      free(doc.Page[0]);
     free(doc.Page);
   }
 
