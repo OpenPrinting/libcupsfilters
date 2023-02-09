@@ -988,7 +988,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
       if (outformat == CF_FILTER_OUT_FORMAT_CUPS_RASTER ||
 	  outformat == CF_FILTER_OUT_FORMAT_PWG_RASTER ||
 	  outformat == CF_FILTER_OUT_FORMAT_APPLE_RASTER)
-	if (write(outputfd, "RaS2", 4));
+	write(outputfd, "RaS2", 4);
       goto out;
     }
     if (doc_type == GS_DOC_TYPE_UNKNOWN)
@@ -1010,7 +1010,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 	if (outformat == CF_FILTER_OUT_FORMAT_CUPS_RASTER ||
 	    outformat == CF_FILTER_OUT_FORMAT_PWG_RASTER ||
 	    outformat == CF_FILTER_OUT_FORMAT_APPLE_RASTER)
-	  if (write(outputfd, "RaS2", 4));
+	  write(outputfd, "RaS2", 4);
 	goto out;
       }
       if (pages < 0)
@@ -1055,7 +1055,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 	if (outformat == CF_FILTER_OUT_FORMAT_CUPS_RASTER ||
 	    outformat == CF_FILTER_OUT_FORMAT_PWG_RASTER ||
 	    outformat == CF_FILTER_OUT_FORMAT_APPLE_RASTER)
-	  if (write(outputfd, "RaS2", 4));
+	  write(outputfd, "RaS2", 4);
 	goto out;
       }
       if (pagecount < 0)
