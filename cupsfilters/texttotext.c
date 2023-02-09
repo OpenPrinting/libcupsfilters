@@ -1100,6 +1100,8 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
   if (iconv_close (cd) != 0)
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		 "cfFilterTextToText: Error closing iconv encoding conversion session");
+  else
+    cd = (iconv_t) -1;
 
   // Error out on an illegal UTF-8 sequence in the input file
   if (result < 0)
@@ -1141,6 +1143,9 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 
   free(page_ranges);
   free(out_page);
+
+  if (cd != (iconv_t) -1)
+    iconv_close(cd);
 
   return (exit_status);
 }
