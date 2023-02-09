@@ -164,7 +164,8 @@ parse_opts(cf_filter_data_t *data,
                            !strncasecmp(val, "bi-level", 8))
     pclmtoraster_data->bi_level = 1;
 
-  strncpy(pclmtoraster_data->pageSizeRequested, header->cupsPageSizeName, 64);
+  strncpy(pclmtoraster_data->pageSizeRequested, header->cupsPageSizeName, 63);
+  pclmtoraster_data->pageSizeRequested[63] = '\0';
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		"cfFilterPCLmToRaster: Page size requested: %s.",
 	       header->cupsPageSizeName);
