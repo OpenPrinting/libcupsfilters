@@ -1963,6 +1963,7 @@ write_prolog(const char *title,		// I - Title of job
 
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad font description line: %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -1976,6 +1977,7 @@ write_prolog(const char *title,		// I - Title of job
 	{
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad text direction %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -1999,6 +2001,7 @@ write_prolog(const char *title,		// I - Title of job
 
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad font description line: %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -2012,6 +2015,7 @@ write_prolog(const char *title,		// I - Title of job
 	{
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad text width %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -2090,6 +2094,7 @@ write_prolog(const char *title,		// I - Title of job
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterTextToPDF: Bad charset type %s", lineptr);
+      fclose(fp);
       return (1);
     } // }}}
   } // }}}
