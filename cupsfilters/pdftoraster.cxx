@@ -1459,6 +1459,8 @@ write_page_image(cups_raster_t *raster,
 					       doc->bytesPerLine * im.height());
 	  one_bit_pixel(graydata, onebitdata, im.width(), im.height(), doc);
 	  colordata = onebitdata;
+	  free(newdata);
+	  free(graydata);
 	  rowsize = doc->bytesPerLine;
 	}
 	else
@@ -1476,6 +1478,7 @@ write_page_image(cups_raster_t *raster,
 	  cfImageRGBToWhite(newdata, graydata, pixel_count);
 	  colordata = graydata;
 	  rowsize = doc->header.cupsWidth;
+	  free(newdata);
 	}
 
 	break;
