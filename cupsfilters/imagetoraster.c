@@ -235,7 +235,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   int			plane,		// Current color plane
 			num_planes;	// Number of color planes
   char			tempfile[1024];	// Name of temporary file
-  FILE                  *fp;		// Input file
+  FILE                  *fp = NULL;		// Input file
   int                   fd;		// File descriptor for temp file
   char                  buf[BUFSIZ];
   int                   bytes;
@@ -705,11 +705,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     case CUPS_CSPACE_DEVICED :
     case CUPS_CSPACE_DEVICEE :
     case CUPS_CSPACE_DEVICEF :
-        if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		     "cfFilterImageToRaster: Colorspace %d not supported.",
-		     header.cupsColorSpace);
+	if (log)
+	  log(ld, CF_LOGLEVEL_DEBUG, "cfFilterImageToRaster: Colorspace %d not supported.",
+	      header.cupsColorSpace);
 	if (!inputseekable)
 	  unlink(tempfile);
+	if (fp)
+	  fclose(fp);
 	return(1);
 	break;
   }
