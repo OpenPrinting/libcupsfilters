@@ -409,7 +409,7 @@ cfImageOpenFP(
 
   if (status)
   {
-    free(img);
+    cfImageClose(img);
     return (NULL);
   }
   else

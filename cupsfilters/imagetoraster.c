@@ -1647,7 +1647,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 
 	  xtemp = header.HWResolution[0] * xprint;
 	  ytemp = header.HWResolution[1] * yprint;
-        }
+	}
 
         cupsRasterWriteHeader2(ras, &header);
 
@@ -1657,10 +1657,10 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Initialize the image "zoom" engine...
 	  //
 
-          if (doc.Flip)
+	  if (doc.Flip)
 	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, -xtemp, ytemp,
 	                          doc.Orientation & 1, zoom_type);
-          else
+	  else
 	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, xtemp, ytemp,
 	                          doc.Orientation & 1, zoom_type);
 
@@ -1668,7 +1668,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Write leading blank space as needed...
 	  //
 
-          if (header.cupsHeight > z->ysize && doc.YPosition <= 0)
+	  if (header.cupsHeight > z->ysize && doc.YPosition <= 0)
 	  {
 	    blank_line(&header, row);
 
