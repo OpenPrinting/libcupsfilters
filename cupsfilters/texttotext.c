@@ -1098,8 +1098,10 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
   close(fd);
   
   if (iconv_close (cd) != 0)
+  {
     if (log)
       log(ld, CF_LOGLEVEL_DEBUG, "cfFilterTextToText: Error closing iconv encoding conversion session");
+  }
   else
     cd = (iconv_t) -1;
 
