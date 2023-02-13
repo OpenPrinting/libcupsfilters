@@ -879,8 +879,8 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   banner_t *banner;
   int num_options = 0;
   int ret;
-  FILE *inputfp;
-  FILE *outputfp;
+  FILE *inputfp = NULL;
+  FILE *outputfp = NULL;
   int tempfd;
   cups_option_t *options = NULL;
   char tempfile[1024], buffer[1024];
@@ -919,6 +919,8 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterBannerToPDF: Unable to copy input file: %s",
 		 strerror(errno));
+    if (inputfp)
+      fclose(inputfp);
     return (1);
   }
 
@@ -932,6 +934,7 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   if (inputfd)
   {
     fclose(inputfp);
+    inputfp = NULL;
     close(inputfd);
   }
   close(tempfd);
@@ -949,7 +952,9 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 	    "cfFilterBannerToPDF: Unable to open output data stream.");
     }
 
-    fclose(inputfp);
+    if (inputfp)
+      fclose(inputfp);
+
     return (1);
   }
 
@@ -964,6 +969,13 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   {
     if (log)
       log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Could not read banner file");
+
+    if (inputfp)
+      fclose(inputfp);
+
+    if (outputfp)
+      fclose(outputfp);
+
     return (1);
   }
 

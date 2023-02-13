@@ -739,7 +739,8 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     // The page size name in te header corresponds to the actual size of
     // the media, so find the size dimensions
     pwg_media_t *size_found = NULL;
-    strncpy(keyword, doc.h.cupsPageSizeName, sizeof(keyword));
+    strncpy(keyword, doc.h.cupsPageSizeName, sizeof(keyword) - 1);
+    keyword[sizeof(keyword) - 1] = '\0';
     if ((keyptr = strchr(keyword, '.')) != NULL)
       *keyptr = '\0';
     if ((size_found = pwgMediaForPPD(keyword)) != NULL ||
@@ -864,7 +865,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     goto out;
   }
 
-  doc.Page    = calloc(sizeof(lchar_t *), doc.SizeLines);
+  doc.Page    = calloc(doc.SizeLines, sizeof(lchar_t *));
   if (!doc.Page)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -873,10 +874,9 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     goto out;
   }
 
-  doc.Page[0] = calloc(sizeof(lchar_t), doc.SizeColumns * doc.SizeLines);
+  doc.Page[0] = calloc(doc.SizeColumns * doc.SizeLines, sizeof(lchar_t));
   if (!doc.Page[0])
   {
-    free(doc.Page);
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterTextToPDF: cannot allocate memory for page");
     ret = 1;
@@ -1433,7 +1433,8 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
   if (doc.Page)
   {
-    free(doc.Page[0]);
+    if (doc.Page[0])
+      free(doc.Page[0]);
     free(doc.Page);
   }
 
@@ -1962,6 +1963,7 @@ write_prolog(const char *title,		// I - Title of job
 
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad font description line: %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -1975,6 +1977,7 @@ write_prolog(const char *title,		// I - Title of job
 	{
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad text direction %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -1998,6 +2001,7 @@ write_prolog(const char *title,		// I - Title of job
 
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad font description line: %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -2011,6 +2015,7 @@ write_prolog(const char *title,		// I - Title of job
 	{
 	  if (log) log(ld, CF_LOGLEVEL_ERROR,
 		       "cfFilterTextToPDF: Bad text width %s", valptr);
+	  fclose(fp);
 	  return (1);
 	}
 
@@ -2089,6 +2094,7 @@ write_prolog(const char *title,		// I - Title of job
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterTextToPDF: Bad charset type %s", lineptr);
+      fclose(fp);
       return (1);
     } // }}}
   } // }}}

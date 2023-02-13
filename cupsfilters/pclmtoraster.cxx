@@ -63,11 +63,11 @@ typedef unsigned char *(*convert_line_func)(unsigned char *src,
 					    pclmtoraster_data_t *data,
 					    convert_cspace_func convertcspace);
 
-typedef struct conversion_function_s
+typedef struct pclm_conversion_function_s
 {
   convert_cspace_func convertcspace;// Function for conversion of colorspaces
   convert_line_func convertline;    // Function tom modify raster data of a line
-} conversion_function_t;
+} pclm_conversion_function_t;
 
 
 static int
@@ -164,7 +164,8 @@ parse_opts(cf_filter_data_t *data,
                            !strncasecmp(val, "bi-level", 8))
     pclmtoraster_data->bi_level = 1;
 
-  strncpy(pclmtoraster_data->pageSizeRequested, header->cupsPageSizeName, 64);
+  strncpy(pclmtoraster_data->pageSizeRequested, header->cupsPageSizeName, 63);
+  pclmtoraster_data->pageSizeRequested[63] = '\0';
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		"cfFilterPCLmToRaster: Page size requested: %s.",
 	       header->cupsPageSizeName);
@@ -687,7 +688,7 @@ select_convert_func(int			pgno,	 // I - Page number
 						 //     function
 		    pclmtoraster_data_t	*data,	 // I - pclmtoraster filter
 						 //     data
-		    conversion_function_t *convert)// I - Conversion function
+		    pclm_conversion_function_t *convert)// I - Conversion function
 {
   // Set rowsize and numcolors based on colorspace of raster data
   cups_page_header2_t header = data->header;
@@ -791,7 +792,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
 	 void*		 ld,		// I - Aux. data for log function
 	 pclmtoraster_data_t *data,	// I - pclmtoraster filter data
 	 cf_filter_data_t *filter_data,	// I - filter data
-	 conversion_function_t *convert)// I - Conversion functions
+	 pclm_conversion_function_t *convert)// I - Conversion functions
 {
   int                   i;
   long long		rotate = 0,
@@ -1076,7 +1077,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
   QPDF			*pdf = new QPDF();
   cups_raster_t		*raster;
   pclmtoraster_data_t	pclmtoraster_data;
-  conversion_function_t convert;
+  pclm_conversion_function_t convert;
   cf_logfunc_t		log = data->logfunc;
   void			*ld = data->logdata;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;

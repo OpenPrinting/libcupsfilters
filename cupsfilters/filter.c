@@ -959,7 +959,7 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
                 *msg,                // Filter log message
                 *filter_name;        // Filter name for logging
   char          filter_path[1024];   // Full path of the filter
-  char          **argv,		     // Command line args for filter
+  char          **argv = NULL,		     // Command line args for filter
                 **envp = NULL;       // Environment variables for filter
   int           num_all_options = 0;
   cups_option_t *all_options = NULL;
@@ -1216,6 +1216,12 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterExternal (%s): Could not create pipe for stderr: %s",
 		 filter_name, strerror(errno));
+
+    if (argv[0])
+      free(argv[0]);
+    if (argv)
+      free(argv);
+
     return (1);
   }
 

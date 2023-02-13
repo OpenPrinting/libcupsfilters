@@ -235,7 +235,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   int			plane,		// Current color plane
 			num_planes;	// Number of color planes
   char			tempfile[1024];	// Name of temporary file
-  FILE                  *fp;		// Input file
+  FILE                  *fp = NULL;		// Input file
   int                   fd;		// File descriptor for temp file
   char                  buf[BUFSIZ];
   int                   bytes;
@@ -705,11 +705,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     case CUPS_CSPACE_DEVICED :
     case CUPS_CSPACE_DEVICEE :
     case CUPS_CSPACE_DEVICEF :
-        if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		     "cfFilterImageToRaster: Colorspace %d not supported.",
-		     header.cupsColorSpace);
+	if (log)
+	  log(ld, CF_LOGLEVEL_DEBUG, "cfFilterImageToRaster: Colorspace %d not supported.",
+	      header.cupsColorSpace);
 	if (!inputseekable)
 	  unlink(tempfile);
+	if (fp)
+	  fclose(fp);
 	return(1);
 	break;
   }
@@ -1645,7 +1647,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 
 	  xtemp = header.HWResolution[0] * xprint;
 	  ytemp = header.HWResolution[1] * yprint;
-        }
+	}
 
         cupsRasterWriteHeader2(ras, &header);
 
@@ -1655,10 +1657,10 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Initialize the image "zoom" engine...
 	  //
 
-          if (doc.Flip)
+	  if (doc.Flip)
 	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, -xtemp, ytemp,
 	                          doc.Orientation & 1, zoom_type);
-          else
+	  else
 	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, xtemp, ytemp,
 	                          doc.Orientation & 1, zoom_type);
 
@@ -1666,7 +1668,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Write leading blank space as needed...
 	  //
 
-          if (header.cupsHeight > z->ysize && doc.YPosition <= 0)
+	  if (header.cupsHeight > z->ysize && doc.YPosition <= 0)
 	  {
 	    blank_line(&header, row);
 
@@ -1683,8 +1685,9 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	      if (cupsRasterWritePixels(ras, row, header.cupsBytesPerLine) <
 	              header.cupsBytesPerLine)
 	      {
-		if (log) log(ld, CF_LOGLEVEL_ERROR,
-			     "cfFilterImageToRaster: Unable to send raster data.");
+		if (log)
+		  log(ld, CF_LOGLEVEL_ERROR, "cfFilterImageToRaster: Unable to send raster data.");
+		_cfImageZoomDelete(z);
 		cfImageClose(img);
 		return (1);
 	      }
@@ -1785,6 +1788,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	      if (log) log(ld, CF_LOGLEVEL_DEBUG,
 			   "cfFilterImageToRaster: Unable to send raster data.");
 	      cfImageClose(img);
+	      _cfImageZoomDelete(z);
 	      return (1);
 	    }
 
@@ -1827,6 +1831,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		if (log) log(ld, CF_LOGLEVEL_ERROR,
 			     "cfFilterImageToRaster: Unable to send raster data.");
 		cfImageClose(img);
+		_cfImageZoomDelete(z);
 		return (1);
 	      }
             }

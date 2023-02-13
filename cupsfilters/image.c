@@ -365,7 +365,7 @@ cfImageOpenFP(
   // Allocate memory...
   //
 
-  img = calloc(sizeof(cf_image_t), 1);
+  img = calloc(1, sizeof(cf_image_t));
 
   if (img == NULL)
   {
@@ -409,7 +409,7 @@ cfImageOpenFP(
 
   if (status)
   {
-    free(img);
+    cfImageClose(img);
     return (NULL);
   }
   else
@@ -634,7 +634,7 @@ cfImageCrop(cf_image_t* img,
 	    int height)
 {
   int image_width = cfImageGetWidth(img);
-  cf_image_t* temp = calloc(sizeof(cf_image_t), 1);
+  cf_image_t* temp = calloc(1, sizeof(cf_image_t));
   cf_ib_t *pixels = (cf_ib_t*)malloc(img->xsize * cfImageGetDepth(img));
 
   temp->cachefile = -1;
@@ -748,12 +748,22 @@ get_tile(cf_image_t *img,		// I - Image
     xtiles = (img->xsize + CF_TILE_SIZE - 1) / CF_TILE_SIZE;
     ytiles = (img->ysize + CF_TILE_SIZE - 1) / CF_TILE_SIZE;
 
-    DEBUG_printf(("Creating tile array (%dx%d)\n", xtiles, ytiles));
-
-    if ((img->tiles = calloc(sizeof(cf_itile_t *), ytiles)) == NULL)
+   /*
+    * We check the image validity (f.e. whether xsize and ysize are
+    * greater than 0) during opening the file, but it happens several
+    * functions before and reader can miss it. Add the check for stressing
+    * out such cases are not accepted, which adds readability and fixes
+    * false positives of coverity programs.
+    */
+    if (xtiles <= 0 || ytiles <= 0)
       return (NULL);
 
-    if ((tile = calloc(xtiles * sizeof(cf_itile_t), ytiles)) == NULL)
+    DEBUG_printf(("Creating tile array (%dx%d)\n", xtiles, ytiles));
+
+    if ((img->tiles = calloc(ytiles, sizeof(cf_itile_t *))) == NULL)
+      return (NULL);
+
+    if ((tile = calloc(ytiles, xtiles * sizeof(cf_itile_t))) == NULL)
       return (NULL);
 
     for (tiley = 0; tiley < ytiles; tiley ++)
@@ -775,8 +785,8 @@ get_tile(cf_image_t *img,		// I - Image
   {
     if (img->num_ics < img->max_ics)
     {
-      if ((ic = calloc(sizeof(cf_ic_t) +
-                       bpp * CF_TILE_SIZE * CF_TILE_SIZE, 1)) == NULL)
+      if ((ic = calloc(1, sizeof(cf_ic_t) +
+                       bpp * CF_TILE_SIZE * CF_TILE_SIZE)) == NULL)
       {
         if (img->num_ics == 0)
 	  return (NULL);
@@ -940,6 +950,8 @@ _cfImageReadEXIF(cf_image_t *img,
   if (buf == NULL || bufSize <= 0 ||
       (ed = exif_data_new_from_data(buf, bufSize)) == NULL)
   {
+    if (buf)
+      free(buf);
     DEBUG_printf(("DEBUG: No EXIF data found"));
     return (2);
   }
@@ -954,6 +966,8 @@ _cfImageReadEXIF(cf_image_t *img,
 
   if (entryX == NULL || entryY == NULL)
   {
+    if (buf)
+      free(buf);
     DEBUG_printf(("DEBUG: No EXIF data found"));
     return (2);
   }

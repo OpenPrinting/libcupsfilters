@@ -133,13 +133,13 @@ typedef unsigned char *(*convert_line_func)(unsigned char *src,
 					    pdftoraster_doc_t* doc,
 					    convert_cspace_func convertCSpace);
 
-typedef struct conversion_function_s
+typedef struct pdf_conversion_function_s
 {
   convert_cspace_func convertCSpace; // Function for conversion of colorspaces
   convert_line_func convertLineOdd;  // Function tom modify raster data of a
                                      // line
   convert_line_func convertLineEven;
-} conversion_function_t;
+} pdf_conversion_function_t;
 
 
 static cmsCIExyY adobergb_wp()
@@ -1081,7 +1081,7 @@ convert_line_plane_swap(unsigned char *src,
 // Handle special cases which appear in the Gutenprint driver
 static bool
 select_special_case(pdftoraster_doc_t* doc,
-		    conversion_function_t* convert)
+		    pdf_conversion_function_t* convert)
 {
   int i;
 
@@ -1172,7 +1172,7 @@ get_cms_color_space_type(cmsColorSpaceSignature cs)
 static int
 select_convert_func(cups_raster_t *raster,
 		    pdftoraster_doc_t* doc,
-		    conversion_function_t *convert,
+		    pdf_conversion_function_t *convert,
 		    cf_logfunc_t log,
 		    void* ld)
 {
@@ -1401,7 +1401,7 @@ static void
 write_page_image(cups_raster_t *raster,
 		 pdftoraster_doc_t *doc,
 		 int pageNo,
-		 conversion_function_t* convert,
+		 pdf_conversion_function_t* convert,
 		 float overspray_factor,
 		 cf_filter_iscanceledfunc_t iscanceled,
 		 void *icd)
@@ -1459,6 +1459,8 @@ write_page_image(cups_raster_t *raster,
 					       doc->bytesPerLine * im.height());
 	  one_bit_pixel(graydata, onebitdata, im.width(), im.height(), doc);
 	  colordata = onebitdata;
+	  free(newdata);
+	  free(graydata);
 	  rowsize = doc->bytesPerLine;
 	}
 	else
@@ -1476,6 +1478,7 @@ write_page_image(cups_raster_t *raster,
 	  cfImageRGBToWhite(newdata, graydata, pixel_count);
 	  colordata = graydata;
 	  rowsize = doc->header.cupsWidth;
+	  free(newdata);
 	}
 
 	break;
@@ -1551,7 +1554,7 @@ out_page(pdftoraster_doc_t *doc,
 	 int pageNo,
 	 cf_filter_data_t *data,
 	 cups_raster_t *raster,
-	 conversion_function_t *convert,
+	 pdf_conversion_function_t *convert,
 	 cf_logfunc_t log,
 	 void* ld,
 	 cf_filter_iscanceledfunc_t iscanceled,
@@ -1911,7 +1914,7 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
 #ifdef HAVE_POPPLER
   int                        deviceCopies = 1;
   bool                       deviceCollate = false;
-  conversion_function_t      convert;
+  pdf_conversion_function_t      convert;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
   void                       *icd = data->iscanceleddata;
   int                        ret = 0;
@@ -2146,7 +2149,7 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
     ret = 1;
     goto out;
   }
-  memset(&convert, 0, sizeof(conversion_function_t));
+  memset(&convert, 0, sizeof(pdf_conversion_function_t));
   if (select_convert_func(raster, &doc, &convert, log, ld) == 1)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

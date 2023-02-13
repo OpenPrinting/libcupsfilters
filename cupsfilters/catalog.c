@@ -178,6 +178,8 @@ cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
   {
     // Check first for an exact match
     catalog = cfCatalogSearchDirLocale(dirname, preferredlocale);
+    if (catalog != NULL)
+      return (catalog);
 
     // Check for language match, with any region
     // Cover both cases, whether locale has region suffix or not
@@ -540,6 +542,8 @@ cfCatalogLoad(const char *location,
   int digit;
   int found_in_catalog = 0;
 
+  memset(tmpfile, 0, 1024);
+
   if (location == NULL || (strncasecmp(location, "http:", 5) &&
 			   strncasecmp(location, "https:", 6)))
   {
@@ -769,6 +773,7 @@ cfCatalogLoad(const char *location,
     free(opt_name);
   if (filename == tmpfile)
     unlink(filename);
-  if (found_in_catalog)
-    free((char *)filename);
+  else
+    if (found_in_catalog)
+      free((char *)filename);
 }
