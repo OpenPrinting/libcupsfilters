@@ -748,6 +748,16 @@ get_tile(cf_image_t *img,		// I - Image
     xtiles = (img->xsize + CF_TILE_SIZE - 1) / CF_TILE_SIZE;
     ytiles = (img->ysize + CF_TILE_SIZE - 1) / CF_TILE_SIZE;
 
+   /*
+    * We check the image validity (f.e. whether xsize and ysize are
+    * greater than 0) during opening the file, but it happens several
+    * functions before and reader can miss it. Add the check for stressing
+    * out such cases are not accepted, which adds readability and fixes
+    * false positives of coverity programs.
+    */
+    if (xtiles <= 0 || ytiles <= 0)
+      return (NULL);
+
     DEBUG_printf(("Creating tile array (%dx%d)\n", xtiles, ytiles));
 
     if ((img->tiles = calloc(ytiles, sizeof(cf_itile_t *))) == NULL)
