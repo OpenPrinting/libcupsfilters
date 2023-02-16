@@ -163,10 +163,10 @@ struct pdf_info // **** PDF ****
   std::vector<std::string>  pclm_source_resolution_supported;
   std::string               pclm_source_resolution_default;
   std::string               pclm_raster_back_side;
-  std::vector< PointerHolder<Buffer> > pclm_strip_data;
+  std::vector< std::shared_ptr<Buffer> > pclm_strip_data;
   std::string render_intent;
   cups_cspace_t color_space;
-  PointerHolder<Buffer> page_data;
+  std::shared_ptr<Buffer> page_data;
   double page_width,page_height;
   cf_filter_out_format_t outformat;
 };
@@ -519,7 +519,7 @@ embed_icc_profile(QPDF &pdf,
   std::map<std::string,QPDFObjectHandle> streamdict;
   std::string n_value = "";
   std::string alternate_cs = "";
-  PointerHolder<Buffer>ph;
+  std::shared_ptr<Buffer>ph;
 
 #ifdef USE_LCMS1
   size_t profile_size;
@@ -561,7 +561,8 @@ embed_icc_profile(QPDF &pdf,
   cmsSaveProfileToMem(doc->colorProfile, buff, &profile_size);
 
   // Write ICC profile buffer into PDF
-  ph = new Buffer(buff, profile_size);  
+  auto bf = new Buffer(buff, profile_size);
+  ph = std::shared_ptr<Buffer>(bf);  
   iccstream = QPDFObjectHandle::newStream(&pdf, ph);
   iccstream.replaceDict(QPDFObjectHandle::newDictionary(streamdict));
 
@@ -704,7 +705,7 @@ get_cal_gray_array(double wp[3],
 // O - std::vector of QPDFObjectHandle
 // I - QPDF object
 // I - number of strips per page
-// I - std::vector of PointerHolder<Buffer> containing data for each strip
+// I - std::vector of std::shared_ptr<Buffer> containing data for each strip
 // I - strip width
 // I - strip height
 // I - color space
@@ -715,7 +716,7 @@ get_cal_gray_array(double wp[3],
 static std::vector<QPDFObjectHandle>
 make_pclm_strips(QPDF &pdf,
 		 unsigned num_strips,
-		 std::vector< PointerHolder<Buffer> > &strip_data,
+		 std::vector< std::shared_ptr<Buffer> > &strip_data,
 		 std::vector<compression_method_t> &compression_methods,
 		 unsigned width, std::vector<unsigned>& strip_height,
 		 cups_cspace_t cs,
@@ -791,7 +792,7 @@ make_pclm_strips(QPDF &pdf,
       Pl_Flate pflate("pflate", &psink, Pl_Flate::a_deflate);
       pflate.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
       pflate.finish();
-      ret[i].replaceStreamData(PointerHolder<Buffer>(psink.getBuffer()),
+      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
 			       QPDFObjectHandle::newName("/FlateDecode"),
 			       QPDFObjectHandle::newNull());
     }
@@ -800,7 +801,7 @@ make_pclm_strips(QPDF &pdf,
       Pl_RunLength prle("prle", &psink, Pl_RunLength::a_encode);
       prle.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
       prle.finish();
-      ret[i].replaceStreamData(PointerHolder<Buffer>(psink.getBuffer()),
+      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
 			       QPDFObjectHandle::newName("/RunLengthDecode"),
 			       QPDFObjectHandle::newNull());
     }
@@ -810,7 +811,7 @@ make_pclm_strips(QPDF &pdf,
 		  color_space);
       pdct.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
       pdct.finish();
-      ret[i].replaceStreamData(PointerHolder<Buffer>(psink.getBuffer()),
+      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
 			       QPDFObjectHandle::newName("/DCTDecode"),
 			       QPDFObjectHandle::newNull());
     }
@@ -821,7 +822,7 @@ make_pclm_strips(QPDF &pdf,
 
 static QPDFObjectHandle
 make_image(QPDF &pdf,
-	   PointerHolder<Buffer> page_data,
+	   std::shared_ptr<Buffer> page_data,
 	   unsigned width,
 	   unsigned height,
 	   std::string render_intent,
@@ -986,7 +987,7 @@ make_image(QPDF &pdf,
   pflate.write(page_data->getBuffer(), page_data->getSize());
   pflate.finish();
 
-  ret.replaceStreamData(PointerHolder<Buffer>(psink.getBuffer()),
+  ret.replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
 			QPDFObjectHandle::newName("/FlateDecode"),
 			QPDFObjectHandle::newNull());
 #else
@@ -1005,7 +1006,7 @@ finish_page(struct pdf_info *info,
   if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
     // Finish previous PDF Page
-    if (!info->page_data.getPointer())
+    if (!info->page_data.get())
       return (0);
 
     QPDFObjectHandle image = make_image(info->pdf, info->page_data,
@@ -1030,7 +1031,7 @@ finish_page(struct pdf_info *info,
       return (0);
 
     for (size_t i = 0; i < info->pclm_strip_data.size(); i ++)
-      if (!info->pclm_strip_data[i].getPointer())
+      if (!info->pclm_strip_data[i].get())
 	return (0);
 
     std::vector<QPDFObjectHandle> strips =
@@ -1098,7 +1099,7 @@ finish_page(struct pdf_info *info,
 						    QPDFObjectHandle::newNull());
 
   // bookkeeping
-  info->page_data = PointerHolder<Buffer>();
+  info->page_data = std::shared_ptr<Buffer>();
   info->pclm_strip_data.clear();
 
   return (0);
@@ -1310,13 +1311,13 @@ add_pdf_page(struct pdf_info *info,
     }
     if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
       info->page_data =
-	PointerHolder<Buffer>(new Buffer(info->line_bytes * info->height));
+	std::shared_ptr<Buffer>(new Buffer(info->line_bytes * info->height));
     else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
     {
       // reserve space for PCLm strips
       for (size_t i = 0; i < info->pclm_num_strips; i ++)
 	info->pclm_strip_data[i] =
-	  PointerHolder<Buffer>(new Buffer(info->line_bytes *
+	  std::shared_ptr<Buffer>(new Buffer(info->line_bytes *
 					   info->pclm_strip_height[i]));
     }
 
