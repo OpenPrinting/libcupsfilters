@@ -169,7 +169,7 @@ cfPDFPrependStream(cf_pdf_t *pdf,      // I - Pointer to QPDF object
     return (1);
 
   // prepare the new stream which is to be prepended
-  PointerHolder<Buffer> stream_data = PointerHolder<Buffer>(new Buffer(len));
+  std::shared_ptr<Buffer> stream_data = std::shared_ptr<Buffer>(new Buffer(len));
   memcpy(stream_data->getBuffer(), buf, len);
   QPDFObjectHandle stream = QPDFObjectHandle::newStream(pdf, stream_data);
   stream = pdf->makeIndirectObject(stream);

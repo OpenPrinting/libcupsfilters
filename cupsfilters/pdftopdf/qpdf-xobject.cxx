@@ -159,7 +159,7 @@ _cfPDFToPDFMakeXObject(QPDF *pdf, QPDFObjectHandle page)
   std::vector<QPDFObjectHandle> contents = page.getPageContents();
                                                   // (will assertPageObject)
 
-  auto ph = PointerHolder<QPDFObjectHandle::StreamDataProvider>(new CombineFromContents_Provider(contents));
+  auto ph = std::shared_ptr<QPDFObjectHandle::StreamDataProvider>(new CombineFromContents_Provider(contents));
   ret.replaceStreamData(ph, filter, decode_parms);
 
   return (ret);

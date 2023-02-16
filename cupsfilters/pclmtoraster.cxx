@@ -939,7 +939,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
     image = iter.second;
     imgdict = image.getDict(); // XObject dictionary
 
-    PointerHolder<Buffer> actual_data = image.getStreamData(qpdf_dl_all);
+    std::shared_ptr<Buffer> actual_data = image.getStreamData(qpdf_dl_all);
     width = imgdict.getKey("/Width").getIntValue();
     height = imgdict.getKey("/Height").getIntValue();
     colorspace_obj = imgdict.getKey("/ColorSpace");
