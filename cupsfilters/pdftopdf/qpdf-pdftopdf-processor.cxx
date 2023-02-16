@@ -111,12 +111,12 @@ _cfPDFToPDFQPDFPageHandle::get() // {{{
     page.getKey("/Contents").replaceStreamData(content,
 					       QPDFObjectHandle::newNull(),
 					       QPDFObjectHandle::newNull());
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(rotation));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(rotation));
   }
   else
   {
     pdftopdf_rotation_e rot = _cfPDFToPDFGetRotate(page) + rotation;
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(rot));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(rot));
   }
   page = QPDFObjectHandle(); // i.e. uninitialized
   return (ret);
@@ -242,9 +242,9 @@ _cfPDFToPDFQPDFPageHandle::crop(const _cfPDFToPDFPageRect &cropRect,
   page.assertInitialized();
   pdftopdf_rotation_e save_rotate = _cfPDFToPDFGetRotate(page);
   if (orientation == ROT_0 || orientation == ROT_180)
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_90));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_90));
   else
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_0));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_0));
 
   _cfPDFToPDFPageRect currpage =
     _cfPDFToPDFGetBoxAsRect(_cfPDFToPDFGetTrimBox(page));
@@ -308,7 +308,7 @@ _cfPDFToPDFQPDFPageHandle::crop(const _cfPDFToPDFPageRect &cropRect,
   page.replaceKey("/TrimBox",
 		  _cfPDFToPDFMakeBox(currpage.left, currpage.bottom,
 				     currpage.right, currpage.top));
-  page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(save_rotate));
+  page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(save_rotate));
 
   return (_cfPDFToPDFGetRotate(page));
 }
@@ -319,15 +319,15 @@ _cfPDFToPDFQPDFPageHandle::is_landscape(pdftopdf_rotation_e orientation)
   page.assertInitialized();
   pdftopdf_rotation_e save_rotate = _cfPDFToPDFGetRotate(page);
   if (orientation == ROT_0 || orientation == ROT_180)
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_90));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_90));
   else
-    page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_0));
+    page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(ROT_0));
 
   _cfPDFToPDFPageRect currpage =
     _cfPDFToPDFGetBoxAsRect(_cfPDFToPDFGetTrimBox(page));
   double width = currpage.right - currpage.left;
   double height = currpage.top - currpage.bottom;
-  page.replaceOrRemoveKey("/Rotate", _cfPDFToPDFMakeRotate(save_rotate));
+  page.replaceKey("/Rotate", _cfPDFToPDFMakeRotate(save_rotate));
   if (width > height)
     return (true);
   return (false);
@@ -802,7 +802,7 @@ _cfPDFToPDFQPDFProcessor::auto_rotate_all(bool dst_lscape,
       //   if (src_rot == ROT_0) && (param.orientation == ROT_270) ... etc.
       // rotation = ROT_270;
 
-      page.replaceOrRemoveKey("/Rotate",
+      page.replaceKey("/Rotate",
 			      _cfPDFToPDFMakeRotate(src_rot + rotation));
     }
   }
