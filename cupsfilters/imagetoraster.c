@@ -1688,7 +1688,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		if (log)
 		  log(ld, CF_LOGLEVEL_ERROR, "cfFilterImageToRaster: Unable to send raster data.");
 		_cfImageZoomDelete(z);
-		cfImageClose(img);
+		      
 		return (1);
 	      }
             }
@@ -1787,8 +1787,8 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	    {
 	      if (log) log(ld, CF_LOGLEVEL_DEBUG,
 			   "cfFilterImageToRaster: Unable to send raster data.");
-	      cfImageClose(img);
 	      _cfImageZoomDelete(z);
+		    
 	      return (1);
 	    }
 
@@ -1830,8 +1830,8 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	      {
 		if (log) log(ld, CF_LOGLEVEL_ERROR,
 			     "cfFilterImageToRaster: Unable to send raster data.");
-		cfImageClose(img);
 		_cfImageZoomDelete(z);
+		      
 		return (1);
 	      }
             }
@@ -1852,9 +1852,8 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
  canceled:
   free(row);
   cupsRasterClose(ras);
-  cfImageClose(img);
   close(outputfd);
-
+	
   return (0);
 }
 
