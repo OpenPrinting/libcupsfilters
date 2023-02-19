@@ -42,7 +42,6 @@ _cfImageZoomDelete(cf_izoom_t *z)	// I - Zoom record to free
   free(z->rows[0]);
   free(z->rows[1]);
   free(z->in);
-  cfImageClose(z->img);
   free(z);
 }
 
