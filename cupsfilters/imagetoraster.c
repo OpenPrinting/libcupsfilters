@@ -1852,7 +1852,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
  canceled:
   free(row);
   cupsRasterClose(ras);
-  cfImageClose(img);
+  //cfImageClose(img); 
   close(outputfd);
 
   return (0);
