@@ -1,4 +1,4 @@
-INSTALL - OpenPrinting libcupsfilters v2.0b3 - 2023-01-31
+INSTALL - OpenPrinting libcupsfilters v2.0b4 - 2023-02-23
 ---------------------------------------------------------
 
 This file describes how to compile and install libcupsfilters from
@@ -21,25 +21,33 @@ BEFORE YOU BEGIN
       pdftoraster, pclmtoraster, pwgtopdf and pdftopdf written in C++)
     - make program
     - POSIX-compliant shell (/bin/sh)
-    - autoconf, autopoint, automake and libtool for ./autogen.sh to generate compilation scripts
+    - autoconf, autopoint, automake and libtool for ./autogen.sh to generate
+      compilation scripts
     - CUPS devel files of version 2.2.2 or higher
     - Poppler (with --enable-poppler-cpp options) devel files for pdftoraster
     - fontconfig devel files for texttopdf
-    - liblcms (liblcms2 recommended) devel files for color management in functions which use
-      rasters (pdftoraster, pwgtoraster, pwgtopdf)
-    - QPDF devel files for PDF related functions (pwgtopdf, pdftopdf, bannertopdf) and pclmtoraster
+    - liblcms (liblcms2 recommended) devel files for color management in
+      functions which use rasters (pdftoraster, pwgtoraster, pwgtopdf)
+    - QPDF (11.0 or higher) devel files for PDF related functions (pwgtopdf,
+      pdftopdf, bannertopdf) and pclmtoraster
 
-    Then at least one of the following binaries is required for supporting non-PDF printers:
-    - Ghostscript 10.0.0 or higher built with support for output devices - "pdfwrite", "ps2write", "cups",
-      "pwgraster", "appleraster", "pclm", "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
+    Then at least one of the following binaries is required for supporting
+    non-PDF printers:
+
+    - Ghostscript 10.0.0 or higher built with support for output devices -
+      "pdfwrite", "ps2write", "cups", "pwgraster", "appleraster", "pclm",
+      "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
 
     or
 
     - MuPDF at version 1.15 to prevent bugs
 
-    Libcupsfilters provides an additional features, which are optional for the compilation,
-    but the library misses several file format support/feature support without them:
-    - libdbus devel files for dBUS communication with colord for color profiles support
+    Libcupsfilters provides an additional features, which are optional
+    for the compilation, but the library misses several file format
+    support/feature support without them:
+
+    - libdbus devel files for dBUS communication with colord for color
+      profiles support
     - libjpeg devel files for JPEG file support
     - libpng devel files for PNG file support
     - libtiff devel files for TIFF file support
@@ -131,10 +139,11 @@ INSTALLING THE SOFTWARE
 
 RUNTIME DEPENDENCIES
 
-    There are several packages which are required to be installed and working to get full capabalities
-    of software using cupsfilters:
+    There are several packages which are required to be installed and
+    working to get full capabalities of software using cupsfilters:
 
-    - in case libcupsfilters is built dBUS support, a dBUS provider (dbus-broker/dbus-daemon) and colord
+    - in case libcupsfilters is built dBUS support, a dBUS provider
+      (dbus-broker/dbus-daemon) and colord
       have to be installed and running to get color profile support
     - Ghostscript or MuPDF or both (based on your configuration)
     - a monospace font (f.e. liberation-mono-fonts) for texttopdf

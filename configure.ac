@@ -5,7 +5,7 @@ AC_PREREQ([2.65])
 # ====================
 # Version informations
 # ====================
-AC_INIT([libcupsfilters], [2.0b3], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
+AC_INIT([libcupsfilters], [2.0b4], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
 libcupsfilters_version="AC_PACKAGE_VERSION"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{print $1}'`"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{printf("%d\n",$2);}'`"
@@ -241,7 +241,7 @@ AS_IF([test x"$lcms2" = "xno"], [
 	AC_DEFINE([USE_LCMS1], [1], [Defines if use lcms1])
 ])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
-PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 10.3.2])
+PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
 
 # =================
 # Check for Poppler

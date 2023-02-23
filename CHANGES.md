@@ -1,4 +1,35 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0b3 - 2023-01-31
+# CHANGES - OpenPrinting libcupsfilters v2.0b4 - 2023-02-23
+
+## CHANGES IN V2.0b4 (23rd February 2023)
+
+- Do not free `cf_image_t` data structure in `_cfImageZoomDelete()`
+  (cups-filters issue #507)
+  The library-internal `_cfImageZoom...()` API does not create the
+  `cf_image_t` data structure, so it should not free it, to avoid
+  double-free crashes. This made the `cfFilterImageToRaster()` filter
+  function (`imagetoraster` CUPS filter) crash.
+
+- `cfImageOpenFP()`: Removed leftover `HAVE_LIBZ` conditionals
+  In the 3rd beta we have removed the dependency on libz from the
+  build system as there is no explicit dependency on it in
+  libcupsfilters. Having forgotten to remove `HAVE_LIBZ` from the
+  conditionals in `cfImageOpenFP()` PNG images were rendered as blank
+  pages. See cups-filters issue #465.
+
+- Compatibility with QPDF 11 and later
+  * Replaced deprecated `PointerHolder` with `shared_ptr` (PR #13)
+  * `cfFilterPDFToPDF()`: Replaced deprecated QPDF function name
+    `replaceOrRemoveKey` by `replaceKey`.
+  * Set `CXXFLAGS="-DPOINTERHOLDER_TRANSITION=0"` to silence QPDF warnings.
+
+- Coverity check done by Zdenek Dohnal for the inclusion of libppd in
+  Fedora and Red Hat. Zdenek has fixed all the issues: Missing `free()`,
+  files not closed, potential string overflows, ... Thanks a lot!
+
+- `configure.ac`: Change deprecated `AC_PROG_LIBTOOL` for `LT_INIT` (PR #12)
+
+- `INSTALL`: Explain dependencies (PR #10)
+
 
 ## CHANGES IN V2.0b3 (31st January 2023)
 
