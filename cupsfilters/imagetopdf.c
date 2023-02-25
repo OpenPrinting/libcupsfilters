@@ -963,6 +963,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     }
     if (tempOrientation == 4 || tempOrientation == 5)
     {
+      doc.Orientation=1;
       int tmp = pw;
       pw = ph;
       ph = tmp;
@@ -1059,6 +1060,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     {
       if (tempOrientation == 4 || tempOrientation == 5)
       {
+	doc.Orientation=1;
         float temp = pw;
         pw = ph;
         ph = temp;
