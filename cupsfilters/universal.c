@@ -59,7 +59,8 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   final_output = data->final_content_type;
   if (final_output == NULL)
   {
-    final_output = universal_parameters->actual_output_type;
+    final_output = (universal_parameters ?
+		    universal_parameters->actual_output_type : NULL);
     if (final_output == NULL)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -68,7 +69,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     }
   }
 
-  if (universal_parameters->actual_output_type)
+  if (universal_parameters && universal_parameters->actual_output_type)
     strncpy(output, universal_parameters->actual_output_type,
 	    sizeof(output) - 1);
   else
@@ -168,10 +169,14 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     if (!strcasecmp(input_super, "text") ||
 	(!strcasecmp(input_super, "application") && input_type[0] == 'x'))
     {
+      cf_filter_texttopdf_parameter_t* tparameters = NULL;
       filter = malloc(sizeof(cf_filter_filter_in_chain_t));
-      cf_filter_texttopdf_parameter_t* tparameters =
-	(cf_filter_texttopdf_parameter_t *) malloc(sizeof(cf_filter_texttopdf_parameter_t));
-      *tparameters = universal_parameters->texttopdf_params;
+      if (universal_parameters)
+      {
+	tparameters =
+	  (cf_filter_texttopdf_parameter_t *)malloc(sizeof(cf_filter_texttopdf_parameter_t));
+	*tparameters = universal_parameters->texttopdf_params;
+      }
       filter->function = cfFilterTextToPDF;
       filter->parameters = tparameters;
       filter->name = "texttopdf";
@@ -222,7 +227,9 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
       filter = malloc(sizeof(cf_filter_filter_in_chain_t));
       filter->function = cfFilterBannerToPDF;
       filter->parameters =
-	strdup(universal_parameters->bannertopdf_template_dir);
+	(universal_parameters &&
+	 universal_parameters->bannertopdf_template_dir ?
+	 strdup(universal_parameters->bannertopdf_template_dir) : NULL);
       filter->name = "bannertopdf";
       cupsArrayAdd(filter_chain, filter);
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
