@@ -31,7 +31,6 @@ extern "C" {
 #endif // WIN32 || __EMX__
 
 #include <cups/cups.h>
-#include <cups/backend.h>
 #include <cups/raster.h>
 
 #define CF_GET_PRINTER_ATTRIBUTES_LOGSIZE 4 * 65536

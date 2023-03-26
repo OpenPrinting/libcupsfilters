@@ -17,8 +17,6 @@
 //
 
 #  include <cups/cups.h>
-#  include <cups/backend.h>
-#  include <cups/sidechannel.h>
 #  include <string.h>
 #  include <stdlib.h>
 #  include <errno.h>

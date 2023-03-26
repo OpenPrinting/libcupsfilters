@@ -20,7 +20,6 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <cups/cups.h>
-#include <cups/backend.h>
 #include <cups/dir.h>
 #include <cups/pwg.h>
 #include <cupsfilters/catalog.h>
