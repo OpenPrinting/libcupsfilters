@@ -489,7 +489,7 @@ typedef struct texttopdf_doc_s
   float		FontScaleX, FontScaleY; // The font matrix
   lchar_t	*Title, *Date;	// The title and date strings
 
-  cups_page_header2_t h;        // CUPS Raster page header, to
+  cups_page_header_t h;        // CUPS Raster page header, to
                                 // accommodate results of command
                                 // line/IPP attribute parsing
   cf_filter_texttopdf_parameter_t env_vars;

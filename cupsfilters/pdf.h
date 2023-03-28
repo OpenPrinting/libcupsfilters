@@ -9,6 +9,7 @@
 #ifndef _CUPS_FILTERS_PDF_H_
 #define _CUPS_FILTERS_PDF_H_
 
+#include <cupsfilters/libcups2.h>
 #include <stdio.h>
 
 #ifdef __cplusplus

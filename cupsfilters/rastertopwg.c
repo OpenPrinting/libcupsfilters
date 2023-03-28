@@ -35,7 +35,7 @@ cfFilterRasterToPWG(int inputfd,         // I - File descriptor input stream
 {
   cups_raster_t		*inras;		// Input raster stream
   cups_raster_t         *outras;	// Output raster stream
-  cups_page_header2_t	inheader,	// Input raster page header
+  cups_page_header_t	inheader,	// Input raster page header
 			outheader;	// Output raster page header
   unsigned		y;		// Current line
   unsigned char		*line;		// Line buffer
@@ -97,7 +97,7 @@ cfFilterRasterToPWG(int inputfd,         // I - File descriptor input stream
 
   inras  = cupsRasterOpen(inputfd, CUPS_RASTER_READ);
 
-  while (cupsRasterReadHeader2(inras, &inheader))
+  while (cupsRasterReadHeader(inras, &inheader))
   {
     if (iscanceled && iscanceled(icd))
     {
@@ -514,7 +514,7 @@ cfFilterRasterToPWG(int inputfd,         // I - File descriptor input stream
 					// ImageBoxBottom
     }
 
-    if (!cupsRasterWriteHeader2(outras, &outheader))
+    if (!cupsRasterWriteHeader(outras, &outheader))
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterRasterToPWG: Error sending raster data.");

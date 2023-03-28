@@ -1781,7 +1781,7 @@ out_page(pdftoraster_doc_t *doc,
 	       pageNo, doc->header.cupsWidth, doc->header.cupsHeight,
 	       doc->bitmapoffset[0], doc->bitmapoffset[1]);
 
-  if (!cupsRasterWriteHeader2(raster, &(doc->header)))
+  if (!cupsRasterWriteHeader(raster, &(doc->header)))
   {
     if (log) log(ld,CF_LOGLEVEL_ERROR,
 		 "cfFilterPDFToRaster: Cannot write page %d header", pageNo);

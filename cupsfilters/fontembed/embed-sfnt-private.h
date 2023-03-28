@@ -8,6 +8,7 @@
 #ifndef _FONTEMBED_EMBED_SFNT_INT_H_
 #define _FONTEMBED_EMBED_SFNT_INT_H_
 
+#include <cupsfilters/libcups2.h>
 #include <cupsfilters/fontembed-private.h>
 
 

@@ -88,6 +88,7 @@ pkgfiltersinclude_DATA = \
 	cupsfilters/log.h \
 	cupsfilters/pdf.h \
 	cupsfilters/raster.h
+	cupsfilters/libcups2.h
 
 lib_LTLIBRARIES = libcupsfilters.la
 

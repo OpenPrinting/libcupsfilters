@@ -8,7 +8,7 @@
 #ifndef _FONTEMBED_SFNT_INT_H_
 #define _FONTEMBED_SFNT_INT_H_
 
-
+#include <cupsfilters/libcups2.h>
 //
 // Types and structures...
 //

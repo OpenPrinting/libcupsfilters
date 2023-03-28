@@ -12,7 +12,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include <stdlib.h>
 #include <stdio.h>
 

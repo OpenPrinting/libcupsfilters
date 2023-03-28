@@ -20,7 +20,7 @@ extern "C" {
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #  include <stdio.h>
 #  include <stdlib.h>
 #  include <time.h>

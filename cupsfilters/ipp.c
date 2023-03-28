@@ -305,7 +305,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
   {
     have_http = 0;
     if ((http_printer =
-	 httpConnect2 (host_name, host_port, NULL, AF_UNSPEC, 
+	 httpConnect (host_name, host_port, NULL, AF_UNSPEC, 
 		       encryption, 1, 3000, NULL)) == NULL)
     {
       log_printf(cf_get_printer_attributes_log,
@@ -367,7 +367,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
       if (debug)
 	log_printf(cf_get_printer_attributes_log,
 		   "Full list of all IPP attributes:\n");
-      attr = ippFirstAttribute(response);
+      attr = ippGetFirstAttribute(response);
       while (attr)
       {
 	total_attrs ++;
@@ -382,7 +382,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 	    if ((kw = ippGetString(attr, i, NULL)) != NULL)
 	      log_printf(cf_get_printer_attributes_log, "  Keyword: %s\n", kw);
 	}
-	attr = ippNextAttribute(response);
+	attr = ippGetNextAttribute(response);
       }
 
       // Check whether the IPP response contains the required attributes
@@ -1273,8 +1273,8 @@ cfJoinJobOptionsAndAttrs(cf_filter_data_t* data,  // I  - Filter data
   for (i = 0, opt = data->options; i < data->num_options; i ++, opt ++)
     num_options = cupsAddOption(opt->name, opt->value, num_options, options);
 
-  for (ipp_attr = ippFirstAttribute(job_attrs); ipp_attr;
-       ipp_attr = ippNextAttribute(job_attrs))
+  for (ipp_attr = ippGetFirstAttribute(job_attrs); ipp_attr;
+       ipp_attr = ippGetNextAttribute(job_attrs))
   {
     ippAttributeString(ipp_attr, buf, sizeof(buf));
     num_options = cupsAddOption(ippGetName(ipp_attr), buf,
@@ -1453,7 +1453,7 @@ cfFreeResolution(void *resolution,
 cups_array_t *
 cfNewResolutionArray()
 {
-  return (cupsArrayNew3(cfCompareResolutions, NULL, NULL, 0,
+  return (cupsArrayNew(cfCompareResolutions, NULL, NULL, 0,
 			cfCopyResolution, cfFreeResolution));
 }
 
@@ -1529,7 +1529,7 @@ cfIPPAttrToResolutionArray(ipp_attribute_t *attr)
 	    cfFreeResolution(res, NULL);
 	  }
       }
-      if (cupsArrayCount(res_array) == 0)
+      if (cupsArrayGetCount(res_array) == 0)
       {
 	cupsArrayDelete(res_array);
 	res_array = NULL;
@@ -1566,7 +1566,7 @@ cfJoinResolutionArrays(cups_array_t **current,
   int retval;
 
   if (current == NULL || new_arr == NULL || *new_arr == NULL ||
-      cupsArrayCount(*new_arr) == 0)
+      cupsArrayGetCount(*new_arr) == 0)
   {
     retval = 0;
     goto finish;
@@ -1585,7 +1585,7 @@ cfJoinResolutionArrays(cups_array_t **current,
     }
     return 1;
   }
-  else if (cupsArrayCount(*current) == 0)
+  else if (cupsArrayGetCount(*current) == 0)
   {
     retval = 1;
     goto finish;
@@ -1593,8 +1593,8 @@ cfJoinResolutionArrays(cups_array_t **current,
 
   // Dry run: Check whether the two arrays have at least one resolution
   // in common, if not, do not touch the original array
-  for (res = cupsArrayFirst(*current);
-       res; res = cupsArrayNext(*current))
+  for (res = cupsArrayGetFirst(*current);
+       res; res = cupsArrayGetNext(*current))
     if (cupsArrayFind(*new_arr, res))
       break;
 
@@ -1603,8 +1603,8 @@ cfJoinResolutionArrays(cups_array_t **current,
     // Reduce the original array to the resolutions which are in both
     // the original and the new array, at least one resolution will
     // remain.
-    for (res = cupsArrayFirst(*current);
-	 res; res = cupsArrayNext(*current))
+    for (res = cupsArrayGetFirst(*current);
+	 res; res = cupsArrayGetNext(*current))
       if (!cupsArrayFind(*new_arr, res))
 	cupsArrayRemove(*current, res);
     if (current_default)
@@ -1681,7 +1681,7 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 	            ipp_t *job_attrs,	    // I - Job attributes
 	            int num_options,        // I - Number of options
 	            cups_option_t *options, // I - Options
-		    cups_page_header2_t *header, // I - Raster page header
+		    cups_page_header_t *header, // I - Raster page header
 		    int transverse_fit,     // I - Accept transverse fit?
 	            float *width,	    // O - Width (in pt, 1/72 inches)
 		    float *height,          // O - Height
@@ -2437,9 +2437,9 @@ cfGenerateSizes(ipp_t *response,
     return;
 
   if (sizes)
-    *sizes = cupsArrayNew3((cups_array_func_t)pwg_compare_sizes, NULL, NULL, 0,
-			   (cups_acopy_func_t)pwg_copy_size,
-			   (cups_afree_func_t)free);
+    *sizes = cupsArrayNew((cups_array_cb_t)pwg_compare_sizes, NULL, NULL, 0,
+			   (cups_acopy_cb_t)pwg_copy_size,
+			   (cups_afree_cb_t)free);
 
   // Go through all attributes which are lists of media-col structures
   for (j = 0; j < sizeof(col_attrs) / sizeof(col_attrs[0]); j ++)

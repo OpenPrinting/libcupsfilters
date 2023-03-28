@@ -10,9 +10,12 @@
 #ifndef _CUPS_FILTERS_LOG_H_
 #  define _CUPS_FILTERS_LOG_H_
 
+#include <cupsfilters/libcups2.h>
+
 #  ifdef __cplusplus
 extern "C" {
 #  endif // __cplusplus
+
 
 
 //

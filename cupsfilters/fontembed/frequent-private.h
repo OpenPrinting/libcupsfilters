@@ -8,6 +8,7 @@
 #ifndef _FONTEMBED_FREQUENT_H_
 #define _FONTEMBED_FREQUENT_H_
 
+#include <cupsfilters/libcups2.h>
 #include <stdint.h>
 
 typedef struct __cf_fontembed_frequent_s __cf_fontembed_frequent_t;

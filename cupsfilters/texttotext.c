@@ -1121,14 +1121,14 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 	   (reverse_order ? (page >= 1) : (page <= num_pages));
 	   page += (reverse_order ? -1 : 1))
       {
-	p = (char *)cupsArrayIndex(page_array, page - 1);
+	p = (char *)cupsArrayGetElement(page_array, page - 1);
 	if (log) log(ld, CF_LOGLEVEL_INFO,
 		     "cfFilterTextToText: %d %d", page, (collate ? 1 : num_copies));
       }
     // Clean up
     for (page = 0; page < num_pages; page ++)
     {
-      p = (char *)cupsArrayIndex(page_array, page);
+      p = (char *)cupsArrayGetElement(page_array, page);
       free(p);
     }
     cupsArrayDelete(page_array);

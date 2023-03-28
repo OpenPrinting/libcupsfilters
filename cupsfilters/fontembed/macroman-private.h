@@ -9,6 +9,8 @@
 #ifndef _FONTEMBED_MACROMAN_PRIVATE_H_
 #define _FONTEMBED_MACROMAN_PRIVATE_H_
 
+#include <cupsfilters/libcups2.h>
+
 #ifdef WITH_MACROMAN
 static const char *__cf_fontembed_mac_roman[] =
 {

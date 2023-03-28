@@ -8,6 +8,7 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_PDFTOPDF_H
 #define _CUPS_FILTERS_PDFTOPDF_PDFTOPDF_H
 
+#include <cupsfilters/libcups2.h>
 #include <cupsfilters/filter.h>
 
 typedef struct                               // **** Document information ****

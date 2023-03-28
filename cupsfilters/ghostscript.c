@@ -42,7 +42,7 @@ typedef enum gs_doc_e
 } gs_doc_t;
 
 #ifdef CUPS_RASTER_SYNCv1
-typedef cups_page_header2_t gs_page_header;
+typedef cups_page_header_t gs_page_header;
 #else
 typedef cups_page_header_t gs_page_header;
 #endif // CUPS_RASTER_SYNCv1
@@ -459,10 +459,10 @@ gs_spawn (const char *filename,
 
   // Put Ghostscript command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(gs_args);
+  numargs = cupsArrayGetCount(gs_args);
   gsargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(gs_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(gs_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(gs_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(gs_args), i++)
     gsargv[i] = argument;
   gsargv[i] = NULL;
 
@@ -1685,7 +1685,7 @@ out:
     unlink(filename);
   if (gs_args)
   {
-    while ((tmp = cupsArrayFirst(gs_args)) != NULL)
+    while ((tmp = cupsArrayGetFirst(gs_args)) != NULL)
     {
       cupsArrayRemove(gs_args, tmp);
       free(tmp);

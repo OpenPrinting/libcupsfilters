@@ -141,6 +141,11 @@ else
 fi
 
 # ========================
+#Check for Package Headers
+# ========================
+AC_CHECK_HEADERS([cupsfilter/libcups2.h].AC_DEFINE(HAVE_LIBCUPS2))
+
+# ========================
 # Check for system headers
 # ========================
 AC_CHECK_HEADERS([stdlib.h])
@@ -242,6 +247,10 @@ AS_IF([test x"$lcms2" = "xno"], [
 ])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
+PKG_CHECK_MODULE([LIBCUPS], [cups < 3.0.0], [cups=yes], [cups=no])
+AS_IF([test x"$cups"="xyes"], [
+        AC_DEFINE([HAVE_LIBCUPS2],[2], [Defines if use libcups2])
+)
 
 # =================
 # Check for Poppler

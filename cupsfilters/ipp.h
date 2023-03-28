@@ -15,7 +15,7 @@ extern "C" {
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include "filter.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -164,7 +164,7 @@ int             cfGetPageDimensions(ipp_t *printer_attrs,
 				    ipp_t *job_attrs,
 				    int num_options,
 				    cups_option_t *options,
-				    cups_page_header2_t *header,
+				    cups_page_header_t *header,
 				    int transverse_fit,
 				    float *width,
 				    float *height,

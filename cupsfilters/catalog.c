@@ -52,7 +52,7 @@ cfGetURI(const char *url,		// I  - URL to get
   else
     encryption = HTTP_ENCRYPTION_IF_REQUESTED;
 
-  http = httpConnect2(host, port, NULL, AF_UNSPEC, encryption, 1, 5000, NULL);
+  http = httpConnect(host, port, NULL, AF_UNSPEC, encryption, 1, 5000, NULL);
 
   if (!http)
     return (0);
@@ -366,7 +366,7 @@ cfCatalogFreeOptionStrings(void* entry,
 cups_array_t *
 cfCatalogOptionArrayNew()
 {
-  return (cupsArrayNew3(compare_options, NULL, NULL, 0,
+  return (cupsArrayNew(compare_options, NULL, NULL, 0,
 			NULL, cfCatalogFreeOptionStrings));
 }
 
@@ -415,7 +415,7 @@ cfCatalogAddOption(char *name,
     if (!opt)
       return (NULL);
     opt->human_readable = NULL;
-    opt->choices = cupsArrayNew3(compare_choices, NULL, NULL, 0,
+    opt->choices = cupsArrayNew(compare_choices, NULL, NULL, 0,
 				 NULL, cfCatalogFreeChoiceStrings);
     if (!opt->choices)
     {

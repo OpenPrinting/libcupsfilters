@@ -16,7 +16,7 @@
 extern "C" {
 #  endif // __cplusplus
 
-
+#include <cupsfilters/libcups2.h>
 #include <cups/raster.h>
 #include <cupsfilters/filter.h>
 

@@ -18,7 +18,7 @@ extern "C" {
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include <time.h>
 #include <cupsfilters/fontembed-private.h>
 

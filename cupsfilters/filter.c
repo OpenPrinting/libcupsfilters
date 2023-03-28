@@ -128,9 +128,9 @@ get_filter_data_ext_entry(cups_array_t *ext_array,
   if (!ext_array || !name)
     return (NULL);
 
-  for (entry = (cf_filter_data_ext_t *)cupsArrayFirst(ext_array);
+  for (entry = (cf_filter_data_ext_t *)cupsArrayGetFirst(ext_array);
        entry;
-       entry = (cf_filter_data_ext_t *)cupsArrayNext(ext_array))
+       entry = (cf_filter_data_ext_t *)cupsArrayGetNext(ext_array))
     if (strcmp(entry->name, name) == 0)
       break;
 
@@ -214,7 +214,7 @@ cfFilterDataRemoveExt(cf_filter_data_t *data,
     cupsArrayRemove(data->extension, entry);
     free(entry->name);
     free(entry);
-    if (cupsArrayCount(data->extension) == 0)
+    if (cupsArrayGetCount(data->extension) == 0)
     {
       cupsArrayDelete(data->extension);
       data->extension = NULL;
@@ -649,9 +649,9 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Remove NULL filters...
   //
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter;
-       filter = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain))
+       filter = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain))
   {
     if (!filter->function)
     {
@@ -670,7 +670,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Empty filter chain -> Pass through the data unchanged
   //
 
-  if (cupsArrayCount(filter_chain) == 0)
+  if (cupsArrayGetCount(filter_chain) == 0)
   {
     if (log) log(ld, CF_LOGLEVEL_INFO,
 		 "cfFilterChain: No filter at all in chain, passing through the data.");
@@ -698,18 +698,18 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Execute all of the filters...
   //
 
-  pids            = cupsArrayNew((cups_array_func_t)compare_filter_pids, NULL);
+  pids            = cupsArrayNew((cups_array_cb_t)compare_filter_pids, NULL);
   current         = 0;
   filterfds[0][0] = inputfd;
   filterfds[0][1] = -1;
   filterfds[1][0] = -1;
   filterfds[1][1] = -1;
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter;
        filter = next, current = 1 - current)
   {
-    next = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain);
+    next = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain);
 
     if (filterfds[1 - current][0] > 1)
     {
@@ -816,7 +816,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 
   retval = 0;
 
-  while (cupsArrayCount(pids) > 0)
+  while (cupsArrayGetCount(pids) > 0)
   {
     if ((pid = wait(&status)) < 0)
     {
@@ -824,9 +824,9 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
       {
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterChain: Job canceled, killing filters ...");
-	for (pid_entry = (filter_function_pid_t *)cupsArrayFirst(pids);
+	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
 	     pid_entry;
-	     pid_entry = (filter_function_pid_t *)cupsArrayNext(pids))
+	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
 	{
 	  kill(pid_entry->pid, SIGTERM);
 	  free(pid_entry);

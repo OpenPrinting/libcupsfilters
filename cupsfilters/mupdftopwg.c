@@ -34,7 +34,7 @@
 #define CUPS_OPTEMPFILE "/tmp/op-XXXXXX"
 
 #ifdef CUPS_RASTER_SYNCv1
-typedef cups_page_header2_t mupdf_page_header;
+typedef cups_page_header_t mupdf_page_header;
 #else
 typedef cups_page_header_t mupdf_page_header;
 #endif // CUPS_RASTER_SYNCv1
@@ -189,10 +189,10 @@ mutool_spawn(const char *filename,
 
   // Put mutool command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(mutool_args);
+  numargs = cupsArrayGetCount(mutool_args);
   mutoolargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(mutool_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(mutool_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(mutool_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(mutool_args), i++)
     mutoolargv[i] = argument;
   mutoolargv[i] = NULL;
 
