@@ -67,6 +67,12 @@ AM_GNU_GETTEXT([external])
 # ================================
 # Find CUPS internals (no pc file)
 # ================================
+
+PKG_CHECK_MODULES([LIBCUPS3], [cups3 > 3.0.0], [],
+   [PKG_CHECK_MODULES([LIBCUPS2], [cups < 3.0.0],
+       [AC_DEFINE([HAVE_LIBCUPS2], [1], [Use libcups2]
+       [])])])
+
 AC_ARG_WITH([cups-config],
 	[AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
 	[with_cups_config="$withval"],
@@ -81,6 +87,7 @@ AS_IF([test "x$with_cups_config" != "xsystem"], [
 		AC_MSG_ERROR([Required cups-config is missing. Please install CUPS developer packages.])
 	])
 ])
+
 CUPS_CFLAGS=`$CUPSCONFIG --cflags`
 CUPS_LIBS=`$CUPSCONFIG --image --libs`
 CUPS_VERSION=`$CUPSCONFIG --version`
@@ -110,7 +117,7 @@ AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where banne
 CUPS_STATEDIR=""
 AC_ARG_WITH(cups-rundir, [  --with-cups-rundir           set transient run-time state directory of CUPS],CUPS_STATEDIR="$withval",[
         case "$uname" in
-                Darwin*)
+                Darwin*(
                         # Darwin (OS X)
                         CUPS_STATEDIR="$CUPS_SERVERROOT"
                         ;;
