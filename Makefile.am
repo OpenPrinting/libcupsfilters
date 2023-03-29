@@ -87,8 +87,8 @@ pkgfiltersinclude_DATA = \
 	cupsfilters/ipp.h \
 	cupsfilters/log.h \
 	cupsfilters/pdf.h \
-	cupsfilters/raster.h
-	cupsfilters/libcups2.h
+	cupsfilters/raster.h 
+	
 
 lib_LTLIBRARIES = libcupsfilters.la
 
@@ -205,6 +205,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/texttopdf.c \
 	cupsfilters/texttotext.c \
 	cupsfilters/universal.c \
+	cupsfilters/libcups2-private.h\
 	$(pkgfiltersinclude_DATA)
 libcupsfilters_la_LIBADD = \
 	$(FONTCONFIG_LIBS) \

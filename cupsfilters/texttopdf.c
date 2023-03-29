@@ -12,7 +12,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include <config.h>
 #include "pdfutils-private.h"
 #include "debug-internal.h"

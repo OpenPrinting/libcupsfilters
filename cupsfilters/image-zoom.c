@@ -20,7 +20,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include "image-private.h"
 
 

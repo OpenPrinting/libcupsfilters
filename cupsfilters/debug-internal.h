@@ -11,7 +11,6 @@
 #ifndef _CUPS_FILTERS_DEBUG_INTERNAL_H_
 #  define _CUPS_FILTERS_DEBUG_INTERNAL_H_
 
-#include <cupsfilters/libcups2.h>
 //
 // C++ magic...
 //

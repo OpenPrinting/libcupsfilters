@@ -2,7 +2,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2.h>
 #include "qpdf-cm-private.h"
 #include <stdio.h>
 #include "cupsfilters/debug-internal.h"

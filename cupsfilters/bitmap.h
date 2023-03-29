@@ -12,7 +12,6 @@
 extern "C" {
 #  endif // __cplusplus
 
-#include <cupsfilters/libcups2.h>
 #include <cups/raster.h>
 
 unsigned char *cfConvertBits(unsigned char *src, unsigned char *dst,

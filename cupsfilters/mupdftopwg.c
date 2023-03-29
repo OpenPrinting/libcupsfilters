@@ -10,7 +10,7 @@
 // information.
 //
 
-
+#include <cupsfilters/libcups2.h>
 #include <config.h>
 #include <cups/cups.h>
 

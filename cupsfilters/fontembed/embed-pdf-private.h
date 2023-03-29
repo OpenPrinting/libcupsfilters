@@ -8,7 +8,6 @@
 #ifndef _FONTEMBED_EMBED_PDF_INT_H_
 #define _FONTEMBED_EMBED_PDF_INT_H_
 
-#include <cupsfilters/libcups2.h>
 
 _cf_fontembed_emb_pdf_font_widths_t *__cfFontEmbedEmbPDFFWNew(int datasize);
 

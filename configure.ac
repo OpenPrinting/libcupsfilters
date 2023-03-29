@@ -141,11 +141,6 @@ else
 fi
 
 # ========================
-#Check for Package Headers
-# ========================
-AC_CHECK_HEADERS([cupsfilter/libcups2.h].AC_DEFINE(HAVE_LIBCUPS2))
-
-# ========================
 # Check for system headers
 # ========================
 AC_CHECK_HEADERS([stdlib.h])

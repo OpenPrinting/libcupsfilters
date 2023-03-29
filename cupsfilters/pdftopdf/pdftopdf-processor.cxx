@@ -2,7 +2,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2.h>
 #include "pdftopdf-processor-private.h"
 #include "qpdf-pdftopdf-processor-private.h"
 #include <stdio.h>

@@ -6,7 +6,6 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_NUP_H_
 #define _CUPS_FILTERS_PDFTOPDF_NUP_H_
 
-#include <cupsfilters/libcups2.h>
 #include "pptypes-private.h"
 #include <utility>
 

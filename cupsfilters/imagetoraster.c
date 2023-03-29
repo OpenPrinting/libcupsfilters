@@ -27,7 +27,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2.h>
 #include <cupsfilters/filter.h>
 #include <cupsfilters/raster.h>
 #include <cupsfilters/colormanager.h>

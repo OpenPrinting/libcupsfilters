@@ -4,7 +4,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2.h>
 #include <cupsfilters/fontembed-private.h>
 #include <cupsfilters/debug-internal.h>
 #include "embed-sfnt-private.h"

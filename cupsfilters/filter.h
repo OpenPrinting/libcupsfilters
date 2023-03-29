@@ -18,7 +18,6 @@ extern "C" {
 //
 // Include necessary headers...
 //
-#include <cupsfilters/libcups2.h>
 #  include "log.h"
 
 #  include <stdio.h>

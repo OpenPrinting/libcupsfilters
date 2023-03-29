@@ -6,7 +6,6 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_INTERVALSET_H_
 #define _CUPS_FILTERS_PDFTOPDF_INTERVALSET_H_
 
-#include <cupsfilters/libcups2.h>
 #include "pdftopdf-private.h"
 #include <stddef.h>
 #include <vector>

@@ -6,7 +6,6 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_QPDF_CM_H_
 #define _CUPS_FILTERS_PDFTOPDF_QPDF_CM_H_
 
-#include <cupsfilters/libcups2.h>
 #include <qpdf/QPDF.hh>
 
 bool _cfPDFToPDFHasOutputIntent(QPDF &pdf);

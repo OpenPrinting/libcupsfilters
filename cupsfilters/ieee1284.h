@@ -15,7 +15,6 @@
 //
 // Include necessary headers.
 //
-#include <cupsfilters/libcups2.h>
 #  include <cups/cups.h>
 #  include <string.h>
 #  include <stdlib.h>

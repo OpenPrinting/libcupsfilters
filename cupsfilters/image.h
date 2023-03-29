@@ -16,7 +16,6 @@
 //
 // Include necessary headers...
 //
-#include <cupsfilters/libcups2.h>
 #  include <stdio.h>
 #  include <cups/raster.h>
 

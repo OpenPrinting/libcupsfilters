@@ -6,7 +6,6 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_QPDF_PDFTOPDF_PROCESSOR_H
 #define _CUPS_FILTERS_PDFTOPDF_QPDF_PDFTOPDF_PROCESSOR_H
 
-#include <cupsfilters/libcups2.h>
 #include "pdftopdf-processor-private.h"
 #include <qpdf/QPDF.hh>
 

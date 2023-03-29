@@ -4,7 +4,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2.h>
 #include "image.h"
 #include <stdio.h>
 #include <cups/raster.h>

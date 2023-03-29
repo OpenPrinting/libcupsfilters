@@ -6,7 +6,6 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_QPDF_TOOLS_H_
 #define _CUPS_FILTERS_PDFTOPDF_QPDF_TOOLS_H_
 
-#include <cupsfilters/libcups2.h>
 #include <qpdf/QPDFObjectHandle.hh>
 #include <map>
 #include <string>

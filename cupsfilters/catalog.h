@@ -54,7 +54,6 @@ extern "C" {
 //
 // Include necessary headers...
 //
-#include <cupsfilters/libcups2.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>

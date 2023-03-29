@@ -8,7 +8,6 @@
 #ifndef _FONTEMBED_DYNSTRING_H_
 #define _FONTEMBED_DYNSTRING_H_
 
-#include <cupsfilters/libcups2.h>
 
 typedef struct
 {
