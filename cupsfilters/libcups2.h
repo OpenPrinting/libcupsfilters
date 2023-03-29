@@ -30,3 +30,7 @@
 #  define cups_afree_cb_t       cups_afree_func_t
 #  define cups_array_cb_t       cups_array_func_t
 #  define cups_page_header_t    cups_page_header2_t
+
+
+# endif // HAVE_LIBCUPS2
+

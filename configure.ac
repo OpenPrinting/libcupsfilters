@@ -71,9 +71,7 @@ AM_GNU_GETTEXT([external])
 PKG_CHECK_MODULES([LIBCUPS3], [cups3 > 3.0.0], [],
    [PKG_CHECK_MODULES([LIBCUPS2], [cups < 3.0.0],
        [AC_DEFINE([HAVE_LIBCUPS2], [1], [Use libcups2]
-       [])])])
-
-AC_ARG_WITH([cups-config],
+       [AC_ARG_WITH([cups-config],
 	[AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
 	[with_cups_config="$withval"],
 	[with_cups_config=system]
@@ -111,13 +109,15 @@ AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN", [Path to CUPS binaries dir
 AC_SUBST(CUPS_SERVERBIN)
 
 AC_DEFINE(PDFTOPDF, [1], [Needed for pdftopdf filter compilation])
-AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])
+AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])])])])
+
+
 
 # Transient run-time state dir of CUPS
 CUPS_STATEDIR=""
 AC_ARG_WITH(cups-rundir, [  --with-cups-rundir           set transient run-time state directory of CUPS],CUPS_STATEDIR="$withval",[
         case "$uname" in
-                Darwin*(
+                Darwin*)
                         # Darwin (OS X)
                         CUPS_STATEDIR="$CUPS_SERVERROOT"
                         ;;
@@ -249,10 +249,6 @@ AS_IF([test x"$lcms2" = "xno"], [
 ])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
-PKG_CHECK_MODULE([LIBCUPS], [cups < 3.0.0], [cups=yes], [cups=no])
-AS_IF([test x"$cups"="xyes"], [
-        AC_DEFINE([HAVE_LIBCUPS2],[2], [Defines if use libcups2])
-)
 
 # =================
 # Check for Poppler
