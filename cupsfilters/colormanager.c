@@ -8,7 +8,7 @@
 // information.
 //
 
-#include <cupsfilters/libcups2.h>
+#include <cupsfilters/libcups2-private.h>
 #include "colormanager.h"
 #include <cupsfilters/colord.h>
 #include <cupsfilters/filter.h>

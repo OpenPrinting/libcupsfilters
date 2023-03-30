@@ -11,7 +11,7 @@
 //
 // Include necessary headers...
 //
-#include <cupsfilters/libcups2.h>
+//#include <cupsfilters/libcups2-private.h>
 #include "config.h"
 #include "filter.h"
 #include <limits.h>

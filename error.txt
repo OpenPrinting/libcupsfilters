@@ -1,0 +1,57 @@
+make  all-recursive
+make[1]: Entering directory '/home/gayatri/Desktop/ankit/libcupsfilters'
+make[2]: Entering directory '/home/gayatri/Desktop/ankit/libcupsfilters'
+  CC       cupsfilters/libcupsfilters_la-catalog.lo
+cupsfilters/catalog.c: In function ‘cfGetURI’:
+cupsfilters/catalog.c:55:3: warning: ‘httpConnect’ is deprecated: Use httpConnect2 instead. [-Wdeprecated-declarations]
+   55 |   http = httpConnect(host, port, NULL, AF_UNSPEC, encryption, 1, 5000, NULL);
+      |   ^~~~
+In file included from /usr/include/cups/ipp.h:18,
+                 from /usr/include/cups/cups.h:28,
+                 from cupsfilters/catalog.c:22:
+/usr/include/cups/http.h:476:26: note: declared here
+  476 | extern http_t           *httpConnect(const char *host, int port) _CUPS_DEPRECATED_1_7_MSG("Use httpConnect2 instead.");
+      |                          ^~~~~~~~~~~
+cupsfilters/catalog.c:55:10: error: too many arguments to function ‘httpConnect’
+   55 |   http = httpConnect(host, port, NULL, AF_UNSPEC, encryption, 1, 5000, NULL);
+      |          ^~~~~~~~~~~
+In file included from /usr/include/cups/ipp.h:18,
+                 from /usr/include/cups/cups.h:28,
+                 from cupsfilters/catalog.c:22:
+/usr/include/cups/http.h:476:26: note: declared here
+  476 | extern http_t           *httpConnect(const char *host, int port) _CUPS_DEPRECATED_1_7_MSG("Use httpConnect2 instead.");
+      |                          ^~~~~~~~~~~
+cupsfilters/catalog.c: In function ‘cfCatalogFind’:
+cupsfilters/catalog.c:290:9: error: ‘CUPS_DATADIR’ undeclared (first use in this function); did you mean ‘CUPS_STATEDIR’?
+  290 |     c = CUPS_DATADIR;
+      |         ^~~~~~~~~~~~
+      |         CUPS_STATEDIR
+cupsfilters/catalog.c:290:9: note: each undeclared identifier is reported only once for each function it appears in
+cupsfilters/catalog.c: In function ‘cfCatalogOptionArrayNew’:
+cupsfilters/catalog.c:369:11: error: too many arguments to function ‘cupsArrayNew’
+  369 |   return (cupsArrayNew(compare_options, NULL, NULL, 0,
+      |           ^~~~~~~~~~~~
+In file included from /usr/include/cups/http.h:19,
+                 from /usr/include/cups/ipp.h:18,
+                 from /usr/include/cups/cups.h:28,
+                 from cupsfilters/catalog.c:22:
+/usr/include/cups/array.h:63:26: note: declared here
+   63 | extern cups_array_t     *cupsArrayNew(cups_array_func_t f, void *d) _CUPS_API_1_2;
+      |                          ^~~~~~~~~~~~
+cupsfilters/catalog.c: In function ‘cfCatalogAddOption’:
+cupsfilters/catalog.c:418:20: error: too many arguments to function ‘cupsArrayNew’
+  418 |     opt->choices = cupsArrayNew(compare_choices, NULL, NULL, 0,
+      |                    ^~~~~~~~~~~~
+In file included from /usr/include/cups/http.h:19,
+                 from /usr/include/cups/ipp.h:18,
+                 from /usr/include/cups/cups.h:28,
+                 from cupsfilters/catalog.c:22:
+/usr/include/cups/array.h:63:26: note: declared here
+   63 | extern cups_array_t     *cupsArrayNew(cups_array_func_t f, void *d) _CUPS_API_1_2;
+      |                          ^~~~~~~~~~~~
+make[2]: *** [Makefile:1638: cupsfilters/libcupsfilters_la-catalog.lo] Error 1
+make[2]: Leaving directory '/home/gayatri/Desktop/ankit/libcupsfilters'
+make[1]: *** [Makefile:2142: all-recursive] Error 1
+make[1]: Leaving directory '/home/gayatri/Desktop/ankit/libcupsfilters'
+make: *** [Makefile:1135: all] Error 2
+

@@ -76,6 +76,8 @@ PKG_CHECK_MODULES([LIBCUPS3], [cups3 > 3.0.0], [],
 	[with_cups_config="$withval"],
 	[with_cups_config=system]
 )
+])])])
+
 
 AS_IF([test "x$with_cups_config" != "xsystem"], [
 	CUPSCONFIG=$with_cups_config
@@ -109,9 +111,7 @@ AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN", [Path to CUPS binaries dir
 AC_SUBST(CUPS_SERVERBIN)
 
 AC_DEFINE(PDFTOPDF, [1], [Needed for pdftopdf filter compilation])
-AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])])])])
-
-
+AC_DEFINE_DIR(BANNERTOPDF_DATADIR, "{CUPS_DATADIR}/data", [Directory where bannertopdf finds its data files (PDF templates)])
 
 # Transient run-time state dir of CUPS
 CUPS_STATEDIR=""

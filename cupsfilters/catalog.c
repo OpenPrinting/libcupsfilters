@@ -8,7 +8,7 @@
 //
 // Include necessary headers.
 //
-#include <cupsfilters/libcups2.h>
+#include <cupsfilters/libcups2-private.h>
 #include <config.h>
 
 #include <ctype.h>
@@ -51,8 +51,7 @@ cfGetURI(const char *url,		// I  - URL to get
     encryption = HTTP_ENCRYPTION_ALWAYS;
   else
     encryption = HTTP_ENCRYPTION_IF_REQUESTED;
-
-  http = httpConnect(host, port, NULL, AF_UNSPEC, encryption, 1, 5000, NULL);
+  http = httpConnect(host, port, NULL, AF_UNSPEC, encryption, 1,5000, NULL);
 
   if (!http)
     return (0);
@@ -415,8 +414,8 @@ cfCatalogAddOption(char *name,
     if (!opt)
       return (NULL);
     opt->human_readable = NULL;
-    opt->choices = cupsArrayNew(compare_choices, NULL, NULL, 0,
-				 NULL, cfCatalogFreeChoiceStrings);
+    opt->choices = cupsArrayNew(compare_options, NULL, NULL, 0,
+			NULL, cfCatalogFreeOptionStrings);
     if (!opt->choices)
     {
       free(opt);
