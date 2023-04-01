@@ -1049,7 +1049,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   free(bitmap);
 
   return (0);
-}
+}}
 
 
 //

@@ -11,7 +11,7 @@
 //
 // Include necessary headers...
 //
-//#include <cupsfilters/libcups2-private.h>
+#include <cupsfilters/libcups2-private.h>
 #include "config.h"
 #include "filter.h"
 #include <limits.h>
@@ -157,7 +157,7 @@ cfFilterDataAddExt(cf_filter_data_t *data, // I - Filter data record
     return (NULL);
 
   if (data->extension == NULL)
-    data->extension = cupsArrayNew(NULL, NULL);
+    data->extension = cupsArrayNew(NULL, NULL,NULL,0,NULL,NULL);
 
   if (data->extension == NULL)
     return (NULL);
@@ -698,7 +698,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Execute all of the filters...
   //
 
-  pids            = cupsArrayNew((cups_array_cb_t)compare_filter_pids, NULL);
+  pids            = cupsArrayNew(compare_filter_pids, NULL,NULL,0,NULL,NULL);
   current         = 0;
   filterfds[0][0] = inputfd;
   filterfds[0][1] = -1;

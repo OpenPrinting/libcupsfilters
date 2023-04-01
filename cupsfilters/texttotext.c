@@ -809,7 +809,7 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
   if (pagination &&
       ((num_copies != 1 && collate) || reverse_order))
     // Create page array
-    page_array = cupsArrayNew(NULL, NULL);
+    page_array = cupsArrayNew(NULL, NULL,NULL,0,NULL,NULL);
 
   // Main loop for reading the input file, converting the encoding, formatting
   // the output, and printing the pages

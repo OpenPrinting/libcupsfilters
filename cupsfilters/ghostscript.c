@@ -1090,7 +1090,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   }
 
   // Ghostscript parameters
-  gs_args = cupsArrayNew(NULL, NULL);
+  gs_args = cupsArrayNew(NULL, NULL,NULL,0,NULL,NULL);
   if (!gs_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

@@ -525,7 +525,7 @@ cfFilterMuPDFToPWG(int inputfd,         // I - File descriptor input stream
     goto out;
 
   // mutool parameters
-  mupdf_args = cupsArrayNew(NULL, NULL);
+  mupdf_args = cupsArrayNew(NULL, NULL,NULL,0,NULL,NULL);
   if (!mupdf_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

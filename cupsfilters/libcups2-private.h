@@ -16,7 +16,7 @@
 #  define cupsGetsDests          cupsGetDests2
 #  define cupsRasterReadHeader   cupsRasterReadHeader2
 #  define cupsRasterWriteHeader  cupsRasterWriteHeader2
-#  define httpConnect(char , int , http_addrlist_t, int , http_encryption_t , bool, int, int )            httpConnect2(char, int , http_addrlist_t , int, http_encryption_t, int , int , int )
+#  define httpConnect            httpConnect2
 #  define ippGetFirstAttribute   ippFirstAttribute
 #  define ippGetNextAttribute    ippNextAttribute
 
