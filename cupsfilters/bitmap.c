@@ -418,7 +418,7 @@ cfOneBitLine(unsigned char *src,  // I - Input line
 	  threshold = 128;
         else
 	  threshold = dither1[row & 0xf][(w + k) & 0xf];
-        if (*src > threshold)
+        if (*src == 0xff || *src > threshold)
           t |= 0x1;
         src += 1;
       }
