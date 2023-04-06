@@ -34,13 +34,6 @@
 #include <cupsfilters/ipp.h>
 
 
-enum resolve_uri_converter_type	// **** Resolving DNS-SD based URI ****
-{
-  CUPS_BACKEND_URI_CONVERTER = -1,
-  IPPFIND_BASED_CONVERTER_FOR_PRINT_URI = 0,
-  IPPFIND_BASED_CONVERTER_FOR_FAX_URI = 1
-};
-
 char cf_get_printer_attributes_log[CF_GET_PRINTER_ATTRIBUTES_LOGSIZE];
 
 static int				
@@ -72,7 +65,7 @@ cfResolveURI(const char *raw_uri)
   char *pseudo_argv[2];
   const char *uri;
   int fd1, fd2;
-  char *save_device_uri_var;
+  char *save_device_uri_var, *save_ppd_var;
 
   // Eliminate any output to stderr, to get rid of the CUPS-backend-specific
   // output of the cupsBackendDeviceURI() function
@@ -90,6 +83,17 @@ cfResolveURI(const char *raw_uri)
     unsetenv("DEVICE_URI");
   }
 
+  // Same for PPD, to make the cupsBackendDeviceURI() call in this
+  // function not do uncontrolled switches between print and fax URI
+  // dependent on the PPD file the variable is pointing to. This makes
+  // this function always return the print URI, to make the libcups2
+  // and libcups3 builds of libcupsfilters behave the same.
+  if ((save_ppd_var = getenv("PPD")) != NULL)
+  {
+    save_ppd_var = strdup(save_ppd_var);
+    unsetenv("PPD");
+  }
+
   // Use the URI resolver of libcups to support DNS-SD-service-name-based
   // URIs. The function returns the corresponding host-name-based URI
   pseudo_argv[0] = (char *)raw_uri;
@@ -101,6 +105,13 @@ cfResolveURI(const char *raw_uri)
   {
     setenv("DEVICE_URI", save_device_uri_var, 1);
     free(save_device_uri_var);
+  }
+
+  // Restore PPD environment variable if we had unset it
+  if (save_ppd_var)
+  {
+    setenv("PPD", save_ppd_var, 1);
+    free(save_ppd_var);
   }
 
   // Re-activate stderr output
@@ -168,11 +179,11 @@ cfGetPrinterAttributes3(http_t *http_printer,
 {
   return (cfGetPrinterAttributes5(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug,
-				  driverless_info, CUPS_BACKEND_URI_CONVERTER));
+				  driverless_info, 0));
 }
 
-// Get attributes of a printer specified only by URI and given info about
-// fax-support
+// Get attributes of a printer or fax specified only by URI and given
+// info about fax-support
 ipp_t   *cfGetPrinterAttributes4(const char* raw_uri,
 				 const char* const pattrs[],
 				 int pattrs_size,
@@ -181,19 +192,14 @@ ipp_t   *cfGetPrinterAttributes4(const char* raw_uri,
 				 int debug,
 				 int is_fax)
 {
-  if (is_fax)
-    return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
-				    req_attrs, req_attrs_size, debug, NULL,
-				    IPPFIND_BASED_CONVERTER_FOR_FAX_URI));
-  else
-    return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
-				    req_attrs, req_attrs_size, debug, NULL,
-				    IPPFIND_BASED_CONVERTER_FOR_PRINT_URI));
+  return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
+				  req_attrs, req_attrs_size, debug, NULL,
+				  is_fax));
 }
 
-// Get attributes of a printer specified by URI and under a given HTTP
-// connection, for example via a domain socket, and give info about used
-// fallbacks
+// Get attributes of a printer or fax specified by URI and under a
+// given HTTP connection, for example via a domain socket, and give
+// info about used fallbacks
 ipp_t *
 cfGetPrinterAttributes5(http_t *http_printer,
 			const char* raw_uri,
@@ -203,7 +209,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 			int req_attrs_size,
 			int debug,
 			int* driverless_info,
-			int resolve_uri_type )
+			int is_fax)
 {
   char *uri;
   int have_http, uri_status, host_port, i = 0, total_attrs = 0, fallback,
@@ -266,10 +272,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
   cf_get_printer_attributes_log[0] = '\0';
 
   // Convert DNS-SD-service-name-based URIs to host-name-based URIs
-  if (resolve_uri_type == CUPS_BACKEND_URI_CONVERTER)
-    uri = cfResolveURI(raw_uri);
-  else
-    uri = cfippfindBasedURIConverter(raw_uri, resolve_uri_type);
+  uri = cfResolveURI2(raw_uri, is_fax);
 
   if (uri == NULL)
   {
@@ -491,7 +494,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 }
 
 char*
-cfippfindBasedURIConverter (const char *uri, int is_fax)
+cfResolveURI2 (const char *uri, int is_fax)
 {
   int  ippfind_pid = 0,	        // Process ID of ippfind for IPP
        post_proc_pipe[2],	// Pipe to post-processing for IPP
@@ -550,7 +553,7 @@ cfippfindBasedURIConverter (const char *uri, int is_fax)
   ippfind_argv[i++] = reg_type;           // list IPP(S) entries
   ippfind_argv[i++] = "-T";               // DNS-SD poll timeout
   ippfind_argv[i++] = "0";                // Minimum time required
-  if (is_fax)
+  if (is_fax == 1)
   {
     ippfind_argv[i++] = "--txt";
     ippfind_argv[i++] = "rfo";
@@ -560,7 +563,7 @@ cfippfindBasedURIConverter (const char *uri, int is_fax)
   ippfind_argv[i++] = "-x";
   ippfind_argv[i++] = "echo";             // Output the needed data fields
   ippfind_argv[i++] = "-en";              // separated by tab characters
-  if(is_fax)
+  if(is_fax == 1)
     ippfind_argv[i++] = "\n{service_hostname}\t{txt_rfo}\t{service_port}\t";
   else
     ippfind_argv[i++] = "\n{service_hostname}\t{txt_rp}\t{service_port}\t";
@@ -663,7 +666,7 @@ cfippfindBasedURIConverter (const char *uri, int is_fax)
 		     (is_local ? "localhost" : service_hostname), port, "/%s",
 		     resource_field);
 
-    if (is_fax)
+    if (is_fax == 1)
       output_of_fax_uri = 1; // fax-uri requested from fax-capable device
 
   read_error:
@@ -716,7 +719,7 @@ cfippfindBasedURIConverter (const char *uri, int is_fax)
       }
     }
   }
-  if (is_fax && !output_of_fax_uri)
+  if (is_fax == 1 && !output_of_fax_uri)
     goto error;
 
   return (resolved_uri);

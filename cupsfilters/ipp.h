@@ -84,7 +84,7 @@ typedef enum cf_gen_sizes_mode_e
 //
 
 char            *cfResolveURI(const char *raw_uri);
-char            *cfippfindBasedURIConverter(const char *uri ,int is_fax);
+char            *cfResolveURI2(const char *raw_uri, int is_fax);
 int             cfCheckDriverlessSupport(const char* uri);
 ipp_t           *cfGetPrinterAttributes(const char* raw_uri,
 					const char* const pattrs[],
@@ -113,7 +113,7 @@ ipp_t           *cfGetPrinterAttributes4(const char* raw_uri,
 					 const char* const req_attrs[],
 					 int req_attrs_size,
 					 int debug,
-					 int isFax);
+					 int is_fax);
 ipp_t           *cfGetPrinterAttributes5(http_t *http_printer,
 					 const char* raw_uri,
 					 const char* const pattrs[],
@@ -122,7 +122,7 @@ ipp_t           *cfGetPrinterAttributes5(http_t *http_printer,
 					 int req_attrs_size,
 					 int debug,
 					 int* driverless_support,
-					 int resolve_uri_type);
+					 int is_fax);
 
 const char      *cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs,
 					    ipp_t *job_attrs,
