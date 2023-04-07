@@ -137,7 +137,8 @@ struct cf_izoom_s			// **** Image zoom data ****
 			ystep,		// Amount to step for each pixel along
 					// Y
 			yincr,
-			row;		// Current row
+			row,		// Current row
+			yflip;		// Y backwards/upside-down
   cf_ib_t		*rows[2],	// Horizontally scaled pixel data
 			*in;		// Unscaled input pixel data
 };

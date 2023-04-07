@@ -795,20 +795,41 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     float h = (float)cfImageGetHeight(img);
     float pw = doc.PageRight - doc.PageLeft;
     float ph = doc.PageTop - doc.PageBottom;
-    int tempOrientation = doc.Orientation;
+    int tempOrientation = (doc.Orientation == 0 ? 0 :    // Default: Auto-rotate
+			   (doc.Orientation == 1 ? 4 :   // +90
+			    (doc.Orientation == 2 ? 6 :  // -90 or + 270
+			     (doc.Orientation == 3 ? 5 : // +-180
+			      0))));                     // Invalid: Auto-rotate
+    int normal_landscape;
+    ipp_attribute_t *attr;
+    // Direction the printer rotates landscape
+    // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
+    if (printer_attrs != NULL &&
+	(attr = ippFindAttribute(printer_attrs,
+				 "landscape-orientation-requested-preferred",
+				 IPP_TAG_ZERO)) != NULL &&
+	ippGetInteger(attr, 0) == 5)
+      normal_landscape = 5;
+    else
+      normal_landscape = 4;
     if ((val = cupsGetOption("orientation-requested",
 			     num_options, options)) != NULL)
       tempOrientation = atoi(val);
-    else if ((val = cupsGetOption("landscape",
-				  num_options, options)) != NULL)
+    else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
     {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-	tempOrientation = 4;
+      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
+	  !strcasecmp(val, "on") || !strcasecmp(val, "1"))
+	tempOrientation = normal_landscape;
+      else if (!strcasecmp(val, "false") || !strcasecmp(val, "no") ||
+	       !strcasecmp(val, "off") || !strcasecmp(val, "0"))
+	tempOrientation = 3;
     }
     if (tempOrientation == 0)
     {
       if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
-	tempOrientation = 4;
+	tempOrientation = normal_landscape;
+      else
+	tempOrientation = 3;
     }
     if (tempOrientation == 4 || tempOrientation == 5)
     {
@@ -816,6 +837,9 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       pw = ph;
       ph = tmp;
     }
+    doc.Orientation = (tempOrientation == 5 ? 3 :
+		       (tempOrientation == 6 ? 2 :
+			tempOrientation - 3));
     if (w * 72.0 / img->xppi > pw || h * 72.0 / img->yppi > ph)
       document_large = 1;
 
@@ -861,8 +885,9 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	else
 	  zoom = 0.0;
       }
-      else if ((val = cupsGetOption("natural-scaling", num_options, options))
-	       != NULL)
+      else if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
+	       NULL &&
+	       atoi(val) != 0)
 	zoom = 0.0;
 
       if ((val = cupsGetOption("fill", num_options, options)) != NULL)
@@ -876,48 +901,23 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  cropfit = 1;
       }
     }
-  }
 
-  if (img != NULL)
-  {
     if (fillprint || cropfit)
     {
-      float w = (float)cfImageGetWidth(img);
-      float h = (float)cfImageGetHeight(img);
       // For cropfit do the math without the unprintable margins to get correct
       // centering, for fillprint, fill the printable area
-      float pw = (cropfit ? doc.PageWidth : doc.PageRight - doc.PageLeft);
-      float ph = (cropfit ? doc.PageLength : doc.PageTop - doc.PageBottom);
-      const char *val;
-      int tempOrientation = doc.Orientation;
-      int flag = 3;
-      if ((val = cupsGetOption("orientation-requested",
-			       num_options, options)) != NULL)
-        tempOrientation = atoi(val);
-      else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
+      if (cropfit)
       {
-        if(!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-          tempOrientation = 4;
-      }
-      if (tempOrientation > 0)
-      {
-        if (tempOrientation == 4 || tempOrientation == 5)
-        {
-          float temp = pw;
-          pw = ph;
-          ph = temp;
-          flag = 4;
-        }
-      }
-      if (tempOrientation == 0)
-      {
-        if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
-        {
-          int temp = pw;
-          pw = ph;
-          ph = temp;
-          flag = 4;
-        }
+	if (doc.Orientation & 1)
+ 	{
+	  pw = doc.PageLength;
+	  ph = doc.PageWidth;
+	}
+	else
+ 	{
+	  pw = doc.PageWidth;
+	  ph = doc.PageLength;
+	}
       }
       if (fillprint)
       {
@@ -954,7 +954,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	posh = (1 - doc.YPosition) * posh;
 	// Check whether the unprintable margins hide away a part of the image,
 	// if so, correct the image cut
-	if (flag == 4)
+	if (doc.Orientation & 1)
 	{
 	  float margin, cutoff;
 	  margin = (doc.PageLength - final_w * 72.0 / img->xppi) / 2;
@@ -1023,7 +1023,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	cf_image_t *img2 = cfImageCrop(img, posw, posh, final_w, final_h);
 	cfImageClose(img);
 	img = img2;
-      }	
+      }
     }
   }
 
@@ -1082,13 +1082,19 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToRaster: Image size is %.1f x %.1f inches...",
 		 xinches, yinches);
 
-    if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL)
+    if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
+	NULL &&
+	atoi(val) != 0)
     {
       xinches = xinches * atoi(val) / 100;
       yinches = yinches * atoi(val) / 100;
     }
 
-    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
+    if (!fillprint && !cropfit &&
+	(((val = cupsGetOption("orientation-requested",
+			       num_options, options)) ==
+	  NULL) ||
+	 atoi(val) == 0) &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //
@@ -1158,7 +1164,11 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToRaster: Landscape size is %.2f x %.2f inches",
 		 xsize2, ysize2);
 
-    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
+    if (!fillprint && !cropfit &&
+	(((val = cupsGetOption("orientation-requested",
+			       num_options, options)) ==
+	  NULL) ||
+	 atoi(val) == 0) &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //
@@ -1657,13 +1667,11 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Initialize the image "zoom" engine...
 	  //
 
-	  if (doc.Flip)
-	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, -xtemp, ytemp,
-	                          doc.Orientation & 1, zoom_type);
-	  else
-	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, xtemp, ytemp,
-	                          doc.Orientation & 1, zoom_type);
-
+	  z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1,
+			      (doc.Flip ? -1 : 1) *
+			      (doc.Orientation > 1 ? -1 : 1) * xtemp,
+			      (doc.Orientation > 1 ? -1 : 1) * ytemp,
+			      doc.Orientation & 1, zoom_type);
 	  //
 	  // Write leading blank space as needed...
 	  //

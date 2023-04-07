@@ -947,19 +947,41 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     float h = (float)cfImageGetHeight(doc.img);
     float pw = doc.PageRight - doc.PageLeft;
     float ph = doc.PageTop - doc.PageBottom;
-    int tempOrientation = doc.Orientation;
+    int tempOrientation = (doc.Orientation == 0 ? 0 :    // Default: Auto-rotate
+			   (doc.Orientation == 1 ? 4 :   // +90
+			    (doc.Orientation == 2 ? 6 :  // -90 or + 270
+			     (doc.Orientation == 3 ? 5 : // +-180
+			      0))));                     // Invalid: Auto-rotate
+    int normal_landscape;
+    ipp_attribute_t *attr;
+    // Direction the printer rotates landscape
+    // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
+    if (printer_attrs != NULL &&
+	(attr = ippFindAttribute(printer_attrs,
+				 "landscape-orientation-requested-preferred",
+				 IPP_TAG_ZERO)) != NULL &&
+	ippGetInteger(attr, 0) == 5)
+      normal_landscape = 5;
+    else
+      normal_landscape = 4;
     if ((val = cupsGetOption("orientation-requested",
-			     num_options,options)) != NULL)
+			     num_options, options)) != NULL)
       tempOrientation = atoi(val);
-    else if ((val = cupsGetOption("landscape", num_options,options)) != NULL)
+    else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
     {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-	tempOrientation = 4;
+      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
+	  !strcasecmp(val, "on") || !strcasecmp(val, "1"))
+	tempOrientation = normal_landscape;
+      else if (!strcasecmp(val, "false") || !strcasecmp(val, "no") ||
+	       !strcasecmp(val, "off") || !strcasecmp(val, "0"))
+	tempOrientation = 3;
     }
     if (tempOrientation == 0)
     {
-      if(((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
-	tempOrientation = 4;
+      if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
+	tempOrientation = normal_landscape;
+      else
+	tempOrientation = 3;
     }
     if (tempOrientation == 4 || tempOrientation == 5)
     {
@@ -967,6 +989,9 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       pw = ph;
       ph = tmp;
     }
+    doc.Orientation = (tempOrientation == 5 ? 3 :
+		       (tempOrientation == 6 ? 2 :
+			tempOrientation - 3));
     if (w * 72.0 / doc.img->xppi > pw || h * 72.0 / doc.img->yppi > ph)
       document_large = 1;
 
@@ -1013,7 +1038,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	  zoom = 0.0;
       }
       else if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
-	       NULL)
+	       NULL &&
+	       atoi(val) != 0)
 	zoom = 0.0;
 
       if ((val = cupsGetOption("fill", num_options, options)) != 0)
@@ -1028,102 +1054,79 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	  cropfit = 1;
       }
     }
-  }
-  if (fillprint || cropfit)
-  {
-    // For cropfit do the math without the unprintable margins to get correct
-    // centering
-    if (cropfit)
+    if (fillprint || cropfit)
     {
-      doc.PageBottom = 0.0;
-      doc.PageTop = doc.PageLength;
-      doc.PageLeft = 0.0;
-      doc.PageRight = doc.PageWidth;
-    }
-    float w = (float)cfImageGetWidth(doc.img);
-    float h = (float)cfImageGetHeight(doc.img);
-    float pw = doc.PageRight - doc.PageLeft;
-    float ph = doc.PageTop - doc.PageBottom;
-    int tempOrientation = doc.Orientation;
-    const char *val;
-    int flag = 3;
-    if ((val = cupsGetOption("orientation-requested", num_options, options)) !=
-	NULL)
-      tempOrientation = atoi(val);
-    else if((val = cupsGetOption("landscape", num_options, options)) != NULL)
-    {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-        tempOrientation = 4;
-    }
-    if (tempOrientation > 0)
-    {
-      if (tempOrientation == 4 || tempOrientation == 5)
+      // For cropfit do the math without the unprintable margins to get correct
+      // centering
+      if (cropfit)
       {
-        float temp = pw;
-        pw = ph;
-        ph = temp;
-        flag = 4;
+	doc.PageBottom = 0.0;
+	doc.PageTop = doc.PageLength;
+	doc.PageLeft = 0.0;
+	doc.PageRight = doc.PageWidth;
+	if (doc.Orientation & 1)
+	{
+	  pw = doc.PageTop;
+	  ph = doc.PageRight;
+	}
+	else
+	{
+	  pw = doc.PageRight;
+	  ph = doc.PageTop;
+	}
       }
-    }
-    if (tempOrientation == 0)
-    {
-      if(((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
+      if (fillprint)
       {
-        int temp = pw;
-        pw = ph;
-        ph = temp;
-        flag = 4;
-      }
-    }
-    if (fillprint)
-    {
-      float final_w, final_h;
-      if (w * ph / pw <= h)
-      {
-        final_w = w;
-        final_h = w * ph / pw;
+	float final_w, final_h;
+	if (w * ph / pw <= h)
+	{
+	  final_w = w;
+	  final_h = w * ph / pw;
+	}
+	else
+	{
+	  final_w = h * pw / ph;
+	  final_h = h;
+	}
+	float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+	posw = (1 + doc.XPosition) * posw;
+	posh = (1 - doc.YPosition) * posh;
+	cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+	cfImageClose(doc.img);
+	doc.img = img2;
       }
       else
       {
-        final_w = h * pw / ph;
-        final_h = h;
+	float final_w = w, final_h = h;
+	if (w > pw * doc.img->xppi / 72.0)
+	  final_w = pw * doc.img->xppi / 72.0;
+	if (h > ph * doc.img->yppi / 72.0)
+	  final_h = ph * doc.img->yppi / 72.0;
+	float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+	posw = (1 + doc.XPosition) * posw;
+	posh = (1 - doc.YPosition) * posh;
+	cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+	cfImageClose(doc.img);
+	doc.img = img2;
+	if (doc.Orientation & 1)
+	{
+	  doc.PageBottom += (doc.PageLength -
+			     final_w * 72.0 / doc.img->xppi) / 2;
+	  doc.PageTop = doc.PageBottom + final_w * 72.0 / doc.img->xppi;
+	  doc.PageLeft += (doc.PageWidth - final_h * 72.0 / doc.img->yppi) / 2;
+	  doc.PageRight = doc.PageLeft + final_h * 72.0 / doc.img->yppi;
+	}
+	else
+	{
+	  doc.PageBottom += (doc.PageLength -
+			     final_h * 72.0 / doc.img->yppi) / 2;
+	  doc.PageTop = doc.PageBottom + final_h * 72.0 / doc.img->yppi;
+	  doc.PageLeft += (doc.PageWidth - final_w * 72.0 / doc.img->xppi) / 2;
+	  doc.PageRight = doc.PageLeft + final_w * 72.0 / doc.img->xppi;
+	}
+	if (doc.PageBottom < 0) doc.PageBottom = 0;
+	if (doc.PageLeft < 0) doc.PageLeft = 0;
       }
-      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-      posw = (1 + doc.XPosition) * posw;
-      posh = (1 - doc.YPosition) * posh;
-      cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
-      cfImageClose(doc.img);
-      doc.img = img2;
-    }
-    else
-    {
-      float final_w = w, final_h = h;
-      if (w > pw * doc.img->xppi / 72.0)
-	final_w = pw * doc.img->xppi / 72.0;
-      if (h > ph * doc.img->yppi / 72.0)
-	final_h = ph * doc.img->yppi / 72.0;
-      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-      posw = (1 + doc.XPosition) * posw;
-      posh = (1 - doc.YPosition) * posh;
-      cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
-      cfImageClose(doc.img);
-      doc.img = img2;
-      if (flag == 4)
-      {
-	doc.PageBottom += (doc.PageLength - final_w * 72.0 / doc.img->xppi) / 2;
-	doc.PageTop = doc.PageBottom + final_w * 72.0 / doc.img->xppi;
-	doc.PageLeft += (doc.PageWidth - final_h * 72.0 / doc.img->yppi) / 2;
-	doc.PageRight = doc.PageLeft + final_h * 72.0 / doc.img->yppi;
-      }
-      else
-      {
-	doc.PageBottom += (doc.PageLength - final_h * 72.0 / doc.img->yppi) / 2;
-	doc.PageTop = doc.PageBottom + final_h * 72.0 / doc.img->yppi;
-	doc.PageLeft += (doc.PageWidth - final_w * 72.0 / doc.img->xppi) / 2;
-	doc.PageRight = doc.PageLeft + final_w * 72.0 / doc.img->xppi;
-      }
-      if (doc.PageBottom < 0) doc.PageBottom = 0;
-      if (doc.PageLeft < 0) doc.PageLeft = 0;
     }
   }
 
@@ -1186,13 +1189,17 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToPDF: Image size is %.1f x %.1f inches...",
 		 doc.xinches, doc.yinches);
 
-    if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL)
+    if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL &&
+	atoi(val) != 0)
     {
       doc.xinches = doc.xinches * atoi(val) / 100;
       doc.yinches = doc.yinches * atoi(val) / 100;
     }
 
-    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
+    if (!fillprint && !cropfit &&
+	(((val = cupsGetOption("orientation-requested", num_options, options)) ==
+	  NULL) ||
+	 atoi(val) == 0) &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //
@@ -1269,7 +1276,10 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToPDF: Landscape size is %.2f x %.2f inches",
 		 doc.xsize2, doc.ysize2);
 
-    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
+    if (!fillprint && !cropfit &&
+	(((val = cupsGetOption("orientation-requested", num_options, options)) ==
+	  NULL) ||
+	 atoi(val) == 0) &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //

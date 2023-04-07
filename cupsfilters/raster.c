@@ -1325,11 +1325,11 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
       h->Orientation = CUPS_ORIENT_90;
     else if (!strcasecmp(val, "reverse-portrait") ||
 	     !strcasecmp(val, "ReversePortrait") ||
-	     !strcasecmp(val, "5"))
+	     !strcasecmp(val, "6"))
       h->Orientation = CUPS_ORIENT_180;
     else if (!strcasecmp(val, "reverse-landscape") ||
 	     !strcasecmp(val, "ReverseLandscape") ||
-	     !strcasecmp(val, "6"))
+	     !strcasecmp(val, "5"))
       h->Orientation = CUPS_ORIENT_270;
     else
       h->Orientation = CUPS_ORIENT_0;

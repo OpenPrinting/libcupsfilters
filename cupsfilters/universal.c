@@ -251,7 +251,10 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   {
     if (strcasecmp(output_type, "pdf"))
     {
-      if (strcasecmp(input_type, "vnd.cups-pdf"))
+      if (strcasecmp(input_type, "vnd.cups-pdf") &&
+	  (strcasecmp(input_super, "image") ||
+	   !strcasecmp(input_type, "urf") ||
+	   !strcasecmp(input_type, "pwg-raster")))
       {
 	filter = malloc(sizeof(cf_filter_filter_in_chain_t));
 	filter->function = cfFilterPDFToPDF;
