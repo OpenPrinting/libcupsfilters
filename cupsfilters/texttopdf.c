@@ -562,6 +562,9 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 {
   texttopdf_doc_t doc;
   int		i,		// Looping var
+		temp,
+		temp_orientation, // Orientation from job attributes/options
+		normal_landscape, // Landscape direction of printer
 		empty,		// Is the input empty?
 		ch,		// Current char from file
 		lastch,		// Previous char from file
@@ -570,6 +573,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 		column,		// Current column
 		page_column;	// Current page column
 
+		ipp_attribute_t *ipp_attr; // IPP attribute
   const char	*val;		// Option value
   char		keyword[64],	// Keyword string
 		*keyptr;	// Pointer into string
@@ -589,10 +593,6 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
   int		ret = 0;	// Return value
   cups_cspace_t cspace = (cups_cspace_t)(-1);
 
-
-  //
-  // Make sure status messages are not buffered...
-  //
 
   doc.UTF8 = 1;                 // Use UTF-8 encoding?
   doc.WrapLines = 1;		// Wrap text in lines
@@ -631,6 +631,10 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     doc.env_vars.classification = NULL;
   }
 
+  //
+  // Make sure status messages are not buffered...
+  //
+
   setbuf(stderr, NULL);
 
   //
@@ -657,60 +661,6 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     stdoutbackupfd = dup(1);
     dup2(outputfd, 1);
     close(outputfd);
-  }
-
-  //
-  // Process command-line options and write the prolog...
-  //
-
-  if ((val = cupsGetOption("prettyprint",
-			   data->num_options, data->options)) != NULL &&
-      strcasecmp(val, "no") && strcasecmp(val, "off") &&
-      strcasecmp(val, "false"))
-  {
-    doc.PageLeft     = 72.0f;
-    doc.PageRight    = doc.PageWidth - 36.0f;
-    doc.PageBottom   = doc.PageBottom > 36.0f ? doc.PageBottom : 36.0f;
-    doc.PageTop      = doc.PageLength - 36.0f;
-    doc.CharsPerInch = 12;
-    doc.LinesPerInch = 8;
-
-    if ((val = doc.env_vars.content_type) == NULL)
-    {
-      doc.PrettyPrint = PRETTY_PLAIN;
-      doc.NumKeywords = 0;
-      doc.Keywords    = NULL;
-    }
-    else if (strcasecmp(val, "application/x-cshell") == 0)
-    {
-      doc.PrettyPrint = PRETTY_SHELL;
-      doc.NumKeywords = sizeof(csh_keywords) / sizeof(csh_keywords[0]);
-      doc.Keywords    = csh_keywords;
-    }
-    else if (strcasecmp(val, "application/x-csource") == 0)
-    {
-      doc.PrettyPrint = PRETTY_CODE;
-      doc.NumKeywords = sizeof(code_keywords) / sizeof(code_keywords[0]);
-      doc.Keywords    = code_keywords;
-    }
-    else if (strcasecmp(val, "application/x-perl") == 0)
-    {
-      doc.PrettyPrint = PRETTY_PERL;
-      doc.NumKeywords = sizeof(perl_keywords) / sizeof(perl_keywords[0]);
-      doc.Keywords    = perl_keywords;
-    }
-    else if (strcasecmp(val, "application/x-shell") == 0)
-    {
-      doc.PrettyPrint = PRETTY_SHELL;
-      doc.NumKeywords = sizeof(sh_keywords) / sizeof(sh_keywords[0]);
-      doc.Keywords    = sh_keywords;
-    }
-    else
-    {
-      doc.PrettyPrint = PRETTY_PLAIN;
-      doc.NumKeywords = 0;
-      doc.Keywords    = NULL;
-    }
   }
 
   cfRasterPrepareHeader(&(doc.h), data, CF_FILTER_OUT_FORMAT_CUPS_RASTER,
@@ -791,6 +741,128 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     doc.PageTop = 756.0f;	// Top margin
     doc.PageWidth = 612.0f;	// Total page width
     doc.PageLength = 792.0f;	// Total page length
+  }
+
+  //
+  // Layout the page according to the requested orientation by the
+  // orientation-requested and landscape job attributes and the
+  // landscape-orientation-requested-preferred printer attribute
+  //
+  // Especially
+  // - We can print in landscape orientation
+  // - If unprintable borders are asymmetric we can use the wider one
+  //   for binding or punching
+  //
+
+  temp_orientation = (doc.Orientation == 0 ? 3 :    // Default: 0
+		      (doc.Orientation == 1 ? 4 :   // +90
+		       (doc.Orientation == 2 ? 6 :  // -90 or +270
+			(doc.Orientation == 3 ? 5 : // +-180
+			 3))));                     // Invalid: 0
+
+  // Direction the printer rotates landscape
+  // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
+  if (data->printer_attrs != NULL &&
+      (ipp_attr = ippFindAttribute(data->printer_attrs,
+				   "landscape-orientation-requested-preferred",
+				   IPP_TAG_ZERO)) != NULL &&
+      ippGetInteger(ipp_attr, 0) == 5)
+    normal_landscape = 5;
+  else
+    normal_landscape = 4;
+
+  if ((val = cupsGetOption("orientation-requested",
+			   data->num_options, data->options)) != NULL)
+    temp_orientation = atoi(val);
+  else if ((val = cupsGetOption("landscape",
+				data->num_options, data->options)) != NULL)
+  {
+    if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
+	!strcasecmp(val, "on") || !strcasecmp(val, "1"))
+      temp_orientation = normal_landscape;
+    else if (!strcasecmp(val, "false") || !strcasecmp(val, "no") ||
+	     !strcasecmp(val, "off") || !strcasecmp(val, "0"))
+      temp_orientation = 3;
+  }
+
+  doc.Orientation = (temp_orientation == 5 ? 3 :
+		     (temp_orientation == 6 ? 2 :
+		      temp_orientation - 3));
+
+  // Rotate dimensions and margins 90 degrees doc.Orientation times
+  for (i = 0; i < doc.Orientation; i ++)
+  {
+    doc.PageTop = doc.PageLength - doc.PageTop;
+    doc.PageRight = doc.PageWidth - doc.PageRight;
+
+    temp = doc.PageWidth;
+    doc.PageWidth = doc.PageLength;
+    doc.PageLength = temp;
+
+    temp = doc.PageLeft;
+    doc.PageLeft = doc.PageBottom;
+    doc.PageBottom = doc.PageRight;
+    doc.PageRight = doc.PageTop;
+    doc.PageTop = temp;
+
+    doc.PageTop = doc.PageLength - doc.PageTop;
+    doc.PageRight = doc.PageWidth - doc.PageRight;
+  }
+
+  //
+  // Process command-line options and write the prolog...
+  //
+
+  if ((val = cupsGetOption("prettyprint",
+			   data->num_options, data->options)) != NULL &&
+      strcasecmp(val, "no") && strcasecmp(val, "off") &&
+      strcasecmp(val, "false"))
+  {
+    doc.PageLeft     = doc.PageLeft > 72.0f ? doc.PageLeft : 72.0f;
+    doc.PageRight    = doc.PageWidth - doc.PageRight > 36.0f ?
+                       doc.PageRight : doc.PageWidth - 36.0f;
+    doc.PageBottom   = doc.PageBottom > 36.0f ? doc.PageBottom : 36.0f;
+    doc.PageTop      = doc.PageLength - doc.PageTop > 36.0f ?
+                       doc.PageTop : doc.PageLength - 36.0f;
+    doc.CharsPerInch = 12;
+    doc.LinesPerInch = 8;
+
+    if ((val = doc.env_vars.content_type) == NULL)
+    {
+      doc.PrettyPrint = PRETTY_PLAIN;
+      doc.NumKeywords = 0;
+      doc.Keywords    = NULL;
+    }
+    else if (strcasecmp(val, "application/x-cshell") == 0)
+    {
+      doc.PrettyPrint = PRETTY_SHELL;
+      doc.NumKeywords = sizeof(csh_keywords) / sizeof(csh_keywords[0]);
+      doc.Keywords    = csh_keywords;
+    }
+    else if (strcasecmp(val, "application/x-csource") == 0)
+    {
+      doc.PrettyPrint = PRETTY_CODE;
+      doc.NumKeywords = sizeof(code_keywords) / sizeof(code_keywords[0]);
+      doc.Keywords    = code_keywords;
+    }
+    else if (strcasecmp(val, "application/x-perl") == 0)
+    {
+      doc.PrettyPrint = PRETTY_PERL;
+      doc.NumKeywords = sizeof(perl_keywords) / sizeof(perl_keywords[0]);
+      doc.Keywords    = perl_keywords;
+    }
+    else if (strcasecmp(val, "application/x-shell") == 0)
+    {
+      doc.PrettyPrint = PRETTY_SHELL;
+      doc.NumKeywords = sizeof(sh_keywords) / sizeof(sh_keywords[0]);
+      doc.Keywords    = sh_keywords;
+    }
+    else
+    {
+      doc.PrettyPrint = PRETTY_PLAIN;
+      doc.NumKeywords = 0;
+      doc.Keywords    = NULL;
+    }
   }
 
   if ((val = cupsGetOption("wrap", data->num_options, data->options)) == NULL)
