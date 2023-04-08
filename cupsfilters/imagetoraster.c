@@ -2067,7 +2067,21 @@ format_cmy(imagetoraster_doc_t *doc,
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               break;
-        }
+           case 16 :
+              for (x = xsize  * 3; x > 0; x --, r0 ++, r1 ++)
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+                  *ptr++ = *r0;
+                 }
+		else
+		{
+		*ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+	        *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+	        }
+              break;
+        
+		}
         break;
 
     case CUPS_ORDER_BANDED :
@@ -2189,7 +2203,41 @@ format_cmy(imagetoraster_doc_t *doc,
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
-        }
+        case 16 :
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *cptr++ = r0[0];
+	          *cptr++ = r0[0];
+	         }
+		else
+		{
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;}
+        	if (r0[1] == r1[1])
+        	{
+                   *mptr++ = r0[1];
+		   *mptr++ = r0[1];}
+		else
+		{
+		   *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		   *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		}
+        	if (r0[2] == r1[2])
+        	{
+                   *yptr++ = r0[2];
+		   *yptr++ = r0[2];
+		}
+		else
+		{
+		   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		}
+	        }
+                break;
+        
+		}
         break;
 
     case CUPS_ORDER_PLANAR :
@@ -2309,6 +2357,25 @@ format_cmy(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
+	  case 16 :
+	     r0 += z;
+             r1 += z;
+
+	     for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+             {
+	      if (*r0 == *r1)
+	      {
+		*ptr++ = *r0;
+		*ptr++ = *r0;
+	      }
+	      else
+	      {
+		*ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		*ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+	      }
+	      }
+		break;  
+	      }
         }
         break;
   }
@@ -2468,8 +2535,21 @@ format_cmyk(imagetoraster_doc_t *doc,
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               break;
-        }
-        break;
+	  case 16 :
+              for (x = xsize  * 4; x > 0; x --, r0 ++, r1 ++)
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+		  *ptr++ = *r0;
+		 }
+		else
+		{
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		 }
+		break;  
+		}
+		break;
 
     case CUPS_ORDER_BANDED :
 	cptr = ptr;
@@ -2618,6 +2698,51 @@ format_cmyk(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
+ 	 case 16 :
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+                if (r0[0] == r1[0])
+                {
+                  *cptr++ = r0[0];
+		  *cptr++ = r0[0];
+		 }
+		else
+		{
+                  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+                  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+                 }
+        	if (r0[1] == r1[1])
+        	{
+                  *mptr++ = r0[1];
+	  	  *mptr++ = r0[1];
+	  	 }
+		else
+		{
+                  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+        	if (r0[2] == r1[2])
+        	{
+                  *yptr++ = r0[2];
+		  *yptr++ = r0[2];
+		 }		  }
+		else
+		{
+	          *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+	       	  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+	       	 }
+        	if (r0[3] == r1[3])
+        	{
+                  *kptr++ = r0[3];
+		  *kptr++ = r0[3];
+		 }
+		else
+		{
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+                 }
+		  }
+              break;  
         }
         break;
 
@@ -2706,6 +2831,24 @@ format_cmyk(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
+	  case 16 :
+              r0 += z;
+	      r1 += z;
+
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+		  *ptr++ = *r0;
+		}
+		else
+		{
+   		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+   	  	  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize; 
+                }
+	  }
+          break;	  
         }
         break;
   }
@@ -2828,6 +2971,22 @@ format_K(imagetoraster_doc_t *doc,
             *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
         }
         break;
+    case 16 :
+        for (x = xsize; x > 0; x --, r0 ++, r1 ++)
+	{
+          if (*r0 == *r1)
+          {
+            *ptr++ = *r0;
+   	    *ptr++ = *r0;
+   	  }
+  	  else
+  	  {
+	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+  	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+			
+           }
+	}
+        break;	
   }
 }
 
@@ -3002,6 +3161,51 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
+	  case 16 :
+	      for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+		if (r0[3] == r1[3])
+		{
+	          *ptr++ = r0[3];
+		  *ptr++ = r0[3];
+		}
+		else
+		{
+  		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		 }
+		if (r0[0] == r1[0])
+		{
+	          *ptr++ = r0[0];
+		  *ptr++ = r0[0];
+		 }
+		else
+		{
+	  	  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+	 	  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+	 	 }
+		if (r0[1] == r1[1])
+		{
+	          *ptr++ = r0[1];
+		  *ptr++ = r0[1];
+		 }
+		else
+		{
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+		if (r0[2] == r1[2])
+		{
+	          *ptr++ = r0[2];
+		  *ptr++ = r0[2];
+		}
+		else
+		{
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+	         }
+			  }
+	      	break;  
         }
         break;
 
@@ -3152,6 +3356,51 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
+	  case 16 :
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *cptr++ = r0[0];
+		  *cptr++ = r0[0];
+		 }
+		else
+		{
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		 }
+        	if (r0[1] == r1[1])
+        	{
+                  *mptr++ = r0[1];
+		  *mptr++ = r0[1];
+		 }
+		else
+		{
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+        	if (r0[2] == r1[2])
+        	{
+                  *yptr++ = r0[2];
+		  *yptr++ = r0[2];
+		 }
+		else
+		{
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		 }
+        	if (r0[3] == r1[3])
+        	{
+                  *kptr++ = r0[3];
+		  *kptr++ = r0[3];
+		 }
+		else
+		{
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+              	}
+	  }
+          break;	  
         }
         break;
 
@@ -3254,6 +3503,32 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
+	   case 16 :
+              if (z == 0)
+	      {
+	        r0 += 3;
+	        r1 += 3;
+	      }
+	      else
+	      {
+	        r0 += z - 1;
+	        r1 += z - 1;
+	      }
+
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+		  *ptr++ = *r0;
+		 }
+		else
+		{
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+                }
+	  }
+          break;	  
         }
         break;
   }
@@ -3584,6 +3859,43 @@ format_rgba(imagetoraster_doc_t *doc,
                 ptr ++;
               }
 	      break;
+	  case 16 :
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *ptr++ = r0[0];
+		  *ptr++ = r0[0];
+		 }
+		else
+		{
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		 }
+        	if (r0[1] == r1[1])
+        	{
+                  *ptr++ = r0[1];
+		  *ptr++ = r0[1];
+		 }
+		else
+		{
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+        	if (r0[2] == r1[2])
+        	{
+                  *ptr++ = r0[2];
+		  *ptr++ = r0[2];
+		 }
+		else
+		{
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		 }
+                ptr ++;
+		ptr ++;
+              }
+	      break;
         }
         break;
 
@@ -3708,6 +4020,41 @@ format_rgba(imagetoraster_doc_t *doc,
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
+		  case 16 :
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *cptr++ = r0[0];
+		  *cptr++ = r0[0];
+		}
+		else
+		{
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		}
+        	if (r0[1] == r1[1])
+        	{
+                  *mptr++ = r0[1];
+		  *mptr++ = r0[1];
+		}
+		else
+		{
+ 		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+	         }
+        	if (r0[2] == r1[2])
+        	{
+                  *yptr++ = r0[2];
+		  *yptr++ = r0[2];
+		 }
+		else
+		{
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+	        }
+		  }
+              break;  
         }
         break;
 
@@ -3834,6 +4181,23 @@ format_rgba(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
+	  case 16 :
+  	      r0 += z;
+	      r1 += z;
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+   	      if (*r0 == *r1)
+   	      {
+		*ptr++ = *r0;
+		*ptr++ = *r0;
+	      }
+  	      else
+  	      {
+		*ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		*ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+	      }
+		}
+			break;
         }
         break;
   }
@@ -3955,6 +4319,21 @@ format_w(imagetoraster_doc_t *doc,
           else
             *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
         }
+        break;
+    case 16 :
+        for (x = xsize; x > 0; x --, r0 ++, r1 ++)
+	{
+          if (*r0 == *r1)
+          {
+            *ptr++ = *r0;
+  	    *ptr++ = *r0;
+  	  }
+	  else
+	  {
+	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+ 	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+	  }
+	}
         break;
   }
 }
@@ -4100,6 +4479,42 @@ format_ymc(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
               }
 	      break;
+
+         case 16 :
+             for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (r0[2] == r1[2])
+        	{
+                  *ptr++ = r0[2];
+		  *ptr++ = r0[2];
+		 }
+		else
+		{
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		}
+        	if (r0[1] == r1[1])
+        	{
+                  *ptr++ = r0[1];
+		  *ptr++ = r0[1];
+		}
+		else
+		{
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		}
+        	if (r0[0] == r1[0])
+        	{
+                  *ptr++ = r0[0];
+		  *ptr++ = r0[0];
+		}
+		else
+		{
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+                }
+		  }
+	      break;
         }
         break;
 
@@ -4221,6 +4636,42 @@ format_ymc(imagetoraster_doc_t *doc,
         	else
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
+              break;
+			
+	 case 16 :
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *cptr++ = r0[0];
+		  *cptr++ = r0[0];
+		}
+		else
+		{
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+ 		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+ 		}
+        	if (r0[1] == r1[1])
+        	{
+                  *mptr++ = r0[1];
+		  *mptr++ = r0[1];
+		}
+		else
+		{
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		}
+        	if (r0[2] == r1[2])
+        	{
+                  *yptr++ = r0[2];
+		  *yptr++ = r0[2];
+		}
+		else
+		{
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+                }
+		  }
               break;
         }
         break;
@@ -4344,6 +4795,26 @@ format_ymc(imagetoraster_doc_t *doc,
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
+              break;
+		
+          case 16 :
+              z  = 2 - z;
+              r0 += z;
+              r1 += z;
+
+              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
+	      {
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+		  *ptr++ = *r0;
+		 }
+		else
+		{
+ 		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+                 }
+		  }
               break;
         }
         break;
@@ -4522,6 +4993,52 @@ format_ymck(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
+			
+	  case 16:
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (r0[2] == r1[2])
+        	{
+                  *ptr++ = r0[2];
+		  *ptr++ = r0[2];
+		 }
+		else
+		{
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		 }
+        	if (r0[1] == r1[1])
+        	{
+                  *ptr++ = r0[1];
+		  *ptr++ = r0[1];
+		 }
+		else
+		{
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+        	if (r0[0] == r1[0])
+        	{
+                  *ptr++ = r0[0];
+		  *ptr++ = r0[0];
+		 }
+	 	else
+	 	{
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		 }
+        	if (r0[3] == r1[3])
+        	{
+                  *ptr++ = r0[3];
+		  *ptr++ = r0[3];
+		 }
+		else
+		{
+		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+                }
+		  }
+              break;
         }
         break;
 
@@ -4673,6 +5190,52 @@ format_ymck(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
+			
+	  case 16 :
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (r0[0] == r1[0])
+        	{
+                  *cptr++ = r0[0];
+		  *cptr++ = r0[0];
+		 }
+		else
+		{
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
+		 }
+        	if (r0[1] == r1[1])
+        	{
+                  *mptr++ = r0[1];
+		  *mptr++ = r0[1];
+		 }
+		else
+		{
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
+		 }
+        	if (r0[2] == r1[2])
+        	{
+                  *yptr++ = r0[2];
+		  *yptr++ = r0[2];
+		 }
+		else
+		{
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
+		 }
+        	if (r0[3] == r1[3])
+        	{
+                  *kptr++ = r0[3];
+		  *kptr++ = r0[3];
+		 }
+		else
+		{
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
+		 }
+              }
+              break;
         }
         break;
 
@@ -4773,6 +5336,32 @@ format_ymck(imagetoraster_doc_t *doc,
                   *ptr++ = *r0;
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+              }
+              break;
+	  case 16 :
+              if (z == 3)
+	      {
+	        r0 += 3;
+	        r1 += 3;
+	      }
+	      else
+	      {
+		r0 += 2 - z;
+		r1 += 2 - z;
+	       }
+
+              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
+	      {
+        	if (*r0 == *r1)
+        	{
+                  *ptr++ = *r0;
+		  *ptr++ = *r0;
+		 }
+		else
+		{
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
+		 }
               }
               break;
         }
