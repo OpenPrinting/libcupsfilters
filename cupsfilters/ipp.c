@@ -1707,13 +1707,12 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
     "Jmedia",
     "JPageSize",
     "JMediaSize",
-    "J", // A raster header with media dimensions
     "jmedia-col",
     "jmedia-size",
     "jmedia",
     "jPageSize",
     "jMediaSize",
-    "j", // A raster header with media dimensions
+    "D", // A raster header with media dimensions
     "Dmedia-col-default",
     "Dmedia-default",
   };

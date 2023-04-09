@@ -353,33 +353,36 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
 			  &(margins[2]), &(margins[3]), size_name_buf,
 			  NULL);
 
-  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
-			       &(margins[0]), &(margins[1]),
-			       &(margins[2]), &(margins[3]),
-			       log, ld);
-
   if (i < 0)
   {
     pwg_media_t *pwg_media;
     
     for (i = 0; i < 2; i ++)
       dimensions[i] = h->cupsPageSize[i];
-    margins[0] = h->cupsImagingBBox[0];
-    margins[1] = h->cupsImagingBBox[1];
-    margins[2] = dimensions[0] - h->cupsImagingBBox[2];
-    margins[3] = dimensions[1] - h->cupsImagingBBox[3];
-    pwg_media = pwgMediaForSize(dimensions[0] / 72 * 2540,
-				dimensions[1] / 72 * 2540);
-    if (pwg_media)
+    if (dimensions[0] > 0.0 && dimensions[1] > 0.0)
     {
-      p = (pwg_media->ppd ? pwg_media->ppd :
-	   (pwg_media->legacy ? pwg_media->legacy : pwg_media->pwg));
-      if (p)
-	_strlcpy(h->cupsPageSizeName, p, sizeof(h->cupsPageSizeName));
+      margins[0] = h->cupsImagingBBox[0];
+      margins[1] = h->cupsImagingBBox[1];
+      margins[2] = dimensions[0] - h->cupsImagingBBox[2];
+      margins[3] = dimensions[1] - h->cupsImagingBBox[3];
+      pwg_media = pwgMediaForSize(dimensions[0] / 72 * 2540,
+				  dimensions[1] / 72 * 2540);
+      if (pwg_media)
+      {
+	p = (pwg_media->ppd ? pwg_media->ppd :
+	     (pwg_media->legacy ? pwg_media->legacy : pwg_media->pwg));
+	if (p)
+	  _strlcpy(h->cupsPageSizeName, p, sizeof(h->cupsPageSizeName));
+      }
     }
   }
   else if (size_name_buf[0])
     _strlcpy(h->cupsPageSizeName, size_name_buf, sizeof(h->cupsPageSizeName));
+
+  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
+			       &(margins[0]), &(margins[1]),
+			       &(margins[2]), &(margins[3]),
+			       log, ld);
 
   if (!cupsrasterheader)
     memset(margins, 0, sizeof(margins)); 
