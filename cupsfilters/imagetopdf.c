@@ -608,6 +608,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
   int		deviceCollate = 0;
   int		deviceReverse = 0;
   int		pl, pr;
+  int		normal_landscape = 0;	// Preferred landscape rotation
+					// direction of the printer
   int		fillprint = 0;		// print-scaling = fill
   int		cropfit = 0;		// -o crop-to-fit = true
   cf_logfunc_t  log = data->logfunc;
@@ -849,13 +851,6 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
   if ((val = cupsGetOption("brightness", num_options, options)) != NULL)
     doc.brightness = atoi(val) * 0.01f;
 
-  if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
-  {
-    sscanf(val, "%d", &xppi);
-    yppi = xppi;
-    zoom = 0.0;
-  }
-
   if ((val = cupsGetOption("position", num_options, options)) != NULL)
   {
     if (strcasecmp(val, "center") == 0)
@@ -929,10 +924,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     int fidelity = 0;
     int document_large = 0;
 
-    if (customLeft != 0 || customRight != 0 ||
-	customBottom != 0 || customTop != 0 ||
-	doc.PageLength != doc.PageTop - doc.PageBottom ||
-	doc.PageWidth != doc.PageRight - doc.PageLeft)
+    if (doc.PageBottom >= 1.0 || abs(doc.PageTop - doc.PageLength) >= 2.0 ||
+	doc.PageLeft >= 1.0 || abs(doc.PageRight - doc.PageWidth) >= 2.0)
       margin_defined = 1;
 
     if ((val = cupsGetOption("ipp-attribute-fidelity",num_options,options)) !=
@@ -952,7 +945,6 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 			    (doc.Orientation == 2 ? 6 :  // -90 or + 270
 			     (doc.Orientation == 3 ? 5 : // +-180
 			      0))));                     // Invalid: Auto-rotate
-    int normal_landscape;
     ipp_attribute_t *attr;
     // Direction the printer rotates landscape
     // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
@@ -992,24 +984,13 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     doc.Orientation = (tempOrientation == 5 ? 3 :
 		       (tempOrientation == 6 ? 2 :
 			tempOrientation - 3));
+
     if (w * 72.0 / doc.img->xppi > pw || h * 72.0 / doc.img->yppi > ph)
       document_large = 1;
 
     if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL)
     {
-      if (!strcasecmp(val, "auto"))
-      {
-	if (fidelity || document_large)
-        {
-	  if (margin_defined)
-	    zoom = 1.0;       // fit method
-	  else
-	    fillprint = 1;    // fill method
-	}
-	else
-	  cropfit = 1;        // none method
-      }
-      else if (!strcasecmp(val, "auto-fit"))
+      if (!strcasecmp(val, "auto-fit"))
       {
 	if (fidelity || document_large)
 	  zoom = 1.0;         // fit method
@@ -1020,12 +1001,30 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	fillprint = 1;        // fill method
       else if (!strcasecmp(val, "fit"))
 	zoom = 1.0;           // fitplot = 1 or fit method
-      else
+      else if (!strcasecmp(val, "none"))
 	cropfit = 1;          // none or crop-to-fit
+      else
+      {
+	if (fidelity || document_large)
+	{
+	  if (margin_defined)
+	    zoom = 1.0;       // fit method
+	  else
+	    fillprint = 1;    // fill method
+	}
+	else
+	  cropfit = 1;        // none method
+      }
     }
-    else
-    {       // print-scaling is not defined, look for alternate options.
-      if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
+    else       // print-scaling is not defined, look for alternate options.
+    {
+      if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
+      {
+	sscanf(val, "%d", &xppi);
+	yppi = xppi;
+	zoom = 0.0;
+      }
+      else if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
 	zoom = atoi(val) * 0.01;
       else if (((val =
 		 cupsGetOption("fit-to-page", num_options, options)) != NULL) ||
@@ -1041,92 +1040,98 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	       NULL &&
 	       atoi(val) != 0)
 	zoom = 0.0;
-
-      if ((val = cupsGetOption("fill", num_options, options)) != 0)
+      else if ((val = cupsGetOption("fill", num_options, options)) != NULL)
       {
 	if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
 	  fillprint = 1;
       }
-
-      if ((val = cupsGetOption("crop-to-fit", num_options, options)) != NULL)
+      else if ((val = cupsGetOption("crop-to-fit", num_options, options)) !=
+	       NULL)
       {
-	if (!strcasecmp(val, "true") || !strcasecmp(val , "yes"))
+	if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
 	  cropfit = 1;
-      }
-    }
-    if (fillprint || cropfit)
-    {
-      // For cropfit do the math without the unprintable margins to get correct
-      // centering
-      if (cropfit)
-      {
-	doc.PageBottom = 0.0;
-	doc.PageTop = doc.PageLength;
-	doc.PageLeft = 0.0;
-	doc.PageRight = doc.PageWidth;
-	if (doc.Orientation & 1)
-	{
-	  pw = doc.PageTop;
-	  ph = doc.PageRight;
-	}
-	else
-	{
-	  pw = doc.PageRight;
-	  ph = doc.PageTop;
-	}
-      }
-      if (fillprint)
-      {
-	float final_w, final_h;
-	if (w * ph / pw <= h)
-	{
-	  final_w = w;
-	  final_h = w * ph / pw;
-	}
-	else
-	{
-	  final_w = h * pw / ph;
-	  final_h = h;
-	}
-	float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-	posw = (1 + doc.XPosition) * posw;
-	posh = (1 - doc.YPosition) * posh;
-	cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
-	cfImageClose(doc.img);
-	doc.img = img2;
       }
       else
       {
-	float final_w = w, final_h = h;
-	if (w > pw * doc.img->xppi / 72.0)
-	  final_w = pw * doc.img->xppi / 72.0;
-	if (h > ph * doc.img->yppi / 72.0)
-	  final_h = ph * doc.img->yppi / 72.0;
-	float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-	posw = (1 + doc.XPosition) * posw;
-	posh = (1 - doc.YPosition) * posh;
-	cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
-	cfImageClose(doc.img);
-	doc.img = img2;
-	if (doc.Orientation & 1)
+	// No scaling-related settimgs -> Default to print-scaling=auto
+	if (fidelity || document_large)
 	{
-	  doc.PageBottom += (doc.PageLength -
-			     final_w * 72.0 / doc.img->xppi) / 2;
-	  doc.PageTop = doc.PageBottom + final_w * 72.0 / doc.img->xppi;
-	  doc.PageLeft += (doc.PageWidth - final_h * 72.0 / doc.img->yppi) / 2;
-	  doc.PageRight = doc.PageLeft + final_h * 72.0 / doc.img->yppi;
+	  if (margin_defined)
+	    zoom = 1.0;       // fit method
+	  else
+	    fillprint = 1;    // fill method
 	}
 	else
-	{
-	  doc.PageBottom += (doc.PageLength -
-			     final_h * 72.0 / doc.img->yppi) / 2;
-	  doc.PageTop = doc.PageBottom + final_h * 72.0 / doc.img->yppi;
-	  doc.PageLeft += (doc.PageWidth - final_w * 72.0 / doc.img->xppi) / 2;
-	  doc.PageRight = doc.PageLeft + final_w * 72.0 / doc.img->xppi;
-	}
-	if (doc.PageBottom < 0) doc.PageBottom = 0;
-	if (doc.PageLeft < 0) doc.PageLeft = 0;
+	  cropfit = 1;        // none method
       }
+    }
+
+    if (fillprint)
+    {
+      // Final width and height of cropped image.
+      float final_w, final_h;
+      if (w * ph / pw <= h)
+      {
+	final_w = w;
+	final_h = w * ph / pw;
+      }
+      else
+      {
+	final_w = h * pw / ph;
+	final_h = h;
+      }
+      // posw and posh are position of the cropped image along width and
+      // height.
+      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+      posw = (1 + doc.XPosition) * posw;
+      posh = (1 - doc.YPosition) * posh;
+      cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+      cfImageClose(doc.img);
+      doc.img = img2;
+    }
+    else if (cropfit)
+    {
+      // For cropfit do the math without the unprintable margins to get correct
+      // centering
+      if (doc.Orientation & 1)
+      {
+	pw = doc.PageLength;
+	ph = doc.PageWidth;
+      }
+      else
+      {
+	pw = doc.PageWidth;
+	ph = doc.PageLength;
+      }
+      float final_w = w, final_h = h;
+      if (w > pw * doc.img->xppi / 72.0)
+	final_w = pw * doc.img->xppi / 72.0;
+      if (h > ph * doc.img->yppi / 72.0)
+	final_h = ph * doc.img->yppi / 72.0;
+      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+      posw = (1 + doc.XPosition) * posw;
+      posh = (1 - doc.YPosition) * posh;
+      cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+      cfImageClose(doc.img);
+      doc.img = img2;
+      if (doc.Orientation & 1)
+      {
+	doc.PageBottom = (doc.PageLength -
+			  final_w * 72.0 / doc.img->xppi) / 2;
+	doc.PageTop = doc.PageBottom + final_w * 72.0 / doc.img->xppi;
+	doc.PageLeft = (doc.PageWidth - final_h * 72.0 / doc.img->yppi) / 2;
+	doc.PageRight = doc.PageLeft + final_h * 72.0 / doc.img->yppi;
+      }
+      else
+      {
+	doc.PageBottom = (doc.PageLength -
+			   final_h * 72.0 / doc.img->yppi) / 2;
+	doc.PageTop = doc.PageBottom + final_h * 72.0 / doc.img->yppi;
+	doc.PageLeft = (doc.PageWidth - final_w * 72.0 / doc.img->xppi) / 2;
+	doc.PageRight = doc.PageLeft + final_w * 72.0 / doc.img->xppi;
+      }
+      if (doc.PageBottom < 0) doc.PageBottom = 0;
+      if (doc.PageLeft < 0) doc.PageLeft = 0;
     }
   }
 
@@ -1219,7 +1224,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterImageToPDF: Using landscape orientation...");
 
-	doc.Orientation = (doc.Orientation + 1) & 3;
+	doc.Orientation =
+	  (doc.Orientation + (normal_landscape == 4 ? 1 : -1)) & 3;
 	doc.xsize       = doc.yprint;
 	doc.yprint      = doc.xprint;
 	doc.xprint      = doc.xsize;
@@ -1299,7 +1305,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterImageToPDF: Using landscape orientation...");
 
-	doc.Orientation = 1;
+	doc.Orientation = (normal_landscape == 4 ? 1 : 3);
 	doc.xinches     = doc.xsize2;
 	doc.yinches     = doc.ysize2;
 	doc.xprint      = (doc.PageTop - doc.PageBottom) / 72.0;
