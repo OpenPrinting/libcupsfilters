@@ -1,4 +1,82 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0b4 - 2023-02-23
+# CHANGES - OpenPrinting libcupsfilters v2.0rc1 - 2023-04-11
+
+## CHANGES IN V2.0rc1 (11th April 2023)
+
+- Many fixes for control of page orientation, printing text in
+  landscape, image scaling fixes
+
+- Make orientation-requested work correctly In the filter functions
+  cfFilterImageToRaster(), cfFilterImageToPDF(), cfFilterTextToPDF(),
+  and cfFilterPDFToPDF() supplying the attributes
+  orientation-requested or (no)landscape do the expected, rotating
+  content 0/90/180/270 degrees
+
+- Auto-rotation is always done in the printer's default direction, +90
+  or -90 degrees as described by the
+  landscape-orientation-requested-preferred IPP attribute or by the
+  "*LandscapeOrientation: ..." PPD keyword (via libppd).
+
+- The ppi attribute works correctly now,no cropping and using more
+  than one sheet if the image gets too large.
+
+- If ore than one image-scaling-related attribute is supplied, only
+  the one with the highest priority is used, no mixing with unexpected
+  results.
+
+- Default is always print-scaling=auto.
+
+- cfFilterTextToPDF() is now capable of printing text in landscape
+  layout, controlled by the orientation-requested and landscape
+  attributes.
+
+- The prettyprint attribute of the cfFilterTextToPDF() now uses wider
+  margins for binding/stitching/punching as originally designed. If
+  the printer has even wider margins this is taken into account.
+
+- cfFilterImageToRaster(), cfFilterImageToPDF(), cfFilterTextToPDF(),
+  and cfFilterPDFToPDF() all work now correctly also with no printer
+  attributes/capabilities supplied a all, and also with and without
+  supplying a page size. With PDF input the input page sizes are used
+  if applicable. As last mean we resort to US Letter page size (Issue
+  #26).
+
+- The cfFilterUniversal() filter funtion now considers the output of
+  cfFilterImageToPDF() correctly as application/vnd.cups-pdf and not
+  as application/pdf, avoiding duplicate application of margins or
+  rotation.
+
+- cfFilterImageToRaster() now produces 16-bit-per-color output if
+  requested by the job/printer, and does not output a blank page any
+  more (Issue #25, pull request #22).
+
+- On 1-bit dithered output white got a grid of dots
+  An off-by-one bug in cfOneBitLine() made white areas appear with a
+  grid of black dots (1 per 16x16 square). This corrected now (Issue
+  #20).
+
+- DNS-SD device URI resolution: Cleaned API for upcoming libcups3
+  support For resolving DNS-SD-service-name-based device URIs for IPP
+  printers as CUPS uses them, libcups2 does not offer any useful API
+  and we therefore ended up implementing 2 workarounds. As libcups3
+  has an API function for it we have adapted our API for its use
+  (libcups3 support will get actually added in version 2.1.0).
+
+- Cleaned up the image scaling and rotation code in
+  cfFilterImage...(), removing duplicate code and doing some
+  simplification.
+
+- cfFilterImageToPDF() could crash when an image could not get loaded
+  and print-scaling was set to fill or none, as a part of the image
+  processing was not covered by the NULL check.
+
+- cfFilterUniversal(): Added NULL checks for parameters, so that the
+  function can get called without parameters.
+
+- Added "-std=c++17" C++ compiler flag (Pull request #18) Needed to
+  build libcupsfilters with QPDF 11.
+
+- Removed unneeded #include entries of libcups
+
 
 ## CHANGES IN V2.0b4 (23rd February 2023)
 
