@@ -914,7 +914,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
       snprintf(printer_attr_name, sizeof(printer_attr_name) - 1,
 	       "%s-supported", attr_name);
       if ((attr = ippFindAttribute(printer_attrs, printer_attr_name,
-				   IPP_TAG_RANGE)) != NULL)
+				   IPP_TAG_ZERO)) != NULL)
       {
 	for (i = 0; i < ippGetCount(attr); i ++)
 	{
@@ -960,7 +960,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
     *xres = x;
     *yres = y;
   }
-  return retval;
+  return (retval);
 }
 
 
