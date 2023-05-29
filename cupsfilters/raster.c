@@ -1023,14 +1023,32 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   else
     h->Duplex = CUPS_FALSE;
 
-  if ((val = cupsGetOption("printer-resolution", num_options,
-			   options)) != NULL ||
-      (val = cupsGetOption("Resolution", num_options, options)) != NULL)
+  // To avoid that a resolution provided in the option list and not as
+  // job IPP attribute is a supported resolution according to the
+  // printer IPP attributes, we want to use the
+  // cfIPPAttrResolutionForPrinter() function on it, to only accept it
+  // if it is supported and use the default if not, and also to accept it if
+  // there are no printer IPP attributes.
+  //
+  // Therefore we create a new IPP message for adding the resolution
+  // parsed from the option list, but only if we do not already have a
+  // "printer-resolution" in the job IPP attributes, which we use
+  // preferrably then.
+  int x = 0, y = 0;
+  if ((attr = ippFindAttribute(data->job_attrs, "printer-resolution",
+			       IPP_TAG_ZERO)) != NULL)
+    cfIPPAttrResolutionForPrinter(data->printer_attrs, data->job_attrs, NULL,
+				  &x, &y);
+  else if ((val = cupsGetOption("printer-resolution", num_options,
+				options)) != NULL ||
+	   (val = cupsGetOption("Resolution", num_options, options)) != NULL)
   {
     int	        xres,		// X resolution
                 yres;		// Y resolution
     char	*ptr;		// Pointer into value
+    ipp_t       *attrs;
 
+    attrs = ippNew();
     xres = yres = strtol(val, (char **)&ptr, 10);
     if (ptr > val && xres > 0)
     {
@@ -1050,32 +1068,21 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
 	xres = xres * 254 / 100;
 	yres = yres * 254 / 100;
       }
-      h->HWResolution[0] = xres;
-      h->HWResolution[1] = yres;
+      ippAddResolution(attrs, IPP_TAG_PRINTER, "printer-resolution",
+		       IPP_RES_PER_INCH, xres, yres);
     }
-    else
-    {
-      h->HWResolution[0] = 100; // Resolution invalid
-      h->HWResolution[1] = 100;
-    }
+    cfIPPAttrResolutionForPrinter(data->printer_attrs, attrs, NULL, &x, &y);
+    ippDelete(attrs);
+  }
+  if (x && y)
+  {
+    h->HWResolution[0] = x;
+    h->HWResolution[1] = y;
   }
   else
   {
     h->HWResolution[0] = 100; // Resolution invalid
     h->HWResolution[1] = 100;
-  }
-
-  // Resolution from IPP attrs
-  if (h->HWResolution[0] == 100 && h->HWResolution[1] == 100)
-  {
-    int x = 0, y = 0;
-    cfIPPAttrResolutionForPrinter(data->printer_attrs, data->job_attrs,
-				  NULL, &x, &y);
-    if (x && y)
-    {
-      h->HWResolution[0] = x;
-      h->HWResolution[1] = y;
-    }
   }
   
   // TODO - Support for insert sheets
