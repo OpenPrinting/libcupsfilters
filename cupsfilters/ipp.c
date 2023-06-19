@@ -885,7 +885,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
     attr_name = "printer-resolution";
 
   // Check whether job got supplied the named attribute and read out its value
-  // as integer
+  // as resolution
   if (job_attrs == NULL ||
       (attr = ippFindAttribute(job_attrs, attr_name, IPP_TAG_ZERO)) == NULL)
     retval = 0;

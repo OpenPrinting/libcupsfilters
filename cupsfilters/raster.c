@@ -294,17 +294,10 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
         const char *p = ippGetString(attr, i, NULL);
         if (strncasecmp(p, "RS", 2))
 	  continue;
-        int lo; int hi;
-        lo = atoi(p + 2);
-        if (lo == 0)
-	  lo = -1;
-        p = strchr(p, '-');
-        if (p)
-	  hi = atoi(p + 1);
-        else
-	  hi = lo;
-        xres = hi;
-        yres = hi;
+        int res;
+        res = atoi(p + 2);
+	if (res > 0)
+	  xres = yres = res;
       }
     }
   }
@@ -1074,6 +1067,8 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
     cfIPPAttrResolutionForPrinter(data->printer_attrs, attrs, NULL, &x, &y);
     ippDelete(attrs);
   }
+  else
+    cfIPPAttrResolutionForPrinter(data->printer_attrs, NULL, NULL, &x, &y);
   if (x && y)
   {
     h->HWResolution[0] = x;
