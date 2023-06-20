@@ -1,4 +1,26 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0rc1 - 2023-04-11
+# CHANGES - OpenPrinting libcupsfilters v2.0rc2 - 2023-06-20
+
+## CHANGES IN V2.0rc2 (20th June 2023)
+
+- Ignore unsupported resolution values when preparing a Raster header
+  via `cfRasterPrepareHeader()` function, to avoid rasterization with
+  wrong resolution (Issue #29, Ubuntu bug: #2022929).
+
+- `cfRasterPrepareHeader()`: When taking default resolution from
+  `urf-supported` printer IPP attribute, use first value (lowest) of
+  the list, to match the `ppdLoadAttributes()` function of libppd.
+
+- `cfIPPAttrResolutionForPrinter()`: List of resolutions is not
+  `IPP_TAG_RANGE`, corrected the search to use `IPP_TAG_ZERO`.
+
+- `cfIEEE1284NormalizeMakeModel()`: Do not consider "XPrinter" as made
+  by Xerox, only "XPrint" is (OpenPrinting CUPS pull request #506).
+
+- `INSTALL`: Recommend QPDF 11.4.0 as it fixes loss of content filled
+  into interactive forms as (Issue #28).
+
+- `INSTALL`: Fixed some typos.
+
 
 ## CHANGES IN V2.0rc1 (11th April 2023)
 
