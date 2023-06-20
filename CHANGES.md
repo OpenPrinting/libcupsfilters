@@ -4,7 +4,8 @@
 
 - Ignore unsupported resolution values when preparing a Raster header
   via `cfRasterPrepareHeader()` function, to avoid rasterization with
-  wrong resolution (Issue #29, Ubuntu bug: #2022929).
+  wrong resolution (Issue #29, Ubuntu bug: #2022929, Chromium issue
+  #1448735).
 
 - `cfRasterPrepareHeader()`: When taking default resolution from
   `urf-supported` printer IPP attribute, use first value (lowest) of
