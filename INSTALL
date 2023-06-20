@@ -35,7 +35,7 @@ BEFORE YOU BEGIN
     Then at least one of the following binaries is required for supporting
     non-PDF printers:
 
-    - Ghostscript 10.0.0 or higher built with support for output devices -
+    - Ghostscript 10.01.1 or higher built with support for output devices -
       "pdfwrite", "ps2write", "cups", "pwgraster", "appleraster", "pclm",
       "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
 
