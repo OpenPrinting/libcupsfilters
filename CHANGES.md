@@ -1,4 +1,18 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0rc2 - 2023-06-20
+# CHANGES - OpenPrinting libcupsfilters v2.0.0 - 2023-09-22
+
+## CHANGES IN V2.0.0 (22th September 2023)
+
+- `cfFilterUniversal()`: Support `application/vnd.cups-postscript`
+  Some filters (like `hpps` from HPLIP) produce this MIME type, so if
+  the client uses a classic driver/Printer Application and the server
+  IPP Everywhere, jobs fail because the library is not able to find a
+  suitable conversion (Pull request #31).
+
+- `CHANGES.md`: Added reference to Chromium bug report.
+
+- `INSTALL`: We need Ghostscript 10.01.1 to get all changes for Raster
+  output
+
 
 ## CHANGES IN V2.0rc2 (20th June 2023)
 
