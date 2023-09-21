@@ -152,7 +152,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   else
   {
 #ifdef HAVE_GHOSTSCRIPT
-    if (!strcasecmp(input, "application/postscript"))
+    if (!strcasecmp(input, "application/postscript") || !strcasecmp(input, "application/vnd.cups-postscript"))
     {
       outformat = malloc(sizeof(cf_filter_out_format_t));
       *outformat = CF_FILTER_OUT_FORMAT_PDF;
