@@ -191,8 +191,8 @@ mutool_spawn(const char *filename,
   // call
   numargs = cupsArrayCount(mutool_args);
   mutoolargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(mutool_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(mutool_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(mutool_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(mutool_args), i++)
     mutoolargv[i] = argument;
   mutoolargv[i] = NULL;
 

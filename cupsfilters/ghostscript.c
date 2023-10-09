@@ -459,10 +459,10 @@ gs_spawn (const char *filename,
 
   // Put Ghostscript command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(gs_args);
+  numargs = cupsArrayGetCount(gs_args);
   gsargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(gs_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(gs_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(gs_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(gs_args), i++)
     gsargv[i] = argument;
   gsargv[i] = NULL;
 
@@ -938,7 +938,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 
     if (!inputseekable || doc_type == GS_DOC_TYPE_PS)
     {
-      if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+      if ((fd = cupsCreateTempFd(tempfile, sizeof(tempfile))) < 0)
       {
 	if (log) log(ld, CF_LOGLEVEL_ERROR,
 		     "cfFilterGhostscript: Unable to copy PDF file: %s",
@@ -1090,7 +1090,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   }
 
   // Ghostscript parameters
-  gs_args = cupsArrayNew(NULL, NULL);
+  gs_args = cupsArrayNew3(NULL, NULL);
   if (!gs_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -1685,7 +1685,7 @@ out:
     unlink(filename);
   if (gs_args)
   {
-    while ((tmp = cupsArrayFirst(gs_args)) != NULL)
+    while ((tmp = cupsArrayGetFirst(gs_args)) != NULL)
     {
       cupsArrayRemove(gs_args, tmp);
       free(tmp);

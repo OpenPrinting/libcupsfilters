@@ -340,10 +340,10 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     // Do the dirty work ...
     ret = cfFilterChain(inputfd, outputfd, inputseekable, data, filter_chain);
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter; filter = next)
   {
-    next = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain);
+    next = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain);
     free(filter->parameters);
     free(filter);
   }
