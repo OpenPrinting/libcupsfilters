@@ -938,7 +938,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 
     if (!inputseekable || doc_type == GS_DOC_TYPE_PS)
     {
-      if ((fd = cupsCreateTempFd(tempfile, sizeof(tempfile))) < 0)
+      if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
       {
 	if (log) log(ld, CF_LOGLEVEL_ERROR,
 		     "cfFilterGhostscript: Unable to copy PDF file: %s",
@@ -1090,7 +1090,8 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   }
 
   // Ghostscript parameters
-  gs_args = cupsArrayNew3(NULL, NULL);
+  gs_args = cupsArrayNew3(NULL, NULL, 0, 0,
+			0, 0);
   if (!gs_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
