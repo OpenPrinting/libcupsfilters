@@ -360,7 +360,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 
   if (!inputseekable)
   {
-    if ((fd = cupsCreateTempFd(tempfile, sizeof(tempfile))) < 0)
+    if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterImageToRaster: Unable to copy input: %s",
