@@ -189,7 +189,7 @@ mutool_spawn(const char *filename,
 
   // Put mutool command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(mutool_args);
+  numargs = cupsArrayGetCount(mutool_args);
   mutoolargv = calloc(numargs + 1, sizeof(char *));
   for (argument = (char *)cupsArrayGetFirst(mutool_args), i = 0; argument;
        argument = (char *)cupsArrayGetNext(mutool_args), i++)
@@ -525,7 +525,7 @@ cfFilterMuPDFToPWG(int inputfd,         // I - File descriptor input stream
     goto out;
 
   // mutool parameters
-  mupdf_args = cupsArrayNew(NULL, NULL);
+  mupdf_args = cupsArrayNew3(NULL, NULL, 0, 0, 0, 0);
   if (!mupdf_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

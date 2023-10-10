@@ -7,7 +7,6 @@
 
 #ifndef _CUPS_FILTERS_IPP_H_
 #  define _CUPS_FILTERS_IPP_H_
-#define  HTTP_URI_OK HTTP_URI_STATUS_OK
 
 #  ifdef __cplusplus
 extern "C" {

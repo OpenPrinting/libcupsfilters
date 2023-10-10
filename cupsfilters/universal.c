@@ -85,7 +85,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   sscanf(output, "%15[^/]/%255s", output_super, output_type);
 
   cups_array_t *filter_chain;
-  filter_chain = cupsArrayNew(NULL, NULL);
+  filter_chain = cupsArrayNew3(NULL, NULL, 0, 0, 0, 0);
 
   if (!strcasecmp(input_super, "image") && strcasecmp(input_type, "urf") &&
       strcasecmp(input_type, "pwg-raster"))
