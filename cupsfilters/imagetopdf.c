@@ -677,7 +677,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 
   if (!inputseekable)
   {
-    if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
+    if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterImageToPDF: Unable to copy input: %s",

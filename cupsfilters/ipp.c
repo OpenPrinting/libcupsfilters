@@ -359,7 +359,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 		  NULL, pattrs);
 
     response = cupsDoRequest(http_printer, request, resource);
-    ipp_status = cupsGetError();
+    ipp_status = cupsLastError();
 
     if (response)
     {
@@ -370,7 +370,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
       if (debug)
 	log_printf(cf_get_printer_attributes_log,
 		   "Full list of all IPP attributes:\n");
-      attr = ippGetFirstAttribute(response);
+      attr = ippFirstAttribute(response);
       while (attr)
       {
 	total_attrs ++;
@@ -385,7 +385,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 	    if ((kw = ippGetString(attr, i, NULL)) != NULL)
 	      log_printf(cf_get_printer_attributes_log, "  Keyword: %s\n", kw);
 	}
-	attr = ippGetNextAttribute(response);
+	attr = ippNextAttribute(response);
       }
 
       // Check whether the IPP response contains the required attributes
@@ -437,7 +437,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
 		       "requested-attributes", NULL, "media-col-database");
 	  response2 = cupsDoRequest(http_printer, request, resource);
-	  ipp_status = cupsGetError();
+	  ipp_status = cupsLastError();
 	  if (response2)
 	  {
 	    if ((attr = ippFindAttribute(response2, "media-col-database",
@@ -461,7 +461,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
     {
       log_printf(cf_get_printer_attributes_log,
 		 "Request for IPP attributes (get-printer-attributes) for printer with URI %s failed: %s\n",
-		 uri, cupsGetErrorString());
+		 uri, cupsLastErrorString());
       log_printf(cf_get_printer_attributes_log, "get-printer-attributes IPP request failed:\n");
       log_printf(cf_get_printer_attributes_log, "  - No response\n");
     }
@@ -1276,8 +1276,8 @@ cfJoinJobOptionsAndAttrs(cf_filter_data_t* data,  // I  - Filter data
   for (i = 0, opt = data->options; i < data->num_options; i ++, opt ++)
     num_options = cupsAddOption(opt->name, opt->value, num_options, options);
 
-  for (ipp_attr = ippGetFirstAttribute(job_attrs); ipp_attr;
-       ipp_attr = ippGetNextAttribute(job_attrs))
+  for (ipp_attr = ippFirstAttribute(job_attrs); ipp_attr;
+       ipp_attr = ippNextAttribute(job_attrs))
   {
     ippAttributeString(ipp_attr, buf, sizeof(buf));
     num_options = cupsAddOption(ippGetName(ipp_attr), buf,
@@ -1532,7 +1532,7 @@ cfIPPAttrToResolutionArray(ipp_attribute_t *attr)
 	    cfFreeResolution(res, NULL);
 	  }
       }
-      if (cupsArrayGetCount(res_array) == 0)
+      if (cupsArrayCount(res_array) == 0)
       {
 	cupsArrayDelete(res_array);
 	res_array = NULL;
@@ -1569,7 +1569,7 @@ cfJoinResolutionArrays(cups_array_t **current,
   int retval;
 
   if (current == NULL || new_arr == NULL || *new_arr == NULL ||
-      cupsArrayGetCount(*new_arr) == 0)
+      cupsArrayCount(*new_arr) == 0)
   {
     retval = 0;
     goto finish;
@@ -1588,7 +1588,7 @@ cfJoinResolutionArrays(cups_array_t **current,
     }
     return 1;
   }
-  else if (cupsArrayGetCount(*current) == 0)
+  else if (cupsArrayCount(*current) == 0)
   {
     retval = 1;
     goto finish;
@@ -1596,8 +1596,8 @@ cfJoinResolutionArrays(cups_array_t **current,
 
   // Dry run: Check whether the two arrays have at least one resolution
   // in common, if not, do not touch the original array
-  for (res = cupsArrayGetFirst(*current);
-       res; res = cupsArrayGetNext(*current))
+  for (res = cupsArrayFirst(*current);
+       res; res = cupsArrayNext(*current))
     if (cupsArrayFind(*new_arr, res))
       break;
 
@@ -1606,8 +1606,8 @@ cfJoinResolutionArrays(cups_array_t **current,
     // Reduce the original array to the resolutions which are in both
     // the original and the new array, at least one resolution will
     // remain.
-    for (res = cupsArrayGetFirst(*current);
-	 res; res = cupsArrayGetNext(*current))
+    for (res = cupsArrayFirst(*current);
+	 res; res = cupsArrayNext(*current))
       if (!cupsArrayFind(*new_arr, res))
 	cupsArrayRemove(*current, res);
     if (current_default)

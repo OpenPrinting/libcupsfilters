@@ -128,9 +128,9 @@ get_filter_data_ext_entry(cups_array_t *ext_array,
   if (!ext_array || !name)
     return (NULL);
 
-  for (entry = (cf_filter_data_ext_t *)cupsArrayGetFirst(ext_array);
+  for (entry = (cf_filter_data_ext_t *)cupsArrayFirst(ext_array);
        entry;
-       entry = (cf_filter_data_ext_t *)cupsArrayGetNext(ext_array))
+       entry = (cf_filter_data_ext_t *)cupsArrayNext(ext_array))
     if (strcmp(entry->name, name) == 0)
       break;
 
@@ -649,9 +649,9 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Remove NULL filters...
   //
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
        filter;
-       filter = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain))
+       filter = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain))
   {
     if (!filter->function)
     {
@@ -705,11 +705,11 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   filterfds[1][0] = -1;
   filterfds[1][1] = -1;
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
        filter;
        filter = next, current = 1 - current)
   {
-    next = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain);
+    next = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain);
 
     if (filterfds[1 - current][0] > 1)
     {
@@ -824,9 +824,9 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
       {
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterChain: Job canceled, killing filters ...");
-	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
+	for (pid_entry = (filter_function_pid_t *)cupsArrayFirst(pids);
 	     pid_entry;
-	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
+	     pid_entry = (filter_function_pid_t *)cupsArrayNext(pids))
 	{
 	  kill(pid_entry->pid, SIGTERM);
 	  free(pid_entry);
