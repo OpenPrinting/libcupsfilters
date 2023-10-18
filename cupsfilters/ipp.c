@@ -288,7 +288,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 			       host_name, sizeof(host_name),
 			       &(host_port),
 			       resource, sizeof(resource));
-  if (uri_status != HTTP_URI_OK)
+  if (uri_status != HTTP_URI_STATUS_OK)
   {
     // Invalid URI
     log_printf(cf_get_printer_attributes_log,
@@ -527,7 +527,7 @@ cfResolveURI2 (const char *uri, int is_fax)
 			   userpass, sizeof(userpass),
 			   hostname, sizeof(hostname), &port, resource,
 			   sizeof(resource));
-  if (status < HTTP_URI_OK)
+  if (status < HTTP_URI_STATUS_OK)
     // Invalid URI
     goto error;
 
