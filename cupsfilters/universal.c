@@ -10,7 +10,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include "config.h"
 #include "filter.h"
 #include <sys/types.h>
@@ -85,7 +85,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   sscanf(output, "%15[^/]/%255s", output_super, output_type);
 
   cups_array_t *filter_chain;
-  filter_chain = cupsArrayNew(NULL, NULL);
+  filter_chain = cupsArrayNew(NULL, NULL,NULL,0,NULL,NULL);
 
   if (!strcasecmp(input_super, "image") && strcasecmp(input_type, "urf") &&
       strcasecmp(input_type, "pwg-raster"))
@@ -152,7 +152,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   else
   {
 #ifdef HAVE_GHOSTSCRIPT
-    if (!strcasecmp(input, "application/postscript") || !strcasecmp(input, "application/vnd.cups-postscript"))
+    if (!strcasecmp(input, "application/postscript"))
     {
       outformat = malloc(sizeof(cf_filter_out_format_t));
       *outformat = CF_FILTER_OUT_FORMAT_PDF;
@@ -251,10 +251,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   {
     if (strcasecmp(output_type, "pdf"))
     {
-      if (strcasecmp(input_type, "vnd.cups-pdf") &&
-	  (strcasecmp(input_super, "image") ||
-	   !strcasecmp(input_type, "urf") ||
-	   !strcasecmp(input_type, "pwg-raster")))
+      if (strcasecmp(input_type, "vnd.cups-pdf"))
       {
 	filter = malloc(sizeof(cf_filter_filter_in_chain_t));
 	filter->function = cfFilterPDFToPDF;
@@ -340,10 +337,10 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     // Do the dirty work ...
     ret = cfFilterChain(inputfd, outputfd, inputseekable, data, filter_chain);
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter; filter = next)
   {
-    next = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain);
+    next = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain);
     free(filter->parameters);
     free(filter);
   }

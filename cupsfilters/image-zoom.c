@@ -20,7 +20,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include "image-private.h"
 
 
@@ -112,16 +112,6 @@ _cfImageZoomNew(
   else
   {
     flip  = 0;
-  }
-
-  if (ysize < 0)
-  {
-    z->yflip = 1;
-    ysize    = -ysize;
-  }
-  else
-  {
-    z->yflip = 0;
   }
 
   if (rotated)
@@ -238,8 +228,6 @@ zoom_bilinear(cf_izoom_t   *z,		// I - Zoom record to fill
 
   if (iy > z->ymax)
     iy = z->ymax;
-  if (z->yflip)
-    iy = z->ymax - iy;
 
   z->row ^= 1;
 
@@ -319,8 +307,6 @@ zoom_nearest(cf_izoom_t   *z,		// I - Zoom record to fill
 
   if (iy > z->ymax)
     iy = z->ymax;
-  if (z->yflip < 0)
-    iy = z->ymax - iy;
 
   z->row ^= 1;
 

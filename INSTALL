@@ -1,4 +1,4 @@
-INSTALL - OpenPrinting libcupsfilters v2.0.0 - 2023-09-22
+INSTALL - OpenPrinting libcupsfilters v2.0b4 - 2023-02-23
 ---------------------------------------------------------
 
 This file describes how to compile and install libcupsfilters from
@@ -28,14 +28,13 @@ BEFORE YOU BEGIN
     - fontconfig devel files for texttopdf
     - liblcms (liblcms2 recommended) devel files for color management in
       functions which use rasters (pdftoraster, pwgtoraster, pwgtopdf)
-    - QPDF (11.0 or higher, 11.4.0 highly recommended, fixes PDF form
-      bug, issue #28) devel files for PDF related functions (pwgtopdf,
+    - QPDF (11.0 or higher) devel files for PDF related functions (pwgtopdf,
       pdftopdf, bannertopdf) and pclmtoraster
 
     Then at least one of the following binaries is required for supporting
     non-PDF printers:
 
-    - Ghostscript 10.01.1 or higher built with support for output devices -
+    - Ghostscript 10.0.0 or higher built with support for output devices -
       "pdfwrite", "ps2write", "cups", "pwgraster", "appleraster", "pclm",
       "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
 
@@ -43,7 +42,7 @@ BEFORE YOU BEGIN
 
     - MuPDF at version 1.15 to prevent bugs
 
-    libcupsfilters provides additional features, which are optional
+    Libcupsfilters provides an additional features, which are optional
     for the compilation, but the library misses several file format
     support/feature support without them:
 
@@ -55,9 +54,9 @@ BEFORE YOU BEGIN
     - libexif devel files for getting image resolution
     - Dejavu Sans fonts for internal test suite
 
-    The GNU compiler tools and bash work well and we have tested the
-    current CUPS code against several versions of GCC with excellent
-    results.
+    The GNU compiler tools and Bash work well and we have tested
+    the current CUPS code against several versions of GCC
+    with excellent results.
 
     The Makefiles used by the project should work with most versions
     of make.  We've tested them with GNU make as well as the make

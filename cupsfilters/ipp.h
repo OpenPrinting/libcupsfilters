@@ -15,7 +15,6 @@ extern "C" {
 //
 // Include necessary headers...
 //
-
 #include "filter.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -84,7 +83,7 @@ typedef enum cf_gen_sizes_mode_e
 //
 
 char            *cfResolveURI(const char *raw_uri);
-char            *cfResolveURI2(const char *raw_uri, int is_fax);
+char            *cfResolveURI2(const char *uri ,int is_fax);
 int             cfCheckDriverlessSupport(const char* uri);
 ipp_t           *cfGetPrinterAttributes(const char* raw_uri,
 					const char* const pattrs[],
@@ -113,7 +112,7 @@ ipp_t           *cfGetPrinterAttributes4(const char* raw_uri,
 					 const char* const req_attrs[],
 					 int req_attrs_size,
 					 int debug,
-					 int is_fax);
+					 int isFax);
 ipp_t           *cfGetPrinterAttributes5(http_t *http_printer,
 					 const char* raw_uri,
 					 const char* const pattrs[],
@@ -164,7 +163,7 @@ int             cfGetPageDimensions(ipp_t *printer_attrs,
 				    ipp_t *job_attrs,
 				    int num_options,
 				    cups_option_t *options,
-				    cups_page_header2_t *header,
+				    cups_page_header_t *header,
 				    int transverse_fit,
 				    float *width,
 				    float *height,

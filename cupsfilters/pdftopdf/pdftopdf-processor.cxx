@@ -2,7 +2,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include "pdftopdf-processor-private.h"
 #include "qpdf-pdftopdf-processor-private.h"
 #include <stdio.h>
@@ -204,6 +204,15 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
     return false;
   }
 
+  // Certain features require a given page size for the page to be
+  // printed or all pages of the document being the same size. Here we
+  // set param.pagesize_requested so that the default pag size is used
+  // when no size got specified by the user.
+  if (param.fitplot || param.fillprint || param.autoprint || param.autofit ||
+      param.booklet != CF_PDFTOPDF_BOOKLET_OFF ||
+      param.nup.nupX > 1 || param.nup.nupY > 1)
+    param.pagesize_requested = true;
+      
   const bool dst_lscape =
     (param.paper_is_landscape ==
      ((param.orientation == ROT_0) || (param.orientation == ROT_180)));

@@ -16,7 +16,6 @@
 //
 // Include necessary headers...
 //
-
 #  include <config.h>
 #  include "image.h"
 #  include <cups/cups.h>
@@ -137,8 +136,7 @@ struct cf_izoom_s			// **** Image zoom data ****
 			ystep,		// Amount to step for each pixel along
 					// Y
 			yincr,
-			row,		// Current row
-			yflip;		// Y backwards/upside-down
+			row;		// Current row
   cf_ib_t		*rows[2],	// Horizontally scaled pixel data
 			*in;		// Unscaled input pixel data
 };

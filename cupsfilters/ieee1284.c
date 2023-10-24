@@ -21,7 +21,7 @@
 //
 // Include necessary headers.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <config.h>
 #include "ieee1284.h"
 #include "debug-internal.h"
@@ -869,13 +869,10 @@ cfIEEE1284NormalizeMakeModel(
 
       if (modelptr == NULL)
       {
-	if (!strncasecmp(make_and_model, "XPrint ", 7))
+	if (!strncasecmp(make_and_model, "XPrint", 6))
 	{
 	  //
 	  // Xerox XPrint...
-	  // Note: We check for the space after XPrint to ensure we do
-	  // not display Xerox for Xprinter devices, which are NOT by
-	  // Xerox.
 	  //
 
 	  snprintf(buffer, bufsize, "Xerox %s", make_and_model);

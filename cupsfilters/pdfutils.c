@@ -6,7 +6,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <memory.h>

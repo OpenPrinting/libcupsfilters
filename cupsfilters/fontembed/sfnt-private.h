@@ -8,7 +8,6 @@
 #ifndef _FONTEMBED_SFNT_INT_H_
 #define _FONTEMBED_SFNT_INT_H_
 
-
 //
 // Types and structures...
 //

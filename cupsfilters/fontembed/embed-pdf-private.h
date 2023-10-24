@@ -8,6 +8,7 @@
 #ifndef _FONTEMBED_EMBED_PDF_INT_H_
 #define _FONTEMBED_EMBED_PDF_INT_H_
 
+
 _cf_fontembed_emb_pdf_font_widths_t *__cfFontEmbedEmbPDFFWNew(int datasize);
 
 // if default_width == -1: default_width will be estimated

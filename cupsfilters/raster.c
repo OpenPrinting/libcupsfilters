@@ -17,7 +17,7 @@
 //
 // Include necessary headers.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <config.h>
 #include <cups/cups.h>
 #include "raster.h"
@@ -33,7 +33,7 @@
 // Local functions
 //
 
-static int raster_base_header(cups_page_header2_t *h, cf_filter_data_t *data,
+static int raster_base_header(cups_page_header_t *h, cf_filter_data_t *data,
 			      int pwg_raster);
 
 //
@@ -172,7 +172,7 @@ cfRasterColorSpaceString(cups_cspace_t cspace)	// I - cupsColorSpace value
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
+cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 			cf_filter_data_t *data, // I  - Job and printer data
 			cf_filter_out_format_t final_outformat,
                                                 // I  - Job output format
@@ -294,10 +294,17 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
         const char *p = ippGetString(attr, i, NULL);
         if (strncasecmp(p, "RS", 2))
 	  continue;
-        int res;
-        res = atoi(p + 2);
-	if (res > 0)
-	  xres = yres = res;
+        int lo; int hi;
+        lo = atoi(p + 2);
+        if (lo == 0)
+	  lo = -1;
+        p = strchr(p, '-');
+        if (p)
+	  hi = atoi(p + 1);
+        else
+	  hi = lo;
+        xres = hi;
+        yres = hi;
       }
     }
   }
@@ -346,36 +353,33 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
 			  &(margins[2]), &(margins[3]), size_name_buf,
 			  NULL);
 
+  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
+			       &(margins[0]), &(margins[1]),
+			       &(margins[2]), &(margins[3]),
+			       log, ld);
+
   if (i < 0)
   {
     pwg_media_t *pwg_media;
     
     for (i = 0; i < 2; i ++)
       dimensions[i] = h->cupsPageSize[i];
-    if (dimensions[0] > 0.0 && dimensions[1] > 0.0)
+    margins[0] = h->cupsImagingBBox[0];
+    margins[1] = h->cupsImagingBBox[1];
+    margins[2] = dimensions[0] - h->cupsImagingBBox[2];
+    margins[3] = dimensions[1] - h->cupsImagingBBox[3];
+    pwg_media = pwgMediaForSize(dimensions[0] / 72 * 2540,
+				dimensions[1] / 72 * 2540);
+    if (pwg_media)
     {
-      margins[0] = h->cupsImagingBBox[0];
-      margins[1] = h->cupsImagingBBox[1];
-      margins[2] = dimensions[0] - h->cupsImagingBBox[2];
-      margins[3] = dimensions[1] - h->cupsImagingBBox[3];
-      pwg_media = pwgMediaForSize(dimensions[0] / 72 * 2540,
-				  dimensions[1] / 72 * 2540);
-      if (pwg_media)
-      {
-	p = (pwg_media->ppd ? pwg_media->ppd :
-	     (pwg_media->legacy ? pwg_media->legacy : pwg_media->pwg));
-	if (p)
-	  _strlcpy(h->cupsPageSizeName, p, sizeof(h->cupsPageSizeName));
-      }
+      p = (pwg_media->ppd ? pwg_media->ppd :
+	   (pwg_media->legacy ? pwg_media->legacy : pwg_media->pwg));
+      if (p)
+	_strlcpy(h->cupsPageSizeName, p, sizeof(h->cupsPageSizeName));
     }
   }
   else if (size_name_buf[0])
     _strlcpy(h->cupsPageSizeName, size_name_buf, sizeof(h->cupsPageSizeName));
-
-  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
-			       &(margins[0]), &(margins[1]),
-			       &(margins[2]), &(margins[3]),
-			       log, ld);
 
   if (!cupsrasterheader)
     memset(margins, 0, sizeof(margins)); 
@@ -554,7 +558,7 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
+cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
 			const char *available,  // I  - Available color spaces
 						//      from IPP attribute
 						//      urf-supported or
@@ -791,7 +795,7 @@ cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
 
 
 static int                                 // O - -1 on error, 0 on success
-raster_base_header(cups_page_header2_t *h, // O - Raster header
+raster_base_header(cups_page_header_t *h, // O - Raster header
 		   cf_filter_data_t *data, // I - Filter data
 		   int pwg_raster)         // I - 1 if PWG/Apple Raster
 {
@@ -890,7 +894,7 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   // Initialize header
   //
 
-  memset(h, 0, sizeof(cups_page_header2_t));
+  memset(h, 0, sizeof(cups_page_header_t));
 
   //
   // Fill in the items using printer and job IPP attributes and options
@@ -1016,32 +1020,14 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   else
     h->Duplex = CUPS_FALSE;
 
-  // To avoid that a resolution provided in the option list and not as
-  // job IPP attribute is a supported resolution according to the
-  // printer IPP attributes, we want to use the
-  // cfIPPAttrResolutionForPrinter() function on it, to only accept it
-  // if it is supported and use the default if not, and also to accept it if
-  // there are no printer IPP attributes.
-  //
-  // Therefore we create a new IPP message for adding the resolution
-  // parsed from the option list, but only if we do not already have a
-  // "printer-resolution" in the job IPP attributes, which we use
-  // preferrably then.
-  int x = 0, y = 0;
-  if ((attr = ippFindAttribute(data->job_attrs, "printer-resolution",
-			       IPP_TAG_ZERO)) != NULL)
-    cfIPPAttrResolutionForPrinter(data->printer_attrs, data->job_attrs, NULL,
-				  &x, &y);
-  else if ((val = cupsGetOption("printer-resolution", num_options,
-				options)) != NULL ||
-	   (val = cupsGetOption("Resolution", num_options, options)) != NULL)
+  if ((val = cupsGetOption("printer-resolution", num_options,
+			   options)) != NULL ||
+      (val = cupsGetOption("Resolution", num_options, options)) != NULL)
   {
     int	        xres,		// X resolution
                 yres;		// Y resolution
     char	*ptr;		// Pointer into value
-    ipp_t       *attrs;
 
-    attrs = ippNew();
     xres = yres = strtol(val, (char **)&ptr, 10);
     if (ptr > val && xres > 0)
     {
@@ -1061,23 +1047,32 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
 	xres = xres * 254 / 100;
 	yres = yres * 254 / 100;
       }
-      ippAddResolution(attrs, IPP_TAG_PRINTER, "printer-resolution",
-		       IPP_RES_PER_INCH, xres, yres);
+      h->HWResolution[0] = xres;
+      h->HWResolution[1] = yres;
     }
-    cfIPPAttrResolutionForPrinter(data->printer_attrs, attrs, NULL, &x, &y);
-    ippDelete(attrs);
-  }
-  else
-    cfIPPAttrResolutionForPrinter(data->printer_attrs, NULL, NULL, &x, &y);
-  if (x && y)
-  {
-    h->HWResolution[0] = x;
-    h->HWResolution[1] = y;
+    else
+    {
+      h->HWResolution[0] = 100; // Resolution invalid
+      h->HWResolution[1] = 100;
+    }
   }
   else
   {
     h->HWResolution[0] = 100; // Resolution invalid
     h->HWResolution[1] = 100;
+  }
+
+  // Resolution from IPP attrs
+  if (h->HWResolution[0] == 100 && h->HWResolution[1] == 100)
+  {
+    int x = 0, y = 0;
+    cfIPPAttrResolutionForPrinter(data->printer_attrs, data->job_attrs,
+				  NULL, &x, &y);
+    if (x && y)
+    {
+      h->HWResolution[0] = x;
+      h->HWResolution[1] = y;
+    }
   }
   
   // TODO - Support for insert sheets
@@ -1330,11 +1325,11 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
       h->Orientation = CUPS_ORIENT_90;
     else if (!strcasecmp(val, "reverse-portrait") ||
 	     !strcasecmp(val, "ReversePortrait") ||
-	     !strcasecmp(val, "6"))
+	     !strcasecmp(val, "5"))
       h->Orientation = CUPS_ORIENT_180;
     else if (!strcasecmp(val, "reverse-landscape") ||
 	     !strcasecmp(val, "ReverseLandscape") ||
-	     !strcasecmp(val, "5"))
+	     !strcasecmp(val, "6"))
       h->Orientation = CUPS_ORIENT_270;
     else
       h->Orientation = CUPS_ORIENT_0;

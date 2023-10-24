@@ -16,7 +16,7 @@
 //
 // Include necessary headers.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <config.h>
 
 #include <ctype.h>
@@ -30,9 +30,17 @@
 #include <cups/cups.h>
 #include <cups/backend.h>
 #include <cups/dir.h>
+#include <cups/http-private.h>
 #include <cups/pwg.h>
 #include <cupsfilters/ipp.h>
 
+
+enum resolve_uri_converter_type	// **** Resolving DNS-SD based URI ****
+{
+  CUPS_BACKEND_URI_CONVERTER = -1,
+  IPPFIND_BASED_CONVERTER_FOR_PRINT_URI = 0,
+  IPPFIND_BASED_CONVERTER_FOR_FAX_URI = 1
+};
 
 char cf_get_printer_attributes_log[CF_GET_PRINTER_ATTRIBUTES_LOGSIZE];
 
@@ -62,63 +70,7 @@ log_printf(char *log,
 char *
 cfResolveURI(const char *raw_uri)
 {
-  char *pseudo_argv[2];
-  const char *uri;
-  int fd1, fd2;
-  char *save_device_uri_var, *save_ppd_var;
-
-  // Eliminate any output to stderr, to get rid of the CUPS-backend-specific
-  // output of the cupsBackendDeviceURI() function
-  fd1 = dup(2);
-  fd2 = open("/dev/null", O_WRONLY);
-  dup2(fd2, 2);
-  close(fd2);
-
-  // If set, save the DEVICE_URI environment and then unset it, so that
-  // if we are running under CUPS (as filter or backend) our raw_uri gets
-  // resolved and not whatever URI is set in DEVICE_URI
-  if ((save_device_uri_var = getenv("DEVICE_URI")) != NULL)
-  {
-    save_device_uri_var = strdup(save_device_uri_var);
-    unsetenv("DEVICE_URI");
-  }
-
-  // Same for PPD, to make the cupsBackendDeviceURI() call in this
-  // function not do uncontrolled switches between print and fax URI
-  // dependent on the PPD file the variable is pointing to. This makes
-  // this function always return the print URI, to make the libcups2
-  // and libcups3 builds of libcupsfilters behave the same.
-  if ((save_ppd_var = getenv("PPD")) != NULL)
-  {
-    save_ppd_var = strdup(save_ppd_var);
-    unsetenv("PPD");
-  }
-
-  // Use the URI resolver of libcups to support DNS-SD-service-name-based
-  // URIs. The function returns the corresponding host-name-based URI
-  pseudo_argv[0] = (char *)raw_uri;
-  pseudo_argv[1] = NULL;
-  uri = cupsBackendDeviceURI(pseudo_argv);
-
-  // Restore DEVICE_URI environment variable if we had unset it
-  if (save_device_uri_var)
-  {
-    setenv("DEVICE_URI", save_device_uri_var, 1);
-    free(save_device_uri_var);
-  }
-
-  // Restore PPD environment variable if we had unset it
-  if (save_ppd_var)
-  {
-    setenv("PPD", save_ppd_var, 1);
-    free(save_ppd_var);
-  }
-
-  // Re-activate stderr output
-  dup2(fd1, 2);
-  close(fd1);
-
-  return (uri ? strdup(uri) : NULL);
+  cfResolveURI2(raw_uri,0);
 }
 
 // Check how the driverless support is provided
@@ -179,11 +131,11 @@ cfGetPrinterAttributes3(http_t *http_printer,
 {
   return (cfGetPrinterAttributes5(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug,
-				  driverless_info, 0));
+				  driverless_info, is_fax));
 }
 
-// Get attributes of a printer or fax specified only by URI and given
-// info about fax-support
+// Get attributes of a printer specified only by URI and given info about
+// fax-support
 ipp_t   *cfGetPrinterAttributes4(const char* raw_uri,
 				 const char* const pattrs[],
 				 int pattrs_size,
@@ -192,14 +144,19 @@ ipp_t   *cfGetPrinterAttributes4(const char* raw_uri,
 				 int debug,
 				 int is_fax)
 {
-  return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
-				  req_attrs, req_attrs_size, debug, NULL,
-				  is_fax));
+  if (is_fax)
+    return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
+				    req_attrs, req_attrs_size, debug, NULL,
+				    is_fax));
+  else
+    return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
+				    req_attrs, req_attrs_size, debug, NULL,
+				    is_fax));
 }
 
-// Get attributes of a printer or fax specified by URI and under a
-// given HTTP connection, for example via a domain socket, and give
-// info about used fallbacks
+// Get attributes of a printer specified by URI and under a given HTTP
+// connection, for example via a domain socket, and give info about used
+// fallbacks
 ipp_t *
 cfGetPrinterAttributes5(http_t *http_printer,
 			const char* raw_uri,
@@ -209,7 +166,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 			int req_attrs_size,
 			int debug,
 			int* driverless_info,
-			int is_fax)
+			int is_fax )
 {
   char *uri;
   int have_http, uri_status, host_port, i = 0, total_attrs = 0, fallback,
@@ -272,7 +229,10 @@ cfGetPrinterAttributes5(http_t *http_printer,
   cf_get_printer_attributes_log[0] = '\0';
 
   // Convert DNS-SD-service-name-based URIs to host-name-based URIs
-  uri = cfResolveURI2(raw_uri, is_fax);
+  if (resolve_uri_type == CUPS_BACKEND_URI_CONVERTER)
+    uri = cfResolveURI(raw_uri);
+  else
+    uri = cfResolveURI2(raw_uri, resolve_uri_type);
 
   if (uri == NULL)
   {
@@ -288,7 +248,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 			       host_name, sizeof(host_name),
 			       &(host_port),
 			       resource, sizeof(resource));
-  if (uri_status != HTTP_URI_STATUS_OK)
+  if (uri_status != HTTP_URI_OK)
   {
     // Invalid URI
     log_printf(cf_get_printer_attributes_log,
@@ -308,7 +268,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
   {
     have_http = 0;
     if ((http_printer =
-	 httpConnect2 (host_name, host_port, NULL, AF_UNSPEC, 
+	 httpConnect (host_name, host_port, NULL, AF_UNSPEC, 
 		       encryption, 1, 3000, NULL)) == NULL)
     {
       log_printf(cf_get_printer_attributes_log,
@@ -370,7 +330,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
       if (debug)
 	log_printf(cf_get_printer_attributes_log,
 		   "Full list of all IPP attributes:\n");
-      attr = ippFirstAttribute(response);
+      attr = ippGetFirstAttribute(response);
       while (attr)
       {
 	total_attrs ++;
@@ -385,7 +345,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 	    if ((kw = ippGetString(attr, i, NULL)) != NULL)
 	      log_printf(cf_get_printer_attributes_log, "  Keyword: %s\n", kw);
 	}
-	attr = ippNextAttribute(response);
+	attr = ippGetNextAttribute(response);
       }
 
       // Check whether the IPP response contains the required attributes
@@ -494,244 +454,17 @@ cfGetPrinterAttributes5(http_t *http_printer,
 }
 
 char*
-cfResolveURI2 (const char *uri, int is_fax)
+cfResolveURI2(const char *uri, int is_fax)
 {
-  int  ippfind_pid = 0,	        // Process ID of ippfind for IPP
-       post_proc_pipe[2],	// Pipe to post-processing for IPP
-       wait_children,		// Number of child processes left
-       wait_pid,		// Process ID from wait()
-       wait_status,		// Status from child
-       exit_status = 0,		// Exit status
-       bytes,
-       port,
-       i,
-       output_of_fax_uri = 0,
-       is_local;
-  char *ippfind_argv[100],	// Arguments for ippfind
-       *ptr_to_port = NULL,
-       *reg_type,
-       *resolved_uri = NULL,	// Buffer for resolved URI
-       *resource_field = NULL,
-       *service_hostname = NULL,
-       // URI components...
-       scheme[32],
-       userpass[256],
-       hostname[1024],
-       resource[1024],
-       *buffer = NULL,		// Copy buffer
-       *ptr;			// Pointer into string;
-  cups_file_t *fp;		// Post-processing input file
-  int  status;			// Status of GET request
+ int options = HTTP_RESOLVE_DEFAULT;
+char buf[1024];
 
-  status = httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme, sizeof(scheme),
-			   userpass, sizeof(userpass),
-			   hostname, sizeof(hostname), &port, resource,
-			   sizeof(resource));
-  if (status < HTTP_URI_STATUS_OK)
-    // Invalid URI
-    goto error;
+if ((auth_info_required = getenv("AUTH_INFO_REQUIRED")) != NULL && !strcmp(auth_info_required, "negotiate"))
+{options |= HTTP_RESOLVE_FQDN;}
+if (is_fax)
+{options |= HTTP_RESOLVE_FAXOUT;}
 
-  // URI is not DNS-SD-based, so do not resolve
-  if ((reg_type = strstr(hostname, "._tcp")) == NULL)
-    return (strdup(uri));
-
-  resolved_uri =
-    (char *)malloc(CF_GET_PRINTER_ATTRIBUTES_MAX_URI_LEN * (sizeof(char)));
-  if (resolved_uri == NULL)
-    goto error;
-  memset(resolved_uri, 0, CF_GET_PRINTER_ATTRIBUTES_MAX_URI_LEN);
-
-  reg_type --;
-  while (reg_type >= hostname && *reg_type != '.')
-    reg_type --;
-  if (reg_type < hostname)
-    goto error;
-  *reg_type++ = '\0';
-
-  i = 0;
-  ippfind_argv[i++] = "ippfind";
-  ippfind_argv[i++] = reg_type;           // list IPP(S) entries
-  ippfind_argv[i++] = "-T";               // DNS-SD poll timeout
-  ippfind_argv[i++] = "0";                // Minimum time required
-  if (is_fax == 1)
-  {
-    ippfind_argv[i++] = "--txt";
-    ippfind_argv[i++] = "rfo";
-  }
-  ippfind_argv[i++] = "-N";
-  ippfind_argv[i++] = hostname;
-  ippfind_argv[i++] = "-x";
-  ippfind_argv[i++] = "echo";             // Output the needed data fields
-  ippfind_argv[i++] = "-en";              // separated by tab characters
-  if(is_fax == 1)
-    ippfind_argv[i++] = "\n{service_hostname}\t{txt_rfo}\t{service_port}\t";
-  else
-    ippfind_argv[i++] = "\n{service_hostname}\t{txt_rp}\t{service_port}\t";
-  ippfind_argv[i++] = ";";
-  ippfind_argv[i++] = "--local";          // Rest only if local service
-  ippfind_argv[i++] = "-x";
-  ippfind_argv[i++] = "echo";             // Output an 'L' at the end of the
-  ippfind_argv[i++] = "-en";              // line
-  ippfind_argv[i++] = "L";
-  ippfind_argv[i++] = ";";
-  ippfind_argv[i++] = NULL;
-
-  //
-  // Create a pipe for passing the ippfind output to post-processing
-  //
-
-  if (pipe(post_proc_pipe))
-    goto error;
-
-  if ((ippfind_pid = fork()) == 0)
-  {
-    //
-    // Child comes here...
-    //
-
-    dup2(post_proc_pipe[1], 1);
-    close(post_proc_pipe[0]);
-    close(post_proc_pipe[1]);
-
-    execvp(CUPS_IPPFIND, ippfind_argv);
-
-    exit(1);
-  }
-  else if (ippfind_pid < 0)
-  {
-    //
-    // Unable to fork!
-    //
-
-    goto error;
-  }
-
-  close(post_proc_pipe[1]);
-
-  fp = cupsFileOpenFd(post_proc_pipe[0], "r");
-
-  buffer =
-    (char*)malloc(CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN * sizeof(char));
-  if (buffer == NULL)
-    goto error;
-  memset(buffer, 0, CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN);
-
-  while ((bytes =
-	  cupsFileGetLine(fp, buffer,
-			  CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN)) > 0)
-  {
-    // Mark all the fields of the output of ippfind
-    ptr = buffer;
-
-    // ignore new lines
-    if (bytes < 3)
-      goto read_error;
-
-    // First, build the DNS-SD-service-name-based URI ...
-    while (ptr && !isalnum(*ptr & 255)) ptr ++;
-
-    service_hostname = ptr; 
-    ptr = memchr(ptr, '\t',
-		 CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN - (ptr - buffer));
-    if (!ptr) goto read_error;
-    *ptr = '\0';
-    ptr ++;
-
-    resource_field = ptr;
-    ptr = memchr(ptr, '\t',
-		 CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN - (ptr - buffer));
-    if (!ptr) goto read_error;
-    *ptr = '\0';
-    ptr ++;
-
-    ptr_to_port = ptr;
-    ptr = memchr(ptr, '\t',
-		 CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN - (ptr - buffer));
-    if (!ptr) goto read_error;
-    *ptr = '\0';
-    ptr ++;
-
-    // Do we have a local service so that we have to set the host name to
-    // "localhost"?
-    is_local = (*ptr == 'L');
-
-    ptr = strchr(reg_type, '.');
-    if (!ptr) goto read_error;
-    *ptr = '\0';
-
-    port = convert_to_port(ptr_to_port);
-
-    httpAssembleURIf(HTTP_URI_CODING_ALL, resolved_uri,
-		     2047, reg_type + 1, NULL,
-		     (is_local ? "localhost" : service_hostname), port, "/%s",
-		     resource_field);
-
-    if (is_fax == 1)
-      output_of_fax_uri = 1; // fax-uri requested from fax-capable device
-
-  read_error:
-    memset(buffer, 0, CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN);
-  }
-
-  cupsFileClose(fp);
-
-  if (buffer != NULL)
-    free(buffer);
-
-  //
-  // Wait for the child processes to exit...
-  //
-
-  wait_children = 1;
-
-  while (wait_children > 0)
-  {
-    //
-    // Wait until we get a valid process ID or the job is canceled...
-    //
-
-    while ((wait_pid = wait(&wait_status)) < 0 && errno == EINTR);
-
-    if (wait_pid < 0)
-      break;
-
-    wait_children --;
-
-    //
-    // Report child status...
-    //
-
-    if (wait_status)
-    {
-      if (WIFEXITED(wait_status))
-      {
-	exit_status = WEXITSTATUS(wait_status);
-        if (wait_pid == ippfind_pid && exit_status <= 2)
-          exit_status = 0;	  
-      }
-      else if (WTERMSIG(wait_status) == SIGTERM)
-      {
-	// All OK, no error
-      }
-      else
-      {
-	exit_status = WTERMSIG(wait_status);
-      }
-    }
-  }
-  if (is_fax == 1 && !output_of_fax_uri)
-    goto error;
-
-  return (resolved_uri);
-
-  //
-  // Exit...
-  //
-
- error:
-  if (resolved_uri != NULL)
-    free(resolved_uri);
-  return (NULL);
+return (strdup(httpResolveURI(device_uri, buf, sizeof(buf), options, NULL, NULL)));
 }
 
 
@@ -885,7 +618,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
     attr_name = "printer-resolution";
 
   // Check whether job got supplied the named attribute and read out its value
-  // as resolution
+  // as integer
   if (job_attrs == NULL ||
       (attr = ippFindAttribute(job_attrs, attr_name, IPP_TAG_ZERO)) == NULL)
     retval = 0;
@@ -914,7 +647,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
       snprintf(printer_attr_name, sizeof(printer_attr_name) - 1,
 	       "%s-supported", attr_name);
       if ((attr = ippFindAttribute(printer_attrs, printer_attr_name,
-				   IPP_TAG_ZERO)) != NULL)
+				   IPP_TAG_RANGE)) != NULL)
       {
 	for (i = 0; i < ippGetCount(attr); i ++)
 	{
@@ -960,7 +693,7 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
     *xres = x;
     *yres = y;
   }
-  return (retval);
+  return retval;
 }
 
 
@@ -1276,8 +1009,8 @@ cfJoinJobOptionsAndAttrs(cf_filter_data_t* data,  // I  - Filter data
   for (i = 0, opt = data->options; i < data->num_options; i ++, opt ++)
     num_options = cupsAddOption(opt->name, opt->value, num_options, options);
 
-  for (ipp_attr = ippFirstAttribute(job_attrs); ipp_attr;
-       ipp_attr = ippNextAttribute(job_attrs))
+  for (ipp_attr = ippGetFirstAttribute(job_attrs); ipp_attr;
+       ipp_attr = ippGetNextAttribute(job_attrs))
   {
     ippAttributeString(ipp_attr, buf, sizeof(buf));
     num_options = cupsAddOption(ippGetName(ipp_attr), buf,
@@ -1456,7 +1189,7 @@ cfFreeResolution(void *resolution,
 cups_array_t *
 cfNewResolutionArray()
 {
-  return (cupsArrayNew3(cfCompareResolutions, NULL, NULL, 0,
+  return (cupsArrayNew(cfCompareResolutions, NULL, NULL, 0,
 			cfCopyResolution, cfFreeResolution));
 }
 
@@ -1532,7 +1265,7 @@ cfIPPAttrToResolutionArray(ipp_attribute_t *attr)
 	    cfFreeResolution(res, NULL);
 	  }
       }
-      if (cupsArrayCount(res_array) == 0)
+      if (cupsArrayGetCount(res_array) == 0)
       {
 	cupsArrayDelete(res_array);
 	res_array = NULL;
@@ -1569,7 +1302,7 @@ cfJoinResolutionArrays(cups_array_t **current,
   int retval;
 
   if (current == NULL || new_arr == NULL || *new_arr == NULL ||
-      cupsArrayCount(*new_arr) == 0)
+      cupsArrayGetCount(*new_arr) == 0)
   {
     retval = 0;
     goto finish;
@@ -1588,7 +1321,7 @@ cfJoinResolutionArrays(cups_array_t **current,
     }
     return 1;
   }
-  else if (cupsArrayCount(*current) == 0)
+  else if (cupsArrayGetCount(*current) == 0)
   {
     retval = 1;
     goto finish;
@@ -1596,8 +1329,8 @@ cfJoinResolutionArrays(cups_array_t **current,
 
   // Dry run: Check whether the two arrays have at least one resolution
   // in common, if not, do not touch the original array
-  for (res = cupsArrayFirst(*current);
-       res; res = cupsArrayNext(*current))
+  for (res = cupsArrayGetFirst(*current);
+       res; res = cupsArrayGetNext(*current))
     if (cupsArrayFind(*new_arr, res))
       break;
 
@@ -1606,8 +1339,8 @@ cfJoinResolutionArrays(cups_array_t **current,
     // Reduce the original array to the resolutions which are in both
     // the original and the new array, at least one resolution will
     // remain.
-    for (res = cupsArrayFirst(*current);
-	 res; res = cupsArrayNext(*current))
+    for (res = cupsArrayGetFirst(*current);
+	 res; res = cupsArrayGetNext(*current))
       if (!cupsArrayFind(*new_arr, res))
 	cupsArrayRemove(*current, res);
     if (current_default)
@@ -1684,7 +1417,7 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 	            ipp_t *job_attrs,	    // I - Job attributes
 	            int num_options,        // I - Number of options
 	            cups_option_t *options, // I - Options
-		    cups_page_header2_t *header, // I - Raster page header
+		    cups_page_header_t *header, // I - Raster page header
 		    int transverse_fit,     // I - Accept transverse fit?
 	            float *width,	    // O - Width (in pt, 1/72 inches)
 		    float *height,          // O - Height
@@ -1707,12 +1440,13 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
     "Jmedia",
     "JPageSize",
     "JMediaSize",
+    "J", // A raster header with media dimensions
     "jmedia-col",
     "jmedia-size",
     "jmedia",
     "jPageSize",
     "jMediaSize",
-    "D", // A raster header with media dimensions
+    "j", // A raster header with media dimensions
     "Dmedia-col-default",
     "Dmedia-default",
   };
@@ -2439,9 +2173,9 @@ cfGenerateSizes(ipp_t *response,
     return;
 
   if (sizes)
-    *sizes = cupsArrayNew3((cups_array_func_t)pwg_compare_sizes, NULL, NULL, 0,
-			   (cups_acopy_func_t)pwg_copy_size,
-			   (cups_afree_func_t)free);
+    *sizes = cupsArrayNew((cups_array_cb_t)pwg_compare_sizes, NULL, NULL, 0,
+			   (cups_acopy_cb_t)pwg_copy_size,
+			   (cups_afree_cb_t)free);
 
   // Go through all attributes which are lists of media-col structures
   for (j = 0; j < sizeof(col_attrs) / sizeof(col_attrs[0]); j ++)

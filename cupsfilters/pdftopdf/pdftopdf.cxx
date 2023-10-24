@@ -6,7 +6,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <config.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -233,6 +233,53 @@ getParameters(cf_filter_data_t *data,
   if (param.num_copies == 0)
     param.num_copies = 1;
 
+  if ((val = cupsGetOption("ipp-attribute-fidelity", num_options, options)) !=
+      NULL)
+  {
+    if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
+	!strcasecmp(val, "on"))
+      param.fidelity = true;
+  }
+
+  if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL)
+  {
+    if (!strcasecmp(val, "auto"))
+      param.autoprint = true;
+    else if (!strcasecmp(val, "auto-fit"))
+      param.autofit = true;
+    else if (!strcasecmp(val, "fill"))
+      param.fillprint = true;
+    else if (!strcasecmp(val, "fit"))
+      param.fitplot = true;
+    else
+      param.cropfit = true;
+  }
+  else
+  {
+    if ((val = cupsGetOption("fitplot", num_options, options)) == NULL)
+    {
+      if ((val = cupsGetOption("fit-to-page", num_options, options)) == NULL)
+	val = cupsGetOption("ipp-attribute-fidelity", num_options, options);
+    }
+    // TODO?  pstops checks == "true", pdftops !is_false  ... pstops says:
+    // fitplot only for PS (i.e. not for PDF, cmp. cgpdftopdf)
+    param.fitplot = (val) && (!is_false(val));
+
+    if ((val = cupsGetOption("fill", num_options, options)) != 0)
+    {
+      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
+	param.fillprint = true;
+    }
+    if ((val = cupsGetOption("crop-to-fit", num_options, options)) != NULL)
+    {
+      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
+	param.cropfit=1;
+    }
+    if (!param.autoprint && !param.autofit && !param.fitplot &&
+	!param.fillprint && !param.cropfit)
+      param.autoprint = true;
+  }
+
   // direction the printer rotates landscape
   // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
   if (printer_attrs != NULL &&
@@ -245,8 +292,12 @@ getParameters(cf_filter_data_t *data,
     param.normal_landscape = ROT_90;
 
   param.orientation = ROT_0;
-  param.no_orientation = false;
-  if (optGetInt("orientation-requested", num_options, options, &ipprot))
+  if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
+  {
+    if (!is_false(val))
+      param.orientation = param.normal_landscape;
+  }
+  else if (optGetInt("orientation-requested", num_options, options, &ipprot))
   {
     // IPP orientation values are:
     //   3: 0 degrees,  4: 90 degrees,  5: -90 degrees,  6: 180 degrees
@@ -267,11 +318,6 @@ getParameters(cf_filter_data_t *data,
       param.orientation = ipp2rot[ipprot - 3];
     }
   }
-  else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
-  {
-    if (!is_false(val))
-      param.orientation = param.normal_landscape;
-  }
   else
     param.no_orientation = true;
 
@@ -281,7 +327,7 @@ getParameters(cf_filter_data_t *data,
 			 &(param.page.width), &(param.page.height),
 			 &(param.page.left), &(param.page.bottom),
 			 &(param.page.right), &(param.page.top),
-			 NULL, NULL) >= 1);
+			 NULL, NULL) == 1);
 
   cfSetPageDimensionsToDefault(&(param.page.width), &(param.page.height),
 			       &(param.page.left), &(param.page.bottom),
@@ -543,77 +589,9 @@ getParameters(cf_filter_data_t *data,
 
   // TODO?! Choose default by whether pdfautoratate filter has already been
   // run (e.g. by mimetype)
-  param.auto_rotate = param.no_orientation;
-  if ((val = cupsGetOption("pdftopdfAutoRotate",
-			   num_options, options)) != NULL ||
-      (val = cupsGetOption("pdfAutoRotate", num_options, options)) != NULL)
-    param.auto_rotate = !is_false(val);
-
-  if ((val = cupsGetOption("ipp-attribute-fidelity", num_options, options)) !=
-      NULL)
-  {
-    if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
-	!strcasecmp(val, "on"))
-      param.fidelity = true;
-  }
-
-  if (printer_attrs == NULL && !param.pagesize_requested &&
-      param.booklet == CF_PDFTOPDF_BOOKLET_OFF &&
-      param.nup.nupX == 1 && param.nup.nupY && 1)
-    // With no printer capability info and, no given page size, and no
-    // requirement of all pages being the same size just use the input page sizes
-    param.cropfit = true;
-  else if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL)
-  {
-    // Standard IPP attribute
-    if (!strcasecmp(val, "auto"))
-      param.autoprint = true;
-    else if (!strcasecmp(val, "auto-fit"))
-      param.autofit = true;
-    else if (!strcasecmp(val, "fill"))
-      param.fillprint = true;
-    else if (!strcasecmp(val, "fit"))
-      param.fitplot = true;
-    else if (!strcasecmp(val, "none"))
-      param.cropfit = true;
-    else
-      param.autoprint = true;
-  }
-  else
-  {
-    // Legacy CUPS attributes
-    if ((val = cupsGetOption("fitplot", num_options, options)) == NULL)
-    {
-      if ((val = cupsGetOption("fit-to-page", num_options, options)) == NULL)
-	val = cupsGetOption("ipp-attribute-fidelity", num_options, options);
-    }
-    // TODO?  pstops checks == "true", pdftops !is_false  ... pstops says:
-    // fitplot only for PS (i.e. not for PDF, cmp. cgpdftopdf)
-    param.fitplot = (val) && (!is_false(val));
-
-    if ((val = cupsGetOption("fill", num_options, options)) != 0)
-    {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-	param.fillprint = true;
-    }
-    if ((val = cupsGetOption("crop-to-fit", num_options, options)) != NULL)
-    {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-	param.cropfit=1;
-    }
-    if (!param.autoprint && !param.autofit && !param.fitplot &&
-	!param.fillprint && !param.cropfit)
-      param.autoprint = true;
-  }
-
-  // Certain features require a given page size for the page to be
-  // printed or all pages of the document being the same size. Here we
-  // set param.pagesize_requested so that the default page size is used
-  // when no size got specified by the user.
-  if (param.fitplot || param.fillprint || param.autoprint || param.autofit ||
-      param.booklet != CF_PDFTOPDF_BOOKLET_OFF ||
-      param.nup.nupX > 1 || param.nup.nupY > 1)
-    param.pagesize_requested = true;
+  param.auto_rotate =
+    (!is_false(cupsGetOption("pdfAutoRotate", num_options, options)) &&
+     !is_false(cupsGetOption("pdftopdfAutoRotate", num_options, options)));
 
   //
   // Do we have to do the page logging in page_log?

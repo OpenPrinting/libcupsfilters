@@ -10,7 +10,7 @@
 // information.
 //
 
-
+#include <cupsfilters/libcups2-private.h>
 #include "filter.h"
 #include <config.h>
 #include <sys/types.h>
@@ -1522,7 +1522,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 					// ("on" or "off")
   struct pdf_info pdf;
   cups_raster_t		*ras;		// Raster stream for printing
-  cups_page_header2_t	header;		// Page header from file
+  cups_page_header_t	header;		// Page header from file
   ipp_t *printer_attrs = data->printer_attrs; // Printer attributes from
 					// printer data
   ipp_attribute_t	*ipp_attr;	// Printer attribute
@@ -1616,7 +1616,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     {
       log(ld, CF_LOGLEVEL_DEBUG, "PCLm-related printer IPP attributes:");
       total_attrs = 0;
-      ipp_attr = ippFirstAttribute(printer_attrs);
+      ipp_attr = ippGetFirstAttribute(printer_attrs);
       while (ipp_attr)
       {
         if (strncmp(ippGetName(ipp_attr), "pclm-", 5) == 0)
@@ -1629,7 +1629,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
             if ((kw = ippGetString(ipp_attr, i, NULL)) != NULL)
 	      log(ld, CF_LOGLEVEL_DEBUG, "  Keyword: %s", kw);
 	}
-	ipp_attr = ippNextAttribute(printer_attrs);
+	ipp_attr = ippGetNextAttribute(printer_attrs);
       }
       log(ld, CF_LOGLEVEL_DEBUG, "  %d attributes", total_attrs);
     }
@@ -1740,7 +1740,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     }
   }
 
-  while (cupsRasterReadHeader2(ras, &header))
+  while (cupsRasterReadHeader(ras, &header))
   {
     if (iscanceled && iscanceled(icd))
     {

@@ -4,7 +4,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+//#include <cupsfilters/libcups2-private.h>
 #include "image.h"
 #include <stdio.h>
 #include <cups/raster.h>
@@ -418,7 +418,7 @@ cfOneBitLine(unsigned char *src,  // I - Input line
 	  threshold = 128;
         else
 	  threshold = dither1[row & 0xf][(w + k) & 0xf];
-        if (*src == 0xff || *src > threshold)
+        if (*src > threshold)
           t |= 0x1;
         src += 1;
       }

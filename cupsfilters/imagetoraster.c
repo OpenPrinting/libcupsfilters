@@ -27,7 +27,7 @@
 //
 // Include necessary headers...
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include <cupsfilters/filter.h>
 #include <cupsfilters/raster.h>
 #include <cupsfilters/colormanager.h>
@@ -131,42 +131,42 @@ int	Floyd4x4[4][4] =
 // Local functions...
 //
 
-static void	blank_line(cups_page_header2_t *header, unsigned char *row);
+static void	blank_line(cups_page_header_t *header, unsigned char *row);
 static void	format_cmy(imagetoraster_doc_t *doc,
-			   cups_page_header2_t *header, unsigned char *row,
+			   cups_page_header_t *header, unsigned char *row,
 			   int y, int z, int xsize, int ysize, int yerr0,
 			   int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_cmyk(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_K(imagetoraster_doc_t *doc,
-			 cups_page_header2_t *header, unsigned char *row,
+			 cups_page_header_t *header, unsigned char *row,
 			 int y, int z, int xsize, int ysize, int yerr0,
 			 int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_kcmycm(imagetoraster_doc_t *doc,
-			      cups_page_header2_t *header, unsigned char *row,
+			      cups_page_header_t *header, unsigned char *row,
 			      int y, int z, int xsize, int ysize, int yerr0,
 			      int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_kcmy(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 #define		format_RGB format_cmy
 static void	format_rgba(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_w(imagetoraster_doc_t *doc,
-			 cups_page_header2_t *header, unsigned char *row,
+			 cups_page_header_t *header, unsigned char *row,
 			 int y, int z, int xsize, int ysize, int yerr0,
 			 int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_ymc(imagetoraster_doc_t *doc,
-			   cups_page_header2_t *header, unsigned char *row,
+			   cups_page_header_t *header, unsigned char *row,
 			   int y, int z, int xsize, int ysize, int yerr0,
 			   int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_ymck(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	make_lut(cf_ib_t *, int, float, float);
@@ -188,8 +188,6 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   imagetoraster_doc_t	doc;		// Document information
   int			i;		// Looping var
   cf_image_t		*img;		// Image to print
-  int			normal_landscape = 0; // Preferred landscape rotation
-					// direction of the printer
   float			xprint,		// Printable area
 			yprint,
 			xinches,	// Total size in inches
@@ -210,7 +208,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 			xc1, yc1;
   cups_cspace_t         cspace = -1;    // CUPS color space
   cups_raster_t		*ras;		// Raster stream
-  cups_page_header2_t	header;		// Page header
+  cups_page_header_t	header;		// Page header
   int			num_options = 0;// Number of print options
   cups_option_t		*options = NULL;// Print options
   const char		*val;		// Option value
@@ -237,7 +235,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   int			plane,		// Current color plane
 			num_planes;	// Number of color planes
   char			tempfile[1024];	// Name of temporary file
-  FILE                  *fp = NULL;	// Input file
+  FILE                  *fp = NULL;		// Input file
   int                   fd;		// File descriptor for temp file
   char                  buf[BUFSIZ];
   int                   bytes;
@@ -245,13 +243,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   int                   cm_disabled = 0;// Color management disabled?
   int                   fillprint = 0;	// print-scaling = fill
   int                   cropfit = 0;	// -o crop-to-fit
-  cf_logfunc_t          log = data->logfunc;
+  cf_logfunc_t      log = data->logfunc;
   void                  *ld = data->logdata;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
   void                  *icd = data->iscanceleddata;
   ipp_t                 *printer_attrs = data->printer_attrs;
   ipp_t                 *job_attrs = data->job_attrs;
-  ipp_attribute_t       *ipp;
+  ipp_attribute_t *ipp;
   int 			min_length = __INT32_MAX__,
       			min_width = __INT32_MAX__;
   float 		customLeft = 0.0,
@@ -516,6 +514,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       b = 10.0f;
   }
 
+  if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
+  {
+    sscanf(val, "%d", &xppi);
+    yppi = xppi;
+    zoom = 0.0;
+  }
+
   if ((val = cupsGetOption("position", num_options, options)) != NULL)
   {
     if (strcasecmp(val, "center") == 0)
@@ -772,8 +777,10 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     int fidelity = 0;
     int document_large = 0;
 
-    if (doc.PageBottom >= 1.0 || abs(doc.PageTop - doc.PageLength) >= 2.0 ||
-	doc.PageLeft >= 1.0 || abs(doc.PageRight - doc.PageWidth) >= 2.0)
+    if (customLeft != 0 || customRight != 0 ||
+	customBottom != 0 || customTop != 0 ||
+	doc.PageLength != doc.PageTop - doc.PageBottom ||
+	doc.PageWidth != doc.PageRight - doc.PageLeft)
       margin_defined = 1;
 
     if ((val = cupsGetOption("ipp-attribute-fidelity",
@@ -788,40 +795,20 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     float h = (float)cfImageGetHeight(img);
     float pw = doc.PageRight - doc.PageLeft;
     float ph = doc.PageTop - doc.PageBottom;
-    int tempOrientation = (doc.Orientation == 0 ? 0 :    // Default: Auto-rotate
-			   (doc.Orientation == 1 ? 4 :   // +90
-			    (doc.Orientation == 2 ? 6 :  // -90 or + 270
-			     (doc.Orientation == 3 ? 5 : // +-180
-			      0))));                     // Invalid: Auto-rotate
-    ipp_attribute_t *attr;
-    // Direction the printer rotates landscape
-    // (landscape-orientation-requested-preferred: 4: 90 or 5: -90)
-    if (printer_attrs != NULL &&
-	(attr = ippFindAttribute(printer_attrs,
-				 "landscape-orientation-requested-preferred",
-				 IPP_TAG_ZERO)) != NULL &&
-	ippGetInteger(attr, 0) == 5)
-      normal_landscape = 5;
-    else
-      normal_landscape = 4;
+    int tempOrientation = doc.Orientation;
     if ((val = cupsGetOption("orientation-requested",
 			     num_options, options)) != NULL)
       tempOrientation = atoi(val);
-    else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
+    else if ((val = cupsGetOption("landscape",
+				  num_options, options)) != NULL)
     {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
-	  !strcasecmp(val, "on") || !strcasecmp(val, "1"))
-	tempOrientation = normal_landscape;
-      else if (!strcasecmp(val, "false") || !strcasecmp(val, "no") ||
-	       !strcasecmp(val, "off") || !strcasecmp(val, "0"))
-	tempOrientation = 3;
+      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
+	tempOrientation = 4;
     }
     if (tempOrientation == 0)
     {
       if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
-	tempOrientation = normal_landscape;
-      else
-	tempOrientation = 3;
+	tempOrientation = 4;
     }
     if (tempOrientation == 4 || tempOrientation == 5)
     {
@@ -829,29 +816,12 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       pw = ph;
       ph = tmp;
     }
-    doc.Orientation = (tempOrientation == 5 ? 3 :
-		       (tempOrientation == 6 ? 2 :
-			tempOrientation - 3));
-
     if (w * 72.0 / img->xppi > pw || h * 72.0 / img->yppi > ph)
       document_large = 1;
 
     if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL)
     {
-      if (!strcasecmp(val, "auto-fit"))
-      {
-	if (fidelity || document_large)
-	  zoom = 1.0;         // fit method
-	else
-	  cropfit = 1;        // none method
-      }
-      else if (!strcasecmp(val, "fill"))
-	fillprint = 1;        // fill method
-      else if (!strcasecmp(val, "fit"))
-	zoom = 1.0;           // fitplot = 1 or fit method
-      else if (!strcasecmp(val, "none"))
-	cropfit = 1;          // none or crop-to-fit
-      else
+      if (!strcasecmp(val, "auto"))
       {
 	if (fidelity || document_large)
 	{
@@ -863,16 +833,23 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	else
 	  cropfit = 1;        // none method
       }
+      else if (!strcasecmp(val, "auto-fit"))
+      {
+	if (fidelity || document_large)
+	  zoom = 1.0;         // fit method
+	else
+	  cropfit = 1;        // none method
+      }
+      else if (!strcasecmp(val, "fill"))
+	fillprint = 1;        // fill method
+      else if(!strcasecmp(val, "fit"))
+	zoom = 1.0;           // fitplot = 1 or fit method
+      else
+	cropfit = 1;          // none or crop-to-fit
     }
     else       // print-scaling is not defined, look for alternate options.
     {
-      if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
-      {
-	sscanf(val, "%d", &xppi);
-	yppi = xppi;
-	zoom = 0.0;
-      }
-      else if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
+      if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
 	zoom = atoi(val) * 0.01;
       else if (((val =
 		 cupsGetOption("fit-to-page", num_options, options)) != NULL) ||
@@ -884,152 +861,169 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	else
 	  zoom = 0.0;
       }
-      else if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
-	       NULL &&
-	       atoi(val) != 0)
+      else if ((val = cupsGetOption("natural-scaling", num_options, options))
+	       != NULL)
 	zoom = 0.0;
-      else if ((val = cupsGetOption("fill", num_options, options)) != NULL)
+
+      if ((val = cupsGetOption("fill", num_options, options)) != NULL)
       {
 	if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
 	  fillprint = 1;
       }
-      else if ((val = cupsGetOption("crop-to-fit", num_options, options)) !=
-	       NULL)
+      if ((val = cupsGetOption("crop-to-fit", num_options, options)) != NULL)
       {
 	if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
 	  cropfit = 1;
       }
-      else
-      {
-	// No scaling-related settimgs -> Default to print-scaling=auto
-	if (fidelity || document_large)
-	{
-	  if (margin_defined)
-	    zoom = 1.0;       // fit method
-	  else
-	    fillprint = 1;    // fill method
-	}
-	else
-	  cropfit = 1;        // none method
-      }
     }
+  }
 
-    if (fillprint)
+  if (img != NULL)
+  {
+    if (fillprint || cropfit)
     {
-      // Final width and height of cropped image.
-      float final_w, final_h;
-      if (w * ph / pw <= h)
-      {
-	final_w = w;
-	final_h = w * ph / pw;
-      }
-      else
-      {
-	final_w = h * pw / ph;
-	final_h = h;
-      }
-      // posw and posh are position of the cropped image along width and
-      // height.
-      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-      posw = (1 + doc.XPosition) * posw;
-      posh = (1 - doc.YPosition) * posh;
-      cf_image_t *img2 = cfImageCrop(img, posw, posh, final_w, final_h);
-      cfImageClose(img);
-      img = img2;
-    }
-    else if (cropfit)
-    {
+      float w = (float)cfImageGetWidth(img);
+      float h = (float)cfImageGetHeight(img);
       // For cropfit do the math without the unprintable margins to get correct
       // centering, for fillprint, fill the printable area
-      if (doc.Orientation & 1)
+      float pw = (cropfit ? doc.PageWidth : doc.PageRight - doc.PageLeft);
+      float ph = (cropfit ? doc.PageLength : doc.PageTop - doc.PageBottom);
+      const char *val;
+      int tempOrientation = doc.Orientation;
+      int flag = 3;
+      if ((val = cupsGetOption("orientation-requested",
+			       num_options, options)) != NULL)
+        tempOrientation = atoi(val);
+      else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
       {
-	pw = doc.PageLength;
-	ph = doc.PageWidth;
+        if(!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
+          tempOrientation = 4;
+      }
+      if (tempOrientation > 0)
+      {
+        if (tempOrientation == 4 || tempOrientation == 5)
+        {
+          float temp = pw;
+          pw = ph;
+          ph = temp;
+          flag = 4;
+        }
+      }
+      if (tempOrientation == 0)
+      {
+        if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
+        {
+          int temp = pw;
+          pw = ph;
+          ph = temp;
+          flag = 4;
+        }
+      }
+      if (fillprint)
+      {
+        // Final width and height of cropped image.
+        float final_w, final_h;
+        if(w * ph / pw <= h)
+	{
+          final_w = w;
+          final_h = w * ph / pw; 
+        }
+        else
+	{
+          final_w = h * pw / ph;
+          final_h = h;
+        }
+        // posw and posh are position of the cropped image along width and
+	// height.
+        float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+        posw = (1 + doc.XPosition) * posw;
+        posh = (1 - doc.YPosition) * posh;
+        cf_image_t *img2 = cfImageCrop(img, posw, posh, final_w, final_h);
+        cfImageClose(img);
+        img = img2;
       }
       else
       {
-	pw = doc.PageWidth;
-	ph = doc.PageLength;
-      }
-      float final_w = w, final_h = h;
-      if (w > pw * img->xppi / 72.0)
-	final_w = pw * img->xppi / 72.0;
-      if (h > ph * img->yppi / 72.0)
-	final_h = ph * img->yppi / 72.0;
-      float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
-      posw = (1 + doc.XPosition) * posw;
-      posh = (1 - doc.YPosition) * posh;
-      // Check whether the unprintable margins hide away a part of the image,
-      // if so, correct the image cut
-      if (doc.Orientation & 1)
-      {
-	float margin, cutoff;
-	margin = (doc.PageLength - final_w * 72.0 / img->xppi) / 2;
-	if (margin >= doc.PageBottom)
-	  doc.PageBottom = margin;
+        float final_w = w, final_h = h;
+        if (w > pw * img->xppi / 72.0)
+          final_w = pw * img->xppi / 72.0;
+        if (h > ph * img->yppi / 72.0)
+          final_h = ph * img->yppi / 72.0;
+	float posw = (w - final_w) / 2, posh = (h - final_h) / 2;
+        posw = (1 + doc.XPosition) * posw;
+	posh = (1 - doc.YPosition) * posh;
+	// Check whether the unprintable margins hide away a part of the image,
+	// if so, correct the image cut
+	if (flag == 4)
+	{
+	  float margin, cutoff;
+	  margin = (doc.PageLength - final_w * 72.0 / img->xppi) / 2;
+	  if (margin >= doc.PageBottom)
+	    doc.PageBottom = margin;
+	  else
+	  {
+	    cutoff = (doc.PageBottom - margin) * img->xppi / 72.0;
+	    final_w -= cutoff;
+	    posw += cutoff;
+	  }
+	  margin = doc.PageBottom + final_w * 72.0 / img->xppi;
+	  if (margin <= doc.PageTop)
+	    doc.PageTop = margin;
+	  else
+	    final_w -= (margin - doc.PageTop) * img->xppi / 72.0;
+	  margin = (doc.PageWidth - final_h * 72.0 / img->yppi) / 2;
+	  if (margin >= doc.PageLeft)
+	    doc.PageLeft = margin;
+	  else
+	  {
+	    cutoff = (doc.PageLeft - margin) * img->yppi / 72.0;
+	    final_h -= cutoff;
+	    posh += cutoff;
+	  }
+	  margin = doc.PageLeft + final_h * 72.0 / img->yppi;
+	  if (margin <= doc.PageRight)
+	    doc.PageRight = margin;
+	  else
+	    final_h -= (margin - doc.PageRight) * img->yppi / 72.0;
+	}
 	else
 	{
-	  cutoff = (doc.PageBottom - margin) * img->xppi / 72.0;
-	  final_w -= cutoff;
-	  posw += cutoff;
+	  float margin, cutoff;
+	  margin = (doc.PageLength - final_h * 72.0 / img->yppi) / 2;
+	  if (margin >= doc.PageBottom)
+	    doc.PageBottom = margin;
+	  else
+	  {
+	    cutoff = (doc.PageBottom - margin) * img->yppi / 72.0;
+	    final_h -= cutoff;
+	    posh += cutoff;
+	  }
+	  margin = doc.PageBottom + final_h * 72.0 / img->yppi;
+	  if (margin <= doc.PageTop)
+	    doc.PageTop = margin;
+	  else
+	    final_h -= (margin - doc.PageTop) * img->yppi / 72.0;
+	  margin = (doc.PageWidth - final_w * 72.0 / img->xppi) / 2;
+	  if (margin >= doc.PageLeft)
+	    doc.PageLeft = margin;
+	  else
+	  {
+	    cutoff = (doc.PageLeft - margin) * img->xppi / 72.0;
+	    final_w -= cutoff;
+	    posw += cutoff;
+	  }
+	  margin = doc.PageLeft + final_w * 72.0 / img->xppi;
+	  if (margin <= doc.PageRight)
+	    doc.PageRight = margin;
+	  else
+	    final_w -= (margin - doc.PageRight) * img->xppi / 72.0;
 	}
-	margin = doc.PageBottom + final_w * 72.0 / img->xppi;
-	if (margin <= doc.PageTop)
-	  doc.PageTop = margin;
-	else
-	  final_w -= (margin - doc.PageTop) * img->xppi / 72.0;
-	margin = (doc.PageWidth - final_h * 72.0 / img->yppi) / 2;
-	if (margin >= doc.PageLeft)
-	  doc.PageLeft = margin;
-	else
-	{
-	  cutoff = (doc.PageLeft - margin) * img->yppi / 72.0;
-	  final_h -= cutoff;
-	  posh += cutoff;
-	}
-	margin = doc.PageLeft + final_h * 72.0 / img->yppi;
-	if (margin <= doc.PageRight)
-	  doc.PageRight = margin;
-	else
-	  final_h -= (margin - doc.PageRight) * img->yppi / 72.0;
-      }
-      else
-      {
-	float margin, cutoff;
-	margin = (doc.PageLength - final_h * 72.0 / img->yppi) / 2;
-	if (margin >= doc.PageBottom)
-	  doc.PageBottom = margin;
-	else
-	{
-	  cutoff = (doc.PageBottom - margin) * img->yppi / 72.0;
-	  final_h -= cutoff;
-	  posh += cutoff;
-	}
-	margin = doc.PageBottom + final_h * 72.0 / img->yppi;
-	if (margin <= doc.PageTop)
-	  doc.PageTop = margin;
-	else
-	  final_h -= (margin - doc.PageTop) * img->yppi / 72.0;
-	margin = (doc.PageWidth - final_w * 72.0 / img->xppi) / 2;
-	if (margin >= doc.PageLeft)
-	  doc.PageLeft = margin;
-	else
-	{
-	  cutoff = (doc.PageLeft - margin) * img->xppi / 72.0;
-	  final_w -= cutoff;
-	  posw += cutoff;
-	}
-	margin = doc.PageLeft + final_w * 72.0 / img->xppi;
-	if (margin <= doc.PageRight)
-	  doc.PageRight = margin;
-	else
-	  final_w -= (margin - doc.PageRight) * img->xppi / 72.0;
-      }
-      if (doc.PageBottom < 0) doc.PageBottom = 0;
-      if (doc.PageLeft < 0) doc.PageLeft = 0;
-      cf_image_t *img2 = cfImageCrop(img, posw, posh, final_w, final_h);
-      cfImageClose(img);
-      img = img2;
+	if (doc.PageBottom<0) doc.PageBottom = 0;
+	if (doc.PageLeft<0) doc.PageLeft = 0;
+	cf_image_t *img2 = cfImageCrop(img, posw, posh, final_w, final_h);
+	cfImageClose(img);
+	img = img2;
+      }	
     }
   }
 
@@ -1088,19 +1082,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToRaster: Image size is %.1f x %.1f inches...",
 		 xinches, yinches);
 
-    if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
-	NULL &&
-	atoi(val) != 0)
+    if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL)
     {
       xinches = xinches * atoi(val) / 100;
       yinches = yinches * atoi(val) / 100;
     }
 
-    if (!fillprint && !cropfit &&
-	(((val = cupsGetOption("orientation-requested",
-			       num_options, options)) ==
-	  NULL) ||
-	 atoi(val) == 0) &&
+    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //
@@ -1120,8 +1108,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterImageToRaster: Using landscape orientation...");
 
-	doc.Orientation =
-	  (doc.Orientation + (normal_landscape == 4 ? 1 : -1)) & 3;
+	doc.Orientation = (doc.Orientation + 1) & 3;
 	xsize       = yprint;
 	yprint      = xprint;
 	xprint      = xsize;
@@ -1171,11 +1158,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		 "cfFilterImageToRaster: Landscape size is %.2f x %.2f inches",
 		 xsize2, ysize2);
 
-    if (!fillprint && !cropfit &&
-	(((val = cupsGetOption("orientation-requested",
-			       num_options, options)) ==
-	  NULL) ||
-	 atoi(val) == 0) &&
+    if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
         cupsGetOption("landscape", num_options, options) == NULL)
     {
       //
@@ -1195,7 +1178,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		     "cfFilterImageToRaster: Using landscape orientation...");
 
-	doc.Orientation = (normal_landscape == 4 ? 1 : 3);
+	doc.Orientation = 1;
 	xinches     = xsize2;
 	yinches     = ysize2;
 	xprint      = (doc.PageTop - doc.PageBottom) / 72.0;
@@ -1666,7 +1649,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  ytemp = header.HWResolution[1] * yprint;
 	}
 
-        cupsRasterWriteHeader2(ras, &header);
+        cupsRasterWriteHeader(ras, &header);
 
         for (plane = 0; plane < num_planes; plane ++)
 	{
@@ -1674,11 +1657,13 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  // Initialize the image "zoom" engine...
 	  //
 
-	  z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1,
-			      (doc.Flip ? -1 : 1) *
-			      (doc.Orientation > 1 ? -1 : 1) * xtemp,
-			      (doc.Orientation > 1 ? -1 : 1) * ytemp,
-			      doc.Orientation & 1, zoom_type);
+	  if (doc.Flip)
+	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, -xtemp, ytemp,
+	                          doc.Orientation & 1, zoom_type);
+	  else
+	    z = _cfImageZoomNew(img, xc0, yc0, xc1, yc1, xtemp, ytemp,
+	                          doc.Orientation & 1, zoom_type);
+
 	  //
 	  // Write leading blank space as needed...
 	  //
@@ -1879,7 +1864,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 //
 
 static void
-blank_line(cups_page_header2_t *header,	// I - Page header
+blank_line(cups_page_header_t *header,	// I - Page header
            unsigned char       *row)	// I - Row buffer
 {
   int	count;				// Remaining bytes
@@ -1952,7 +1937,7 @@ blank_line(cups_page_header2_t *header,	// I - Page header
 
 static void
 format_cmy(imagetoraster_doc_t *doc,
-	   cups_page_header2_t *header,	// I - Page header
+	   cups_page_header_t *header,	// I - Page header
 	   unsigned char       *row,	// IO - Bitmap data for device
 	   int                 y,	// I - Current row
 	   int                 z,	// I - Current plane
@@ -2074,21 +2059,7 @@ format_cmy(imagetoraster_doc_t *doc,
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               break;
-
-           case 16 :
-              for (x = xsize  * 3; x > 0; x --, r0 ++, r1 ++)
-        	if (*r0 == *r1)
-        	{
-                  *ptr++ = *r0;
-                  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-	        }
-              break;
-	}
+        }
         break;
 
     case CUPS_ORDER_BANDED :
@@ -2210,43 +2181,7 @@ format_cmy(imagetoraster_doc_t *doc,
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
-
-        case 16 :
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *cptr++ = r0[0];
-	          *cptr++ = r0[0];
-		}
-		else
-		{
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-		  *mptr++ = r0[1];
-		  *mptr++ = r0[1];
-		}
-		else
-		{
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-		  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-	      }
-	      break;
-	}
+        }
         break;
 
     case CUPS_ORDER_PLANAR :
@@ -2366,26 +2301,7 @@ format_cmy(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-	      r0 += z;
-	      r1 += z;
-
-	      for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-		if (*r0 == *r1)
-		{
-		  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		}
-	      }
-	      break;
-	}
+        }
         break;
   }
 }
@@ -2397,7 +2313,7 @@ format_cmy(imagetoraster_doc_t *doc,
 
 static void
 format_cmyk(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -2544,22 +2460,8 @@ format_cmyk(imagetoraster_doc_t *doc,
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               break;
-
-	  case 16 :
-              for (x = xsize  * 4; x > 0; x --, r0 ++, r1 ++)
-        	if (*r0 == *r1)
-		{
-                  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		}
-	      break;
-	}
-	break;
+        }
+        break;
 
     case CUPS_ORDER_BANDED :
 	cptr = ptr;
@@ -2708,52 +2610,6 @@ format_cmyk(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
-
- 	 case 16 :
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-                if (r0[0] == r1[0])
-                {
-                  *cptr++ = r0[0];
-		  *cptr++ = r0[0];
-		}
-		else
-		{
-                  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-                  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *mptr++ = r0[1];
-	  	  *mptr++ = r0[1];
-		}
-		else
-		{
-                  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-	          *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-	       	  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-        	if (r0[3] == r1[3])
-        	{
-                  *kptr++ = r0[3];
-		  *kptr++ = r0[3];
-		}
-		else
-		{
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		}
-	      }
-              break;  
         }
         break;
 
@@ -2842,25 +2698,6 @@ format_cmyk(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-              r0 += z;
-	      r1 += z;
-
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (*r0 == *r1)
-        	{
-                  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-   		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-   	  	  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize; 
-                }
-	      }
-	      break;
         }
         break;
   }
@@ -2873,7 +2710,7 @@ format_cmyk(imagetoraster_doc_t *doc,
 
 static void
 format_K(imagetoraster_doc_t *doc,
-	 cups_page_header2_t *header,	// I - Page header
+	 cups_page_header_t *header,	// I - Page header
          unsigned char       *row,	// IO - Bitmap data for device
 	 int                 y,		// I - Current row
 	 int                 z,		// I - Current plane
@@ -2983,22 +2820,6 @@ format_K(imagetoraster_doc_t *doc,
             *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
         }
         break;
-
-    case 16 :
-        for (x = xsize; x > 0; x --, r0 ++, r1 ++)
-	{
-          if (*r0 == *r1)
-          {
-            *ptr++ = *r0;
-   	    *ptr++ = *r0;
-   	  }
-  	  else
-  	  {
-	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-	  }
-	}
-        break;	
   }
 }
 
@@ -3009,7 +2830,7 @@ format_K(imagetoraster_doc_t *doc,
 
 static void
 format_kcmy(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -3173,52 +2994,6 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-	      for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-		if (r0[3] == r1[3])
-		{
-	          *ptr++ = r0[3];
-		  *ptr++ = r0[3];
-		}
-		else
-		{
-  		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		}
-		if (r0[0] == r1[0])
-		{
-	          *ptr++ = r0[0];
-		  *ptr++ = r0[0];
-		}
-		else
-		{
-	  	  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-	 	  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-		if (r0[1] == r1[1])
-		{
-	          *ptr++ = r0[1];
-		  *ptr++ = r0[1];
-		}
-		else
-		{
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-		if (r0[2] == r1[2])
-		{
-	          *ptr++ = r0[2];
-		  *ptr++ = r0[2];
-		}
-		else
-		{
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-	      }
-	      break;
         }
         break;
 
@@ -3369,52 +3144,6 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *cptr++ = r0[0];
-		  *cptr++ = r0[0];
-		}
-		else
-		{
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *mptr++ = r0[1];
-		  *mptr++ = r0[1];
-		}
-		else
-		{
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-        	if (r0[3] == r1[3])
-        	{
-                  *kptr++ = r0[3];
-		  *kptr++ = r0[3];
-		}
-		else
-		{
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-              	}
-	      }
-	      break;
         }
         break;
 
@@ -3517,33 +3246,6 @@ format_kcmy(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
-
-	   case 16 :
-              if (z == 0)
-	      {
-	        r0 += 3;
-	        r1 += 3;
-	      }
-	      else
-	      {
-	        r0 += z - 1;
-	        r1 += z - 1;
-	      }
-
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (*r0 == *r1)
-        	{
-                  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-                }
-	      }
-	      break;
         }
         break;
   }
@@ -3557,7 +3259,7 @@ format_kcmy(imagetoraster_doc_t *doc,
 static void
 format_kcmycm(
     imagetoraster_doc_t *doc,
-    cups_page_header2_t *header,	// I - Page header
+    cups_page_header_t *header,	// I - Page header
     unsigned char       *row,		// IO - Bitmap data for device
     int                 y,		// I - Current row
     int                 z,		// I - Current plane
@@ -3734,7 +3436,7 @@ format_kcmycm(
 
 static void
 format_rgba(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -3874,44 +3576,6 @@ format_rgba(imagetoraster_doc_t *doc,
                 ptr ++;
               }
 	      break;
-
-	  case 16 :
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *ptr++ = r0[0];
-		  *ptr++ = r0[0];
-		}
-		else
-		{
-		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *ptr++ = r0[1];
-		  *ptr++ = r0[1];
-		}
-		else
-		{
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *ptr++ = r0[2];
-		  *ptr++ = r0[2];
-		}
-		else
-		{
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-                ptr ++;
-		ptr ++;
-              }
-	      break;
         }
         break;
 
@@ -4036,42 +3700,6 @@ format_rgba(imagetoraster_doc_t *doc,
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *cptr++ = r0[0];
-		  *cptr++ = r0[0];
-		}
-		else
-		{
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *mptr++ = r0[1];
-		  *mptr++ = r0[1];
-		}
-		else
-		{
- 		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-	        }
-	      }
-              break;  
         }
         break;
 
@@ -4198,25 +3826,6 @@ format_rgba(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
-
-	  case 16 :
-  	      r0 += z;
-	      r1 += z;
-
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-		if (*r0 == *r1)
-		{
-		  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		}
-	      }
-	      break;
         }
         break;
   }
@@ -4229,7 +3838,7 @@ format_rgba(imagetoraster_doc_t *doc,
 
 static void
 format_w(imagetoraster_doc_t *doc,
-	 cups_page_header2_t *header,	// I - Page header
+	 cups_page_header_t *header,	// I - Page header
 	 unsigned char    *row,		// IO - Bitmap data for device
 	 int              y,		// I - Current row
 	 int              z,		// I - Current plane
@@ -4339,22 +3948,6 @@ format_w(imagetoraster_doc_t *doc,
             *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
         }
         break;
-
-    case 16 :
-        for (x = xsize; x > 0; x --, r0 ++, r1 ++)
-	{
-          if (*r0 == *r1)
-          {
-            *ptr++ = *r0;
-  	    *ptr++ = *r0;
-  	  }
-	  else
-	  {
-	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
- 	    *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-	  }
-	}
-        break;
   }
 }
 
@@ -4365,7 +3958,7 @@ format_w(imagetoraster_doc_t *doc,
 
 static void
 format_ymc(imagetoraster_doc_t *doc,
-	   cups_page_header2_t *header,	// I - Page header
+	   cups_page_header_t *header,	// I - Page header
 	   unsigned char      *row,	// IO - Bitmap data for device
 	   int                y,	// I - Current row
 	   int                z,	// I - Current plane
@@ -4499,42 +4092,6 @@ format_ymc(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
               }
 	      break;
-
-         case 16 :
-             for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	     {
-	       if (r0[2] == r1[2])
-	       {
-		 *ptr++ = r0[2];
-		 *ptr++ = r0[2];
-	       }
-	       else
-	       {
-		 *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		 *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-	       }
-	       if (r0[1] == r1[1])
-	       {
-		 *ptr++ = r0[1];
-		 *ptr++ = r0[1];
-	       }
-	       else
-	       {
-		 *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		 *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-	       }
-	       if (r0[0] == r1[0])
-	       {
-		 *ptr++ = r0[0];
-		 *ptr++ = r0[0];
-	       }
-	       else
-	       {
-		 *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		 *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-	       }
-	     }
-	     break;
         }
         break;
 
@@ -4656,42 +4213,6 @@ format_ymc(imagetoraster_doc_t *doc,
         	else
                   *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
               }
-              break;
-			
-	 case 16 :
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *cptr++ = r0[0];
-		  *cptr++ = r0[0];
-		}
-		else
-		{
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
- 		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
- 		}
-        	if (r0[1] == r1[1])
-        	{
-                  *mptr++ = r0[1];
-		  *mptr++ = r0[1];
-		}
-		else
-		{
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-                }
-	      }
               break;
         }
         break;
@@ -4816,26 +4337,6 @@ format_ymc(imagetoraster_doc_t *doc,
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
               }
               break;
-		
-          case 16 :
-              z  = 2 - z;
-              r0 += z;
-              r1 += z;
-
-              for (x = xsize; x > 0; x --, r0 += 3, r1 += 3)
-	      {
-        	if (*r0 == *r1)
-        	{
-                  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
- 		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		}
-	      }
-              break;
         }
         break;
   }
@@ -4848,7 +4349,7 @@ format_ymc(imagetoraster_doc_t *doc,
 
 static void
 format_ymck(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -5013,52 +4514,6 @@ format_ymck(imagetoraster_doc_t *doc,
                   *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
-			
-	  case 16:
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (r0[2] == r1[2])
-        	{
-                  *ptr++ = r0[2];
-		  *ptr++ = r0[2];
-		}
-		else
-		{
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *ptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *ptr++ = r0[1];
-		  *ptr++ = r0[1];
-		}
-		else
-		{
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *ptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[0] == r1[0])
-        	{
-                  *ptr++ = r0[0];
-		  *ptr++ = r0[0];
-		}
-	 	else
-	 	{
-		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *ptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[3] == r1[3])
-        	{
-                  *ptr++ = r0[3];
-		  *ptr++ = r0[3];
-		}
-		else
-		{
-		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		  *ptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-                }
-	      }
-              break;
         }
         break;
 
@@ -5210,52 +4665,6 @@ format_ymck(imagetoraster_doc_t *doc,
                   *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
               }
               break;
-			
-	  case 16 :
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (r0[0] == r1[0])
-        	{
-                  *cptr++ = r0[0];
-		  *cptr++ = r0[0];
-		}
-		else
-		{
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		  *cptr++ = (r0[0] * yerr0 + r1[0] * yerr1) / ysize;
-		}
-        	if (r0[1] == r1[1])
-        	{
-                  *mptr++ = r0[1];
-		  *mptr++ = r0[1];
-		}
-		else
-		{
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		  *mptr++ = (r0[1] * yerr0 + r1[1] * yerr1) / ysize;
-		}
-        	if (r0[2] == r1[2])
-        	{
-                  *yptr++ = r0[2];
-		  *yptr++ = r0[2];
-		}
-		else
-		{
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		  *yptr++ = (r0[2] * yerr0 + r1[2] * yerr1) / ysize;
-		}
-        	if (r0[3] == r1[3])
-        	{
-                  *kptr++ = r0[3];
-		  *kptr++ = r0[3];
-		}
-		else
-		{
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		  *kptr++ = (r0[3] * yerr0 + r1[3] * yerr1) / ysize;
-		}
-              }
-              break;
         }
         break;
 
@@ -5356,33 +4765,6 @@ format_ymck(imagetoraster_doc_t *doc,
                   *ptr++ = *r0;
         	else
                   *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-              }
-              break;
-
-	  case 16 :
-              if (z == 3)
-	      {
-	        r0 += 3;
-	        r1 += 3;
-	      }
-	      else
-	      {
-		r0 += 2 - z;
-		r1 += 2 - z;
-	      }
-
-              for (x = xsize; x > 0; x --, r0 += 4, r1 += 4)
-	      {
-        	if (*r0 == *r1)
-        	{
-                  *ptr++ = *r0;
-		  *ptr++ = *r0;
-		}
-		else
-		{
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		  *ptr++ = (*r0 * yerr0 + *r1 * yerr1) / ysize;
-		}
               }
               break;
         }

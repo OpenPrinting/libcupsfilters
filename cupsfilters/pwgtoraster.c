@@ -9,7 +9,7 @@
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
+#include <cupsfilters/libcups2-private.h>
 #include "colormanager.h"
 #include "image.h"
 #include "bitmap.h"
@@ -89,8 +89,8 @@ typedef struct pwgtoraster_doc_s
   unsigned int bitspercolor;
   unsigned int outputNumColors; 
   unsigned int bitmapoffset[2];
-  cups_page_header2_t inheader;
-  cups_page_header2_t outheader;
+  cups_page_header_t inheader;
+  cups_page_header_t outheader;
   cups_file_t	*inputfp;		// Temporary file, if any
   FILE		*outputfp;		// Temporary file, if any
   // margin swapping
@@ -1331,7 +1331,7 @@ out_page(pwgtoraster_doc_t *doc,
     return (false);
   }
 
-  if (!cupsRasterReadHeader2(inras, &(doc->inheader)))
+  if (!cupsRasterReadHeader(inras, &(doc->inheader)))
   {
     // Done
     log(ld, CF_LOGLEVEL_DEBUG,
@@ -1482,7 +1482,7 @@ out_page(pwgtoraster_doc_t *doc,
   if (doc->outheader.cupsColorOrder == CUPS_ORDER_BANDED)
     doc->outheader.cupsBytesPerLine *= doc->outheader.cupsNumColors;
 
-  if (!cupsRasterWriteHeader2(outras, &(doc->outheader)))
+  if (!cupsRasterWriteHeader(outras, &(doc->outheader)))
   {
     if (log) log(ld,CF_LOGLEVEL_ERROR,
 		 "cfFilterPWGToRaster: Can't write page %d header", pageNo);

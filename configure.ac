@@ -5,7 +5,7 @@ AC_PREREQ([2.65])
 # ====================
 # Version informations
 # ====================
-AC_INIT([libcupsfilters], [2.0.0], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
+AC_INIT([libcupsfilters], [2.0b4], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
 libcupsfilters_version="AC_PACKAGE_VERSION"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{print $1}'`"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{printf("%d\n",$2);}'`"
@@ -67,11 +67,17 @@ AM_GNU_GETTEXT([external])
 # ================================
 # Find CUPS internals (no pc file)
 # ================================
-AC_ARG_WITH([cups-config],
+
+PKG_CHECK_MODULES([LIBCUPS3], [cups3 > 3.0.0], [],
+   [PKG_CHECK_MODULES([LIBCUPS2], [cups < 3.0.0],
+       [AC_DEFINE([HAVE_LIBCUPS2], [1], [Use libcups2]
+       [AC_ARG_WITH([cups-config],
 	[AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
 	[with_cups_config="$withval"],
 	[with_cups_config=system]
 )
+])])])
+
 
 AS_IF([test "x$with_cups_config" != "xsystem"], [
 	CUPSCONFIG=$with_cups_config
@@ -81,6 +87,7 @@ AS_IF([test "x$with_cups_config" != "xsystem"], [
 		AC_MSG_ERROR([Required cups-config is missing. Please install CUPS developer packages.])
 	])
 ])
+
 CUPS_CFLAGS=`$CUPSCONFIG --cflags`
 CUPS_LIBS=`$CUPSCONFIG --image --libs`
 CUPS_VERSION=`$CUPSCONFIG --version`

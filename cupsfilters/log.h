@@ -10,9 +10,11 @@
 #ifndef _CUPS_FILTERS_LOG_H_
 #  define _CUPS_FILTERS_LOG_H_
 
+
 #  ifdef __cplusplus
 extern "C" {
 #  endif // __cplusplus
+
 
 
 //
