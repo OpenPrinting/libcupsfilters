@@ -18,6 +18,7 @@ extern "C" {
 //
 // Include necessary headers...
 //
+
 #  include "log.h"
 
 #  include <stdio.h>

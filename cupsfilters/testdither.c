@@ -25,6 +25,7 @@
 //
 // Include necessary headers.
 //
+
 #include <cupsfilters/libcups2-private.h>
 #include "driver.h"
 #include <config.h>

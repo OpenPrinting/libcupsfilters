@@ -16,6 +16,7 @@
 //
 // Include necessary headers...
 //
+
 #  include <config.h>
 #  include "image.h"
 #  include <cups/cups.h>

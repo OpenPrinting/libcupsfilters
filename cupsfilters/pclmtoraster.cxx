@@ -10,6 +10,7 @@
 //
 // Include necessary headers...
 //
+
 #include <cupsfilters/libcups2-private.h>
 #include "filter.h"
 #include <cups/raster.h>

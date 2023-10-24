@@ -8,7 +8,6 @@
 #ifndef _FONTEMBED_DYNSTRING_H_
 #define _FONTEMBED_DYNSTRING_H_
 
-
 typedef struct
 {
   int len, alloc;

@@ -1,16 +1,15 @@
 //
 // Wrapper function for ipp.c for libcups2.
 //
-// Copyright 2007-2011 by Apple Inc.
-// Copyright 1993-2006 by Easy Software Products.
+// Copyright 2020-2022 by Till Kamppeter.
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
 //
-//
 // Include necessary headers...
 //
+
 #include <cupsfilters/libcups2-private.h>
 #include <cups/http.h>
 #include <cupsfilters/ipp.h>

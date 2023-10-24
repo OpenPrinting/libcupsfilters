@@ -9,7 +9,6 @@
 #ifndef _FONTEMBED_MACROMAN_PRIVATE_H_
 #define _FONTEMBED_MACROMAN_PRIVATE_H_
 
-
 #ifdef WITH_MACROMAN
 static const char *__cf_fontembed_mac_roman[] =
 {

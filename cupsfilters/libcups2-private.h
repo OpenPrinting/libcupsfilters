@@ -1,3 +1,12 @@
+//
+// Libcups2 header file for libcupsfilters.
+//
+// Copyright 2020-2022 by Till Kamppeter.
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
 #include<config.h>
 
 #ifndef HAVE_lIBCUPS2
