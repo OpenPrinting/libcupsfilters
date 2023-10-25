@@ -31,7 +31,7 @@
 #include <cups/cups.h>
 #include <cups/backend.h>
 #include <cups/dir.h>
-#include <cups/http-private.h>
+#include <cups/http.h>
 #include <cups/pwg.h>
 #include <cupsfilters/ipp.h>
 
@@ -132,7 +132,7 @@ cfGetPrinterAttributes3(http_t *http_printer,
 {
   return (cfGetPrinterAttributes5(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug,
-				  driverless_info, is_fax));
+				  driverless_info, NULL));
 }
 
 // Get attributes of a printer specified only by URI and given info about
@@ -249,7 +249,7 @@ cfGetPrinterAttributes5(http_t *http_printer,
 			       host_name, sizeof(host_name),
 			       &(host_port),
 			       resource, sizeof(resource));
-  if (uri_status != HTTP_URI_OK)
+  if (uri_status != HTTP_URI_STATUS_OK)
   {
     // Invalid URI
     log_printf(cf_get_printer_attributes_log,
@@ -458,14 +458,15 @@ char*
 cfResolveURI2(const char *uri, int is_fax)
 {
  int options = HTTP_RESOLVE_DEFAULT;
+ const char* auth_info_required = getenv("AUTH_INFO_REQUIRED");
 char buf[1024];
 
-if ((auth_info_required = getenv("AUTH_INFO_REQUIRED")) != NULL && !strcmp(auth_info_required, "negotiate"))
+if ((auth_info_required) != NULL && !strcmp(auth_info_required, "negotiate"))
 {options |= HTTP_RESOLVE_FQDN;}
 if (is_fax)
 {options |= HTTP_RESOLVE_FAXOUT;}
 
-return (strdup(httpResolveURI(device_uri, buf, sizeof(buf), options, NULL, NULL)));
+return (strdup(httpResolveURI(uri, buf, sizeof(buf), options, NULL, NULL)));
 }
 
 
