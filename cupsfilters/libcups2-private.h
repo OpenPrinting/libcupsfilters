@@ -9,8 +9,8 @@
 
 #include<config.h>
 
-#ifndef HAVE_lIBCUPS2
-# define HAVE_LIBCUPS2
+#ifndef _LIBCUPS2_PRIVATE_H_
+# define _LIBCUPS2_PRIVATE_H_
 #  include "cups/http.h"
 #  include "cups/array.h"
 #  include "cups/cups.h"
@@ -20,6 +20,7 @@
 
 #  define cupsArrayGetCount      cupsArrayCount
 #  define cupsArrayGetFirst      cupsArrayFirst
+#  define cupsArrayGetNext       cupsArrayNext
 #  define cupsArrayGetElement    cupsArrayIndex
 #  define cupsArrayNew           cupsArrayNew3
 #  define cupsGetDests           cupsGetDests2
@@ -33,9 +34,8 @@
 
 #  define cups_acopy_cb_t       cups_acopy_func_t
 #  define cups_afree_cb_t       cups_afree_func_t
-#  define cups_array_cb_t     cups_array_func_t
+#  define cups_array_cb_t       cups_array_func_t
 #  define cups_page_header_t    cups_page_header2_t
 
 
-# endif // HAVE_LIBCUPS2
-
+# endif // _LIBCUPS2_PRIVATE_H_

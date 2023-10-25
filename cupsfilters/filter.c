@@ -699,7 +699,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Execute all of the filters...
   //
 
-  pids            = cupsArrayNew(compare_filter_pids, NULL,NULL,0,NULL,NULL);
+  pids            = cupsArrayNew((cups_array_func_t)compare_filter_pids, NULL,
+				 NULL, 0, NULL, NULL);
   current         = 0;
   filterfds[0][0] = inputfd;
   filterfds[0][1] = -1;
