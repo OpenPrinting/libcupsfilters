@@ -132,7 +132,7 @@ cfGetPrinterAttributes3(http_t *http_printer,
 {
   return (cfGetPrinterAttributes5(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug,
-				  driverless_info, NULL));
+				  driverless_info, 0));
 }
 
 // Get attributes of a printer specified only by URI and given info about
