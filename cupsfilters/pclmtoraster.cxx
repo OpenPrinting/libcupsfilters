@@ -11,17 +11,17 @@
 // Include necessary headers...
 //
 
-#include "filter.h"
+#include <cupsfilters/filter.h>
+#include <cupsfilters/image.h>
+#include <cupsfilters/bitmap.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 #include <cups/raster.h>
 #include <cups/cups.h>
 #include <errno.h>
 #include <qpdf/QPDF.hh>
 #include <qpdf/QPDFObjectHandle.hh>
-#include "image.h"
-#include "bitmap.h"
-#include "raster.h"
-#include "filter.h"
-#include "ipp.h"
 
 
 #define MAX_BYTES_PER_PIXEL 32
@@ -32,7 +32,7 @@ typedef struct pclmtoraster_data_s
   cf_filter_out_format_t outformat = CF_FILTER_OUT_FORMAT_PWG_RASTER;
   int numcolors = 0;
   int rowsize = 0;
-  cups_page_header2_t header;
+  cups_page_header_t header;
   char pageSizeRequested[64];
   int bi_level = 0;
   // image swapping
@@ -81,7 +81,7 @@ parse_opts(cf_filter_data_t *data,
   const char		*val;
   cf_logfunc_t		log = data->logfunc;
   void			*ld = data->logdata;
-  cups_page_header2_t	*header = &(pclmtoraster_data->header);
+  cups_page_header_t	*header = &(pclmtoraster_data->header);
   cups_cspace_t         cspace = (cups_cspace_t)(-1);
 
 
@@ -691,7 +691,7 @@ select_convert_func(int			pgno,	 // I - Page number
 		    pclm_conversion_function_t *convert)// I - Conversion function
 {
   // Set rowsize and numcolors based on colorspace of raster data
-  cups_page_header2_t header = data->header;
+  cups_page_header_t header = data->header;
   std::string colorspace = data->colorspace;
   if (colorspace == "/DeviceRGB")
   {
@@ -970,7 +970,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   if (data->header.cupsColorOrder == CUPS_ORDER_BANDED)
     data->header.cupsBytesPerLine *= data->header.cupsNumColors;
 
-  if (!cupsRasterWriteHeader2(raster, &(data->header)))
+  if (!cupsRasterWriteHeader(raster, &(data->header)))
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterPCLmToRaster: Can't write page %d header", pgno + 1);
@@ -1115,7 +1115,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
     return (1);
   }
 
-  if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+  if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterPCLmToRaster: Unable to copy PDF file: %s",

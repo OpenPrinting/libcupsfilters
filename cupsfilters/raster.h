@@ -19,7 +19,7 @@ extern "C" {
 // Include necessary headers...
 //
 
-#  include "filter.h"
+#  include <cupsfilters/filter.h>
 #  include <stdio.h>
 #  include <stdlib.h>
 #  include <time.h>
@@ -37,11 +37,20 @@ extern "C" {
 
 
 //
+// Renamed CUPS type in API
+//
+
+#if CUPS_VERSION_MAJOR < 3
+#  define cups_page_header_t cups_page_header2_t
+#endif
+
+
+//
 // Prototypes...
 //
 
 extern const char       *cfRasterColorSpaceString(cups_cspace_t cspace);
-extern int              cfRasterPrepareHeader(cups_page_header2_t *h,
+extern int              cfRasterPrepareHeader(cups_page_header_t *h,
 					      cf_filter_data_t *data,
 					      cf_filter_out_format_t
 					      final_outformat,
@@ -49,7 +58,7 @@ extern int              cfRasterPrepareHeader(cups_page_header2_t *h,
 					      header_outformat,
 					      int no_high_depth,
 					      cups_cspace_t *cspace);
-extern int              cfRasterSetColorSpace(cups_page_header2_t *h,
+extern int              cfRasterSetColorSpace(cups_page_header_t *h,
 					      const char *available,
 					      const char *color_mode,
 					      cups_cspace_t *cspace,

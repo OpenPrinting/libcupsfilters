@@ -11,8 +11,8 @@
 //
 
 
-#include "filter.h"
 #include <config.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -25,9 +25,11 @@
 #include <signal.h>
 #include <cups/cups.h>
 #include <cups/raster.h>
+#include <cupsfilters/filter.h>
 #include <cupsfilters/colormanager.h>
 #include <cupsfilters/image.h>
 #include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 
 #include <arpa/inet.h>   // ntohl
 
@@ -1512,7 +1514,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
        cf_filter_data_t *data, // I - Job and printer data
        void *parameters)       // I - Filter-specific parameters (outformat)
 {
-  int i;
+  cups_len_t i;
   char *t;
   pwgtopdf_doc_t	doc;		// Document information
   FILE          	*outputfp;      // Output data stream
@@ -1522,7 +1524,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 					// ("on" or "off")
   struct pdf_info pdf;
   cups_raster_t		*ras;		// Raster stream for printing
-  cups_page_header2_t	header;		// Page header from file
+  cups_page_header_t	header;		// Page header from file
   ipp_t *printer_attrs = data->printer_attrs; // Printer attributes from
 					// printer data
   ipp_attribute_t	*ipp_attr;	// Printer attribute
@@ -1616,7 +1618,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     {
       log(ld, CF_LOGLEVEL_DEBUG, "PCLm-related printer IPP attributes:");
       total_attrs = 0;
-      ipp_attr = ippFirstAttribute(printer_attrs);
+      ipp_attr = ippGetFirstAttribute(printer_attrs);
       while (ipp_attr)
       {
         if (strncmp(ippGetName(ipp_attr), "pclm-", 5) == 0)
@@ -1629,7 +1631,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
             if ((kw = ippGetString(ipp_attr, i, NULL)) != NULL)
 	      log(ld, CF_LOGLEVEL_DEBUG, "  Keyword: %s", kw);
 	}
-	ipp_attr = ippNextAttribute(printer_attrs);
+	ipp_attr = ippGetNextAttribute(printer_attrs);
       }
       log(ld, CF_LOGLEVEL_DEBUG, "  %d attributes", total_attrs);
     }
@@ -1654,7 +1656,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\"",
 		   attr_name);
       pdf.pclm_strip_height_supported.clear();  // remove default value = 16
-      for (int i = 0; i < ippGetCount(ipp_attr); i ++)
+      for (i = 0; i < ippGetCount(ipp_attr); i ++)
         pdf.pclm_strip_height_supported.push_back(ippGetInteger(ipp_attr, i));
     }
 
@@ -1740,7 +1742,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     }
   }
 
-  while (cupsRasterReadHeader2(ras, &header))
+  while (cupsRasterReadHeader(ras, &header))
   {
     if (iscanceled && iscanceled(icd))
     {

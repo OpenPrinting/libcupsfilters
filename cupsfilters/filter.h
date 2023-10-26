@@ -38,6 +38,15 @@ extern "C" {
 
 
 //
+// Renamed CUPS type in API
+//
+
+#  if CUPS_VERSION_MAJOR < 3
+#    define cups_page_header_t cups_page_header2_t
+#  endif
+
+
+//
 // Types and structures...
 //
 
@@ -58,7 +67,7 @@ typedef struct cf_filter_data_s
   ipp_t *job_attrs;          // IPP attributes passed along with the job
   ipp_t *printer_attrs;      // Printer capabilities in IPP format
 			     // (what is answered to get-printer-attributes
-  cups_page_header2_t *header;
+  cups_page_header_t *header;
                              // CUPS/PWG Raster header (optional)
   int           num_options;
   cups_option_t *options;    // Job options as key/value pairs

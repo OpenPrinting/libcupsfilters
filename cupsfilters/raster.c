@@ -27,13 +27,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 #include <cups/pwg.h>
 
 //
 // Local functions
 //
 
-static int raster_base_header(cups_page_header2_t *h, cf_filter_data_t *data,
+static int raster_base_header(cups_page_header_t *h, cf_filter_data_t *data,
 			      int pwg_raster);
 
 //
@@ -172,7 +173,7 @@ cfRasterColorSpaceString(cups_cspace_t cspace)	// I - cupsColorSpace value
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
+cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 			cf_filter_data_t *data, // I  - Job and printer data
 			cf_filter_out_format_t final_outformat,
                                                 // I  - Job output format
@@ -554,7 +555,7 @@ cfRasterPrepareHeader(cups_page_header2_t *h,   // I  - Raster header
 
 int                                             // O  -  0 on success,
 						//      -1 on error
-cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
+cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
 			const char *available,  // I  - Available color spaces
 						//      from IPP attribute
 						//      urf-supported or
@@ -791,7 +792,7 @@ cfRasterSetColorSpace(cups_page_header2_t *h,   // I  - Raster header
 
 
 static int                                 // O - -1 on error, 0 on success
-raster_base_header(cups_page_header2_t *h, // O - Raster header
+raster_base_header(cups_page_header_t *h, // O - Raster header
 		   cf_filter_data_t *data, // I - Filter data
 		   int pwg_raster)         // I - 1 if PWG/Apple Raster
 {
@@ -890,7 +891,7 @@ raster_base_header(cups_page_header2_t *h, // O - Raster header
   // Initialize header
   //
 
-  memset(h, 0, sizeof(cups_page_header2_t));
+  memset(h, 0, sizeof(cups_page_header_t));
 
   //
   // Fill in the items using printer and job IPP attributes and options

@@ -16,7 +16,7 @@ extern "C" {
 // Include necessary headers...
 //
 
-#include "filter.h"
+#include <cupsfilters/filter.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +32,16 @@ extern "C" {
 
 #include <cups/cups.h>
 #include <cups/raster.h>
+
+
+//
+// Renamed CUPS type in API
+//
+
+#if CUPS_VERSION_MAJOR < 3
+#  define cups_page_header_t cups_page_header2_t
+#endif
+
 
 #define CF_GET_PRINTER_ATTRIBUTES_LOGSIZE 4 * 65536
 #define CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN 8192
@@ -164,7 +174,7 @@ int             cfGetPageDimensions(ipp_t *printer_attrs,
 				    ipp_t *job_attrs,
 				    int num_options,
 				    cups_option_t *options,
-				    cups_page_header2_t *header,
+				    cups_page_header_t *header,
 				    int transverse_fit,
 				    float *width,
 				    float *height,

@@ -167,6 +167,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
 	cupsfilters/ipp.c \
+	cupsfilters/libcups2.c \
+	cupsfilters/libcups2-private.h \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
@@ -234,7 +236,7 @@ libcupsfilters_la_LDFLAGS = \
 	-version-info 2
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
-libcupsfilters_CXXFLAGS = -std=c++0x $(libcupsfilters_CFLAGS)   # -std=c++11
+libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11
 libcupsfilters_la_LIBADD += $(DBUS_LIBS)
 endif
 

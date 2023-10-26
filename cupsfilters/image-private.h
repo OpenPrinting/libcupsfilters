@@ -18,7 +18,9 @@
 //
 
 #  include <config.h>
-#  include "image.h"
+
+#  include <cupsfilters/image.h>
+#  include <cupsfilters/libcups2-private.h>
 #  include <cups/cups.h>
 #  define DEBUG_printf(x)
 #  define DEBUG_puts(x)

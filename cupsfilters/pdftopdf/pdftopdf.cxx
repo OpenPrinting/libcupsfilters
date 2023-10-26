@@ -8,9 +8,13 @@
 //
 
 #include <config.h>
+
 #include <stdio.h>
 #include <ctype.h>
-#include "cupsfilters/debug-internal.h"
+#include <cupsfilters/debug-internal.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 #include <cups/cups.h>
 #include <cups/pwg.h>
 #include <iomanip>
@@ -21,9 +25,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "pdftopdf-private.h"
-#include "cupsfilters/raster.h"
-#include "cupsfilters/ipp.h"
-#include "cupsfilters/ipp.h"
 #include "pdftopdf-processor-private.h"
 
 #include <stdarg.h>
@@ -791,7 +792,7 @@ copy_fd_to_temp(int infd,
   int n;
 
   // FIXME:  what does >buf mean here?
-  int outfd = cupsTempFd(buf, sizeof(buf));
+  int outfd = cupsCreateTempFd(NULL, NULL, buf, sizeof(buf));
   if (outfd < 0)
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,

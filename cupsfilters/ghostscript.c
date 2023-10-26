@@ -24,12 +24,13 @@
 #include <cupsfilters/colormanager.h>
 #include <cupsfilters/raster.h>
 #include <cupsfilters/ipp.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/pdf.h>
+#include <cupsfilters/libcups2-private.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
-#include "filter.h"
-#include "pdf.h"
 
 #define PDF_MAX_CHECK_COMMENT_LINES	20
 
@@ -41,11 +42,7 @@ typedef enum gs_doc_e
   GS_DOC_TYPE_UNKNOWN
 } gs_doc_t;
 
-#ifdef CUPS_RASTER_SYNCv1
-typedef cups_page_header2_t gs_page_header;
-#else
 typedef cups_page_header_t gs_page_header;
-#endif // CUPS_RASTER_SYNCv1
 
 static gs_doc_t
 parse_doc_type(FILE *fp)
@@ -459,10 +456,10 @@ gs_spawn (const char *filename,
 
   // Put Ghostscript command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(gs_args);
+  numargs = cupsArrayGetCount(gs_args);
   gsargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(gs_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(gs_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(gs_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(gs_args), i++)
     gsargv[i] = argument;
   gsargv[i] = NULL;
 
@@ -938,7 +935,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 
     if (!inputseekable || doc_type == GS_DOC_TYPE_PS)
     {
-      if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+      if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
       {
 	if (log) log(ld, CF_LOGLEVEL_ERROR,
 		     "cfFilterGhostscript: Unable to copy PDF file: %s",
@@ -1090,7 +1087,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   }
 
   // Ghostscript parameters
-  gs_args = cupsArrayNew(NULL, NULL);
+  gs_args = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
   if (!gs_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -1685,7 +1682,7 @@ out:
     unlink(filename);
   if (gs_args)
   {
-    while ((tmp = cupsArrayFirst(gs_args)) != NULL)
+    while ((tmp = cupsArrayGetFirst(gs_args)) != NULL)
     {
       cupsArrayRemove(gs_args, tmp);
       free(tmp);

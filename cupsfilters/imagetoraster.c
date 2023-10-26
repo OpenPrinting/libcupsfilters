@@ -33,6 +33,7 @@
 #include <cupsfilters/colormanager.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/image-private.h>
+#include <cupsfilters/libcups2-private.h>
 #include <unistd.h>
 #include <math.h>
 #include <signal.h>
@@ -131,42 +132,42 @@ int	Floyd4x4[4][4] =
 // Local functions...
 //
 
-static void	blank_line(cups_page_header2_t *header, unsigned char *row);
+static void	blank_line(cups_page_header_t *header, unsigned char *row);
 static void	format_cmy(imagetoraster_doc_t *doc,
-			   cups_page_header2_t *header, unsigned char *row,
+			   cups_page_header_t *header, unsigned char *row,
 			   int y, int z, int xsize, int ysize, int yerr0,
 			   int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_cmyk(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_K(imagetoraster_doc_t *doc,
-			 cups_page_header2_t *header, unsigned char *row,
+			 cups_page_header_t *header, unsigned char *row,
 			 int y, int z, int xsize, int ysize, int yerr0,
 			 int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_kcmycm(imagetoraster_doc_t *doc,
-			      cups_page_header2_t *header, unsigned char *row,
+			      cups_page_header_t *header, unsigned char *row,
 			      int y, int z, int xsize, int ysize, int yerr0,
 			      int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_kcmy(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 #define		format_RGB format_cmy
 static void	format_rgba(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_w(imagetoraster_doc_t *doc,
-			 cups_page_header2_t *header, unsigned char *row,
+			 cups_page_header_t *header, unsigned char *row,
 			 int y, int z, int xsize, int ysize, int yerr0,
 			 int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_ymc(imagetoraster_doc_t *doc,
-			   cups_page_header2_t *header, unsigned char *row,
+			   cups_page_header_t *header, unsigned char *row,
 			   int y, int z, int xsize, int ysize, int yerr0,
 			   int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	format_ymck(imagetoraster_doc_t *doc,
-			    cups_page_header2_t *header, unsigned char *row,
+			    cups_page_header_t *header, unsigned char *row,
 			    int y, int z, int xsize, int ysize, int yerr0,
 			    int yerr1, cf_ib_t *r0, cf_ib_t *r1);
 static void	make_lut(cf_ib_t *, int, float, float);
@@ -210,7 +211,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 			xc1, yc1;
   cups_cspace_t         cspace = -1;    // CUPS color space
   cups_raster_t		*ras;		// Raster stream
-  cups_page_header2_t	header;		// Page header
+  cups_page_header_t	header;		// Page header
   int			num_options = 0;// Number of print options
   cups_option_t		*options = NULL;// Print options
   const char		*val;		// Option value
@@ -360,7 +361,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 
   if (!inputseekable)
   {
-    if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+    if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterImageToRaster: Unable to copy input: %s",
@@ -1666,7 +1667,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	  ytemp = header.HWResolution[1] * yprint;
 	}
 
-        cupsRasterWriteHeader2(ras, &header);
+        cupsRasterWriteHeader(ras, &header);
 
         for (plane = 0; plane < num_planes; plane ++)
 	{
@@ -1879,7 +1880,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 //
 
 static void
-blank_line(cups_page_header2_t *header,	// I - Page header
+blank_line(cups_page_header_t *header,	// I - Page header
            unsigned char       *row)	// I - Row buffer
 {
   int	count;				// Remaining bytes
@@ -1952,7 +1953,7 @@ blank_line(cups_page_header2_t *header,	// I - Page header
 
 static void
 format_cmy(imagetoraster_doc_t *doc,
-	   cups_page_header2_t *header,	// I - Page header
+	   cups_page_header_t *header,	// I - Page header
 	   unsigned char       *row,	// IO - Bitmap data for device
 	   int                 y,	// I - Current row
 	   int                 z,	// I - Current plane
@@ -2397,7 +2398,7 @@ format_cmy(imagetoraster_doc_t *doc,
 
 static void
 format_cmyk(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -2873,7 +2874,7 @@ format_cmyk(imagetoraster_doc_t *doc,
 
 static void
 format_K(imagetoraster_doc_t *doc,
-	 cups_page_header2_t *header,	// I - Page header
+	 cups_page_header_t *header,	// I - Page header
          unsigned char       *row,	// IO - Bitmap data for device
 	 int                 y,		// I - Current row
 	 int                 z,		// I - Current plane
@@ -3009,7 +3010,7 @@ format_K(imagetoraster_doc_t *doc,
 
 static void
 format_kcmy(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -3557,7 +3558,7 @@ format_kcmy(imagetoraster_doc_t *doc,
 static void
 format_kcmycm(
     imagetoraster_doc_t *doc,
-    cups_page_header2_t *header,	// I - Page header
+    cups_page_header_t *header,	// I - Page header
     unsigned char       *row,		// IO - Bitmap data for device
     int                 y,		// I - Current row
     int                 z,		// I - Current plane
@@ -3734,7 +3735,7 @@ format_kcmycm(
 
 static void
 format_rgba(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane
@@ -4229,7 +4230,7 @@ format_rgba(imagetoraster_doc_t *doc,
 
 static void
 format_w(imagetoraster_doc_t *doc,
-	 cups_page_header2_t *header,	// I - Page header
+	 cups_page_header_t *header,	// I - Page header
 	 unsigned char    *row,		// IO - Bitmap data for device
 	 int              y,		// I - Current row
 	 int              z,		// I - Current plane
@@ -4365,7 +4366,7 @@ format_w(imagetoraster_doc_t *doc,
 
 static void
 format_ymc(imagetoraster_doc_t *doc,
-	   cups_page_header2_t *header,	// I - Page header
+	   cups_page_header_t *header,	// I - Page header
 	   unsigned char      *row,	// IO - Bitmap data for device
 	   int                y,	// I - Current row
 	   int                z,	// I - Current plane
@@ -4848,7 +4849,7 @@ format_ymc(imagetoraster_doc_t *doc,
 
 static void
 format_ymck(imagetoraster_doc_t *doc,
-	    cups_page_header2_t *header,// I - Page header
+	    cups_page_header_t *header,// I - Page header
             unsigned char       *row,	// IO - Bitmap data for device
 	    int                 y,	// I - Current row
 	    int                 z,	// I - Current plane

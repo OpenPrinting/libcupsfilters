@@ -23,6 +23,7 @@
 #include <cupsfilters/raster.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/image-private.h>
+#include <cupsfilters/libcups2-private.h>
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
@@ -589,7 +590,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
                                         //     (unused)
 {
   imagetopdf_doc_t	doc;		// Document information
-  cups_page_header2_t h;                // CUPS Raster page header, to
+  cups_page_header_t h;                // CUPS Raster page header, to
                                         // accommodate results of command
                                         // line and IPP parsing
   int		num_options = 0;	// Number of print options
@@ -677,7 +678,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 
   if (!inputseekable)
   {
-    if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+    if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterImageToPDF: Unable to copy input: %s",

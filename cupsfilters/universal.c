@@ -11,8 +11,10 @@
 // information.
 //
 
-#include "config.h"
-#include "filter.h"
+#include <config.h>
+
+#include <cupsfilters/filter.h>
+#include <cupsfilters/libcups2-private.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -85,7 +87,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
   sscanf(output, "%15[^/]/%255s", output_super, output_type);
 
   cups_array_t *filter_chain;
-  filter_chain = cupsArrayNew(NULL, NULL);
+  filter_chain = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
 
   if (!strcasecmp(input_super, "image") && strcasecmp(input_type, "urf") &&
       strcasecmp(input_type, "pwg-raster"))
@@ -340,10 +342,10 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     // Do the dirty work ...
     ret = cfFilterChain(inputfd, outputfd, inputseekable, data, filter_chain);
 
-  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayFirst(filter_chain);
+  for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter; filter = next)
   {
-    next = (cf_filter_filter_in_chain_t *)cupsArrayNext(filter_chain);
+    next = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain);
     free(filter->parameters);
     free(filter);
   }

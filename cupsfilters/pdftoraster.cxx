@@ -11,11 +11,12 @@
 //
 
 #include <config.h>
-#include "filter.h"
+#include <cupsfilters/filter.h>
+#include <cupsfilters/libcups2-private.h>
 #ifdef HAVE_POPPLER
-#include "colormanager.h"
-#include "image.h"
-#include "ipp.h"
+#include <cupsfilters/colormanager.h>
+#include <cupsfilters/image.h>
+#include <cupsfilters/ipp.h>
 #include <cups/cups.h>
 
 #define USE_CMS
@@ -98,7 +99,7 @@ typedef struct pdftoraster_doc_s
   unsigned int popplerNumColors; 
   unsigned int bitmapoffset[2];
   poppler::document *poppler_doc;
-  cups_page_header2_t header;
+  cups_page_header_t header;
   cf_logfunc_t logfunc;                 // Logging function, NULL for no
                                         // logging
   void          *logdata;               // User data for logging function, can
@@ -1781,7 +1782,7 @@ out_page(pdftoraster_doc_t *doc,
 	       pageNo, doc->header.cupsWidth, doc->header.cupsHeight,
 	       doc->bitmapoffset[0], doc->bitmapoffset[1]);
 
-  if (!cupsRasterWriteHeader2(raster, &(doc->header)))
+  if (!cupsRasterWriteHeader(raster, &(doc->header)))
   {
     if (log) log(ld,CF_LOGLEVEL_ERROR,
 		 "cfFilterPDFToRaster: Cannot write page %d header", pageNo);
@@ -1987,7 +1988,7 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
   char buf[BUFSIZ];
   int n;
 
-  fd = cupsTempFd(name, sizeof(name));
+  fd = cupsCreateTempFd(NULL, NULL, name, sizeof(name));
   if (fd < 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

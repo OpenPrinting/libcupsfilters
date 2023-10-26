@@ -10,13 +10,15 @@
 // information.
 //
 
-#include "colormanager.h"
-#include "image.h"
-#include "bitmap.h"
-#include "filter.h"
-#include "ipp.h"
 #include <config.h>
-#include <cups/cups.h>
+
+#include <cupsfilters/colormanager.h>
+#include <cupsfilters/image.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/bitmap.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 
 #define USE_CMS
 
@@ -25,11 +27,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdarg.h>
+#include <cups/cups.h>
 #include <cups/raster.h>
-#include <cupsfilters/image.h>
-#include <cupsfilters/raster.h>
-#include <cupsfilters/colormanager.h>
-#include <cupsfilters/bitmap.h>
 #include <strings.h>
 #include <math.h>
 #ifdef USE_LCMS1
@@ -89,8 +88,8 @@ typedef struct pwgtoraster_doc_s
   unsigned int bitspercolor;
   unsigned int outputNumColors; 
   unsigned int bitmapoffset[2];
-  cups_page_header2_t inheader;
-  cups_page_header2_t outheader;
+  cups_page_header_t inheader;
+  cups_page_header_t outheader;
   cups_file_t	*inputfp;		// Temporary file, if any
   FILE		*outputfp;		// Temporary file, if any
   // margin swapping
@@ -1331,7 +1330,7 @@ out_page(pwgtoraster_doc_t *doc,
     return (false);
   }
 
-  if (!cupsRasterReadHeader2(inras, &(doc->inheader)))
+  if (!cupsRasterReadHeader(inras, &(doc->inheader)))
   {
     // Done
     log(ld, CF_LOGLEVEL_DEBUG,
@@ -1482,7 +1481,7 @@ out_page(pwgtoraster_doc_t *doc,
   if (doc->outheader.cupsColorOrder == CUPS_ORDER_BANDED)
     doc->outheader.cupsBytesPerLine *= doc->outheader.cupsNumColors;
 
-  if (!cupsRasterWriteHeader2(outras, &(doc->outheader)))
+  if (!cupsRasterWriteHeader(outras, &(doc->outheader)))
   {
     if (log) log(ld,CF_LOGLEVEL_ERROR,
 		 "cfFilterPWGToRaster: Can't write page %d header", pageNo);

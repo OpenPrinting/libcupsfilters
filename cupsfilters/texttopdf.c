@@ -14,11 +14,13 @@
 //
 
 #include <config.h>
-#include "pdfutils-private.h"
-#include "debug-internal.h"
-#include "filter.h"
-#include "raster.h"
-#include "fontembed-private.h"
+
+#include <cupsfilters/pdfutils-private.h>
+#include <cupsfilters/debug-internal.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/fontembed-private.h>
+#include <cupsfilters/libcups2-private.h>
 #include <ctype.h>
 #include <errno.h>
 #include "fontconfig/fontconfig.h"
@@ -489,7 +491,7 @@ typedef struct texttopdf_doc_s
   float		FontScaleX, FontScaleY; // The font matrix
   lchar_t	*Title, *Date;	// The title and date strings
 
-  cups_page_header2_t h;        // CUPS Raster page header, to
+  cups_page_header_t h;        // CUPS Raster page header, to
                                 // accommodate results of command
                                 // line/IPP attribute parsing
   cf_filter_texttopdf_parameter_t env_vars;

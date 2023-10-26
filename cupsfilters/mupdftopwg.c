@@ -22,6 +22,7 @@
 #include <cupsfilters/colormanager.h>
 #include <cupsfilters/raster.h>
 #include <cupsfilters/ipp.h>
+#include <cupsfilters/libcups2-private.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -33,11 +34,7 @@
 #define CUPS_IPTEMPFILE "/tmp/ip-XXXXXX"
 #define CUPS_OPTEMPFILE "/tmp/op-XXXXXX"
 
-#ifdef CUPS_RASTER_SYNCv1
-typedef cups_page_header2_t mupdf_page_header;
-#else
 typedef cups_page_header_t mupdf_page_header;
-#endif // CUPS_RASTER_SYNCv1
 
 
 static int
@@ -189,10 +186,10 @@ mutool_spawn(const char *filename,
 
   // Put mutool command line argument into an array for the "exec()"
   // call
-  numargs = cupsArrayCount(mutool_args);
+  numargs = cupsArrayGetCount(mutool_args);
   mutoolargv = calloc(numargs + 1, sizeof(char *));
-  for (argument = (char *)cupsArrayFirst(mutool_args), i = 0; argument;
-       argument = (char *)cupsArrayNext(mutool_args), i++)
+  for (argument = (char *)cupsArrayGetFirst(mutool_args), i = 0; argument;
+       argument = (char *)cupsArrayGetNext(mutool_args), i++)
     mutoolargv[i] = argument;
   mutoolargv[i] = NULL;
 
@@ -469,7 +466,7 @@ cfFilterMuPDFToPWG(int inputfd,         // I - File descriptor input stream
   sa.sa_handler = SIG_IGN;
   sigaction(SIGPIPE, &sa, NULL);
 
-  fd = cupsTempFd(infilename, 1024);
+  fd = cupsCreateTempFd(NULL, NULL, infilename, 1024);
   if (fd < 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
@@ -525,7 +522,7 @@ cfFilterMuPDFToPWG(int inputfd,         // I - File descriptor input stream
     goto out;
 
   // mutool parameters
-  mupdf_args = cupsArrayNew(NULL, NULL);
+  mupdf_args = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
   if (!mupdf_args)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,

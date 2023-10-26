@@ -13,9 +13,11 @@
 #include <stdarg.h>
 #include <math.h>
 #include <errno.h>
-#include "ipp.h"
-#include "ipp.h"
-#include "raster.h"
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/pdf.h>
+#include <cupsfilters/raster.h>
+#include <cupsfilters/libcups2-private.h>
 
 #ifndef HAVE_OPEN_MEMSTREAM
 #include <fcntl.h>
@@ -26,8 +28,6 @@
 #include <cups/cups.h>
 #include <cups/pwg.h>
 
-#include "filter.h"
-#include "pdf.h"
 
 typedef enum banner_info_e
 {
@@ -914,7 +914,7 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   // Copy the input data stream into a temporary file...
   //
 
-  if ((tempfd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+  if ((tempfd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterBannerToPDF: Unable to copy input file: %s",

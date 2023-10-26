@@ -685,7 +685,7 @@ flush_tile(cf_image_t *img)		// I - Image
 
   if (img->cachefile < 0)
   {
-    if ((img->cachefile = cupsTempFd(img->cachename,
+    if ((img->cachefile = cupsCreateTempFd(NULL, NULL, img->cachename,
                                      sizeof(img->cachename))) < 0)
     {
       tile->ic    = NULL;
