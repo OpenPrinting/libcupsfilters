@@ -1420,175 +1420,185 @@ raster_base_header(cups_page_header_t *h, // O - Raster header
   // TODO - Support for MediaType number
   h->cupsMediaType = 0;
 
-  // Only for CUPS Raster, if we do not have a sample header from a PPD file
-  if (pwg_raster == 0 &&
-      ((val = cupsGetOption("pwg-raster-document-type", num_options,
-			    options)) != NULL ||
-       (val = cupsGetOption("PwgRasterDocumentType", num_options,
-			    options)) != NULL ||
-       (val = cupsGetOption("color-space", num_options, options)) != NULL ||
-       (val = cupsGetOption("ColorSpace", num_options, options)) != NULL ||
-       (val = cupsGetOption("color-model", num_options, options)) != NULL ||
-       (val = cupsGetOption("ColorModel", num_options, options)) != NULL ||
-       (val = cupsGetOption("print-color-mode", num_options, options)) !=
-       NULL ||
-       (val = cupsGetOption("output-mode", num_options, options)) != NULL ||
-       (val = cupsGetOption("OutputMode", num_options, options)) != NULL ||
-       (val = cfIPPAttrEnumValForPrinter(data->printer_attrs,
-					 data->job_attrs,
-					 "print-color-mode")) != NULL))
+  if ((attr = ippFindAttribute(data->printer_attrs, "color-supported", IPP_TAG_BOOLEAN)) != NULL && ippGetBoolean(attr, 0))
   {
-    int	        bitspercolor,	// Bits per color
-                bitsperpixel,   // Bits per pixel
-                colorspace,     // CUPS/PWG raster color space
-                numcolors;	// Number of colorants
-    const char	*ptr;		// Pointer into value
+    // Only for CUPS Raster, if we do not have a sample header from a PPD file
+    if (pwg_raster == 0 &&
+	((val = cupsGetOption("pwg-raster-document-type", num_options,
+			      options)) != NULL ||
+	(val = cupsGetOption("PwgRasterDocumentType", num_options,
+			      options)) != NULL ||
+	(val = cupsGetOption("color-space", num_options, options)) != NULL ||
+	(val = cupsGetOption("ColorSpace", num_options, options)) != NULL ||
+	(val = cupsGetOption("color-model", num_options, options)) != NULL ||
+	(val = cupsGetOption("ColorModel", num_options, options)) != NULL ||
+	(val = cupsGetOption("print-color-mode", num_options, options)) !=
+	NULL ||
+	(val = cupsGetOption("output-mode", num_options, options)) != NULL ||
+	(val = cupsGetOption("OutputMode", num_options, options)) != NULL ||
+	(val = cfIPPAttrEnumValForPrinter(data->printer_attrs,
+					   data->job_attrs,
+					   "print-color-mode")) != NULL))
+    {
+      int		bitspercolor,	// Bits per color
+			bitsperpixel,   // Bits per pixel
+			colorspace,     // CUPS/PWG raster color space
+			numcolors;	// Number of colorants
+      const char	*ptr;		// Pointer into value
 
-    ptr = NULL;
-    numcolors = 0;
-    bitspercolor = 8;
-    if (!strncasecmp(val, "AdobeRgb", 8))
-    {
-      if (*(val + 8) == '_' || *(val + 8) == '-')
-	ptr = val + 9;
-      colorspace = 20;
-      numcolors = 3;
-    }
-    else if (!strncasecmp(val, "adobe-rgb", 9))
-    {
-      if (*(val + 9) == '_' || *(val + 9) == '-')
-	ptr = val + 10;
-      colorspace = 20;
-      numcolors = 3;
-    }
-    else if (!strcasecmp(val, "auto-monochrome"))
-    {
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strcasecmp(val, "bi-level") ||
-	     !strcasecmp(val, "process-bi-level"))
-    {
-      bitspercolor = 1;
-      colorspace = 3;
-      numcolors = 1;
-    }
-    else if (!strncasecmp(val, "Black", 5))
-    {
-      if (*(val + 5) == '_' || *(val + 5) == '-')
-	ptr = val + 6;
-      bitspercolor = 1;
-      colorspace = 3;
-      numcolors = 1;
-    }
-    else if (!strcasecmp(val, "process-monochrome"))
-    {
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strncasecmp(val, "Monochrome", 10))
-    {
-      if (*(val + 10) == '_' || *(val + 10) == '-')
-	ptr = val + 11;
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strncasecmp(val, "Mono", 4))
-    {
-      if (*(val + 4) == '_' || *(val + 4) == '-')
-	ptr = val + 5;
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strcasecmp(val, "color"))
-    {
-      colorspace = 19;
-      numcolors = 3;
-    }
-    else if (!strncasecmp(val, "Cmyk", 4))
-    {
-      if (*(val + 4) == '_' || *(val + 4) == '-')
-	ptr = val + 5;
-      colorspace = 6;
-      numcolors = 4;
-    }
-    else if (!strncasecmp(val, "Cmy", 3))
-    {
-      if (*(val + 3) == '_' || *(val + 3) == '-')
-	ptr = val + 4;
-      colorspace = 4;
-      numcolors = 3;
-    }
-    else if (!strncasecmp(val, "Device", 6))
-    {
-      ptr = val + 6;
-      numcolors = strtol(ptr, (char **)&ptr, 10);
-      if (*ptr == '_' || *ptr == '-')
+      ptr = NULL;
+      numcolors = 0;
+      bitspercolor = 8;
+      if (!strncasecmp(val, "AdobeRgb", 8))
       {
-	ptr ++;
-	colorspace = 47 + numcolors;
+	if (*(val + 8) == '_' || *(val + 8) == '-')
+	  ptr = val + 9;
+	colorspace = 20;
+	numcolors = 3;
+      }
+      else if (!strncasecmp(val, "adobe-rgb", 9))
+      {
+	if (*(val + 9) == '_' || *(val + 9) == '-')
+	  ptr = val + 10;
+	colorspace = 20;
+	numcolors = 3;
+      }
+      else if (!strcasecmp(val, "auto-monochrome"))
+      {
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strcasecmp(val, "bi-level") ||
+	         !strcasecmp(val, "process-bi-level"))
+      {
+	bitspercolor = 1;
+	colorspace = 3;
+	numcolors = 1;
+      }
+      else if (!strncasecmp(val, "Black", 5))
+      {
+	if (*(val + 5) == '_' || *(val + 5) == '-')
+	  ptr = val + 6;
+	bitspercolor = 1;
+	colorspace = 3;
+	numcolors = 1;
+      }
+      else if (!strcasecmp(val, "process-monochrome"))
+      {
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strncasecmp(val, "Monochrome", 10))
+      {
+	if (*(val + 10) == '_' || *(val + 10) == '-')
+	  ptr = val + 11;
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strncasecmp(val, "Mono", 4))
+      {
+	if (*(val + 4) == '_' || *(val + 4) == '-')
+	  ptr = val + 5;
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strcasecmp(val, "color"))
+      {
+	colorspace = 19;
+	numcolors = 3;
+      }
+      else if (!strncasecmp(val, "Cmyk", 4))
+      {
+	if (*(val + 4) == '_' || *(val + 4) == '-')
+	  ptr = val + 5;
+	colorspace = 6;
+	numcolors = 4;
+      }
+      else if (!strncasecmp(val, "Cmy", 3))
+      {
+	if (*(val + 3) == '_' || *(val + 3) == '-')
+	  ptr = val + 4;
+	colorspace = 4;
+	numcolors = 3;
+      }
+      else if (!strncasecmp(val, "Device", 6))
+      {
+	ptr = val + 6;
+	numcolors = strtol(ptr, (char **)&ptr, 10);
+	if (*ptr == '_' || *ptr == '-')
+	{
+	  ptr ++;
+	  colorspace = 47 + numcolors;
+	}
+	else
+	{
+	  numcolors = 0;
+	  ptr = NULL;
+	}
+      }
+      else if (!strncasecmp(val, "Sgray", 5))
+      {
+	if (*(val + 5) == '_' || *(val + 5) == '-')
+	  ptr = val + 6;
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strncasecmp(val, "Gray", 4))
+      {
+	if (*(val + 4) == '_' || *(val + 4) == '-')
+	  ptr = val + 5;
+	colorspace = 18;
+	numcolors = 1;
+      }
+      else if (!strncasecmp(val, "Srgb", 4))
+      {
+	if (*(val + 4) == '_' || *(val + 4) == '-')
+	  ptr = val + 5;
+	colorspace = 19;
+	numcolors = 3;
+      }
+      else if (!strncasecmp(val, "Rgbw", 4))
+      {
+	if (*(val + 4) == '_' || *(val + 4) == '-')
+	  ptr = val + 5;
+	colorspace = 17;
+	numcolors = 4;
+      }
+      else if (!strncasecmp(val, "Rgb", 3))
+      {
+	if (*(val + 3) == '_' || *(val + 3) == '-')
+	  ptr = val + 4;
+	colorspace = 1;
+	numcolors = 3;
+      }
+      else if (!strcasecmp(val, "auto"))
+      {
+	// Let "auto" not look like an error
+	colorspace = 19;
+	numcolors = 3;
+      }
+      if (numcolors > 0)
+      {
+	if (ptr)
+	  bitspercolor = strtol(ptr, (char **)&ptr, 10);
+	bitsperpixel = bitspercolor * numcolors;
+	// In 1-bit-per-color RGB modes we add a forth bit to each pixel
+	// to align the pixels with bytes
+	if (bitsperpixel == 3 &&
+	    strcasestr(val, "Rgb"))
+	  bitsperpixel = 4;
+	h->cupsBitsPerColor = bitspercolor;
+	h->cupsBitsPerPixel = bitsperpixel;
+	h->cupsColorSpace = colorspace;
+	h->cupsNumColors = numcolors;
       }
       else
       {
-	numcolors = 0;
-	ptr = NULL;
+	h->cupsBitsPerColor = 8;
+	h->cupsBitsPerPixel = 24;
+	h->cupsColorSpace = 19;
+	h->cupsNumColors = 3;
       }
-    }
-    else if (!strncasecmp(val, "Sgray", 5))
-    {
-      if (*(val + 5) == '_' || *(val + 5) == '-')
-	ptr = val + 6;
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strncasecmp(val, "Gray", 4))
-    {
-      if (*(val + 4) == '_' || *(val + 4) == '-')
-	ptr = val + 5;
-      colorspace = 18;
-      numcolors = 1;
-    }
-    else if (!strncasecmp(val, "Srgb", 4))
-    {
-      if (*(val + 4) == '_' || *(val + 4) == '-')
-	ptr = val + 5;
-      colorspace = 19;
-      numcolors = 3;
-    }
-    else if (!strncasecmp(val, "Rgbw", 4))
-    {
-      if (*(val + 4) == '_' || *(val + 4) == '-')
-	ptr = val + 5;
-      colorspace = 17;
-      numcolors = 4;
-    }
-    else if (!strncasecmp(val, "Rgb", 3))
-    {
-      if (*(val + 3) == '_' || *(val + 3) == '-')
-	ptr = val + 4;
-      colorspace = 1;
-      numcolors = 3;
-    }
-    else if (!strcasecmp(val, "auto"))
-    {
-      // Let "auto" not look like an error
-      colorspace = 19;
-      numcolors = 3;
-    }
-    if (numcolors > 0)
-    {
-      if (ptr)
-	bitspercolor = strtol(ptr, (char **)&ptr, 10);
-      bitsperpixel = bitspercolor * numcolors;
-      // In 1-bit-per-color RGB modes we add a forth bit to each pixel
-      // to align the pixels with bytes
-      if (bitsperpixel == 3 &&
-	  strcasestr(val, "Rgb"))
-	bitsperpixel = 4;
-      h->cupsBitsPerColor = bitspercolor;
-      h->cupsBitsPerPixel = bitsperpixel;
-      h->cupsColorSpace = colorspace;
-      h->cupsNumColors = numcolors;
     }
     else
     {
@@ -1601,9 +1611,9 @@ raster_base_header(cups_page_header_t *h, // O - Raster header
   else
   {
     h->cupsBitsPerColor = 8;
-    h->cupsBitsPerPixel = 24;
-    h->cupsColorSpace = 19;
-    h->cupsNumColors = 3;
+    h->cupsBitsPerPixel = 8;
+    h->cupsColorSpace = 18;
+    h->cupsNumColors = 1;
   }
 
   // TODO - Support for color orders 1 (banded) and 2 (planar)
