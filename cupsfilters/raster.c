@@ -29,6 +29,7 @@
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/libcups2-private.h>
 #include <cups/pwg.h>
+#include <stdbool.h>
 
 //
 // Local functions
