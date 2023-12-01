@@ -237,7 +237,7 @@ cfImageCMYKToCMY(
         *out++ = 255;
 
       if (m < 255)
-        *out++ = y;
+        *out++ = m;
       else
         *out++ = 255;
 
