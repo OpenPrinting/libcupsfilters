@@ -6,6 +6,7 @@
 #include "qpdf-cm-private.h"
 #include <stdio.h>
 #include "cupsfilters/debug-internal.h"
+#include <limits.h>
 
 #include <stdexcept>
 
@@ -21,13 +22,26 @@ load_file(const char *filename) // {{{
     throw std::runtime_error(std::string("file ") + filename + " could not be opened");
 
   const int bsize = 2048;
-  int pos = 0;
+  unsigned int pos = 0;
 
   std::string ret;
   while (!feof(f))
   {
+    if ((UINT_MAX - bsize) < pos)
+    {
+      ret.resize(pos);
+      break;
+    }
+
     ret.resize(pos + bsize);
     int res = fread(&ret[pos], 1, bsize, f);
+
+    if ((UINT_MAX - res) < pos)
+    {
+      ret.resize(pos);
+      break;
+    }
+
     pos += res;
     if (res < bsize)
     {
