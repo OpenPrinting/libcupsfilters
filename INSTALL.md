@@ -87,7 +87,7 @@ or
   ```
 - Install Poppler, fontconfig, liblcms2, mupdf-tools:
   ```
-  sudo apt-get install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
+  sudo apt-get install libpoppler-cpp-dev poppler-utils fontconfig-dev lcms2-dev mupdf-tools
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
@@ -109,7 +109,7 @@ or
   ```
 - Install Poppler, fontconfig, liblcms2, mupdf-tools:
   ```
-  sudo dnf install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
+  sudo dnf install libpoppler-cpp-dev poppler-utils fontconfig-dev lcms2-dev mupdf-tools
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
