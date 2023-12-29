@@ -85,6 +85,10 @@ or
   ```
   sudo apt-get install build-essential autoconf autopoint automake libtool
   ```
+- Install CUPS devel files:
+  ```
+  sudo apt-get install libcups2-dev
+  ```
 - Install Poppler, fontconfig, liblcms2, QPDF devel files, mupdf-tools:
   ```
   sudo apt-get install libpoppler-dev libfontconfig1-dev liblcms2-dev libqpdf-dev mupdf-tools
@@ -106,6 +110,10 @@ or
 - Install C and C++ compilers, make, autoconf, automake, libtool:
   ```
   sudo dnf install gcc gcc-c++ make autoconf automake libtool
+  ```
+- Install CUPS devel files:
+  ```
+  sudo dnf install cups-devel
   ```
 - Install Poppler, fontconfig, liblcms2, QPDF devel files:
   ```
