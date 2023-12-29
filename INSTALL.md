@@ -87,7 +87,7 @@ or
   ```
 - Install Poppler, fontconfig, liblcms2, QPDF devel files, mupdf-tools:
   ```
-  sudo apt-get install libpoppler-dev libfontconfig1-dev liblcms2-dev libqpdf-dev mupdf-tools
+  sudo apt-get install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
@@ -107,9 +107,9 @@ or
   ```
   sudo dnf install gcc gcc-c++ make autoconf automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, QPDF devel files:
+- Install Poppler, fontconfig, liblcms2:
   ```
-  sudo dnf install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel qpdf-devel mupdf-tools
+  sudo dnf install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
