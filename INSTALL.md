@@ -117,7 +117,7 @@ or
   ```
 - Install Poppler, fontconfig, liblcms2, QPDF devel files:
   ```
-  sudo dnf install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel qpdf-devel mupdf-tools
+  sudo dnf install poppler-devel fontconfig-devel lcms2-devel qpdf-devel
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
