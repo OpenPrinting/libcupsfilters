@@ -10,7 +10,7 @@ doc_DATA = \
 	COPYING \
 	CHANGES.md \
 	CHANGES-1.x.md \
-	INSTALL.md \
+	INSTALL \
 	LICENSE \
 	NOTICE \
 	README.md \
