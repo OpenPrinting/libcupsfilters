@@ -85,7 +85,7 @@ or
   ```
   sudo apt-get install build-essential autoconf autopoint automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, mupdf-tools:
+- Install Poppler, fontconfig, liblcms2, QPDF devel files, mupdf-tools:
   ```
   sudo apt-get install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
   ```
@@ -107,7 +107,7 @@ or
   ```
   sudo dnf install gcc gcc-c++ make autoconf automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, mupdf-tools:
+- Install Poppler, fontconfig, liblcms2:
   ```
   sudo dnf install poppler-devel libpoppler-cpp-dev poppler-utils fontconfig-devel lcms2-devel mupdf-tools
   ```
