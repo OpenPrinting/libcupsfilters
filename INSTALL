@@ -1,0 +1,157 @@
+INSTALL - OpenPrinting libcupsfilters v2.0.0 - 2023-09-22
+---------------------------------------------------------
+
+This file describes how to compile and install libcupsfilters from
+source code. For more information on libcupsfilters see the file
+called "README.md". A complete change log can be found in
+"CHANGES.md".
+
+**** IF YOU HAVE A NON-PDF PRINTER AND ARE NOT              ****
+**** RUNNING MAC OS X, YOU WILL ALSO NEED TO INSTALL        ****
+**** GHOSTSCRIPT WITH AT LEAST THE "cups", "pwgraster",     ****
+**** "appleraster", "urf", "pclm", "pclm8", "pdfwrite",     ****
+**** "pdfimage24", "pdfimage32", "pdfimage8" DRIVERS AFTER  ****
+**** YOU INSTALL CUPS AND BEFORE YOU INSTALL THIS PACKAGE.  ****
+
+
+BEFORE YOU BEGIN
+
+    The following is required to have for compilation:
+    - ANSI-compliant C and C++ compilers (the project mostly written in C,
+      pdftoraster, pclmtoraster, pwgtopdf and pdftopdf written in C++)
+    - make program
+    - POSIX-compliant shell (/bin/sh)
+    - autoconf, autopoint, automake and libtool for ./autogen.sh to generate
+      compilation scripts
+    - CUPS devel files of version 2.2.2 or higher
+    - Poppler (with --enable-poppler-cpp options) devel files for pdftoraster
+    - fontconfig devel files for texttopdf
+    - liblcms (liblcms2 recommended) devel files for color management in
+      functions which use rasters (pdftoraster, pwgtoraster, pwgtopdf)
+    - QPDF (11.0 or higher, 11.4.0 highly recommended, fixes PDF form
+      bug, issue #28) devel files for PDF related functions (pwgtopdf,
+      pdftopdf, bannertopdf) and pclmtoraster
+
+    Then at least one of the following binaries is required for supporting
+    non-PDF printers:
+
+    - Ghostscript 10.01.1 or higher built with support for output devices -
+      "pdfwrite", "ps2write", "cups", "pwgraster", "appleraster", "pclm",
+      "pclm8", "pdfimage24", "pdfimage8", "pxlcolor", "pxlmono"
+
+    or
+
+    - MuPDF at version 1.15 to prevent bugs
+
+    libcupsfilters provides additional features, which are optional
+    for the compilation, but the library misses several file format
+    support/feature support without them:
+
+    - libdbus devel files for dBUS communication with colord for color
+      profiles support
+    - libjpeg devel files for JPEG file support
+    - libpng devel files for PNG file support
+    - libtiff devel files for TIFF file support
+    - libexif devel files for getting image resolution
+    - Dejavu Sans fonts for internal test suite
+
+    The GNU compiler tools and bash work well and we have tested the
+    current CUPS code against several versions of GCC with excellent
+    results.
+
+    The Makefiles used by the project should work with most versions
+    of make.  We've tested them with GNU make as well as the make
+    programs shipped by Compaq, HP, SGI, and Sun.  BSD users should
+    use GNU make (gmake) since BSD make does not support "include".
+
+
+COMPILING THE GIT REPOSITORY CODE
+
+    The libcupsfilters GIT repository doesn't hold a copy of the
+    pre-built configure script.  You'll need to run the GNU autoconf
+    software (2.65 or higher) to create it:
+
+        ./autogen.sh
+
+
+CONFIGURATION
+
+    libcupsfilters uses GNU autoconf, so you should find the usual
+    "configure" script in the main libcupsfilters source directory.
+    To configure libcupsfilters for your system, type:
+
+	./configure
+
+    The default installation will put the libcupsfilters software in
+    the "/usr" directories on your system.
+
+    Use the "--prefix" option to install the libcupsfilters software
+    in another location:
+
+	./configure --prefix=/some/directory
+
+    To see a complete list of configuration options, use the --help option:
+
+        ./configure --help
+
+    If any of the dependent libraries are not installed in a system default
+    location (typically "/usr/include" and "/usr/lib") you'll need to set the
+    CFLAGS, CPPFLAGS, CXXFLAGS, DSOFLAGS, and LDFLAGS environment variables
+    prior to running configure:
+
+	setenv CFLAGS "-I/some/directory"
+	setenv CPPFLAGS "-I/some/directory"
+	setenv CXXFLAGS "-I/some/directory"
+	setenv DSOFLAGS "-L/some/directory"
+	setenv LDFLAGS "-L/some/directory"
+	./configure ...
+
+    or:
+
+	CFLAGS="-I/some/directory" \
+	CPPFLAGS="-I/some/directory" \
+	CXXFLAGS="-I/some/directory" \
+	DSOFLAGS="-L/some/directory" \
+	LDFLAGS="-L/some/directory" \
+	./configure ...
+
+    Once you have configured things, just type:
+
+	make ENTER
+
+    or if you have FreeBSD, NetBSD, or OpenBSD type:
+
+	gmake ENTER
+
+    to build the software.
+
+
+INSTALLING THE SOFTWARE
+
+    Once you have built the software you need to install it.  The "install"
+    target provides a quick way to install the software on your local system:
+
+	make install ENTER
+
+    or for FreeBSD, NetBSD, or OpenBSD:
+
+	gmake install ENTER
+
+
+RUNTIME DEPENDENCIES
+
+    There are several packages which are required to be installed and
+    working to get full capabalities of software using cupsfilters:
+
+    - in case libcupsfilters is built dBUS support, a dBUS provider
+      (dbus-broker/dbus-daemon) and colord
+      have to be installed and running to get color profile support
+    - Ghostscript or MuPDF or both (based on your configuration)
+    - a monospace font (f.e. liberation-mono-fonts) for texttopdf
+
+PACKAGING THE SOFTWARE FOR OPERATING SYSTEM DISTRIBUTIONS
+
+    The use of libcupsfilters is supported for CUPS from version
+    2.2.2. For earlier CUPS versions (1.5.x, required since 1.6.x) use
+    cups-filters 1.x.
+
