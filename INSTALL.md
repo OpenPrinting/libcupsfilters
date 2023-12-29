@@ -1,5 +1,5 @@
 
-# libcupsfilters v2.0.0 Installation Guide (2023-09-22)
+# Libcupsfilters v2.0.0 Installation Guide
 --------------------------------------------------------
 
 ## Overview
