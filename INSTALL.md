@@ -1,6 +1,6 @@
 
 # Libcupsfilters v2.0.0 Installation Guide
---------------------------------------------------------
+
 
 ## Overview
 
