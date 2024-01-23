@@ -2199,7 +2199,11 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
 // For compatibility with g++ >= 4.7 compilers _GLIBCXX_THROW
 // should be used as a guard, otherwise use traditional definition
 #ifndef _GLIBCXX_THROW
-#define _GLIBCXX_THROW throw
+#  if __cplusplus >= 201103L
+#    define _GLIBCXX_THROW(_EXC)
+#  else
+#    define _GLIBCXX_THROW(_EXC) throw(_EXC)
+#  endif
 #endif
 
 void * operator new(size_t size) _GLIBCXX_THROW (std::bad_alloc)
