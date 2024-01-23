@@ -1825,8 +1825,8 @@ out_page(pwgtoraster_doc_t *doc,
     }
     overspray_duplicate_after_pixels = min_overspray_duplicate_after_pixels;
     next_overspray_duplicate = overspray_duplicate_after_pixels;
-    if  (abs(doc->outheader.PageSize[0] - doc->inheader.PageSize[0]) > 2 ||
-	 abs(doc->outheader.PageSize[1] - doc->inheader.PageSize[1]) > 2)
+    if  (abs((int)doc->outheader.PageSize[0] - (int)doc->inheader.PageSize[0]) > 2 ||
+	 abs((int)doc->outheader.PageSize[1] - (int)doc->inheader.PageSize[1]) > 2)
     {
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToRaster: Output page dimensions are larger for borderless printing with overspray, inserting one extra pixel after each %d pixels",

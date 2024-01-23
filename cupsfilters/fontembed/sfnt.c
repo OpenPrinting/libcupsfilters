@@ -517,7 +517,7 @@ _cfFontEmbedOTFGetTable(_cf_fontembed_otf_file_t *otf,
   const int idx = __cfFontEmbedOTFFindTable(otf, tag);
   if (idx == -1)
   {
-    *ret_len =- 1;
+    *ret_len = -1;
     return (NULL);
   }
   const _cf_fontembed_otf_dir_ent_t *table = otf->tables + idx;

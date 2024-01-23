@@ -124,22 +124,22 @@ header_to_gs_args(gs_page_header *h,
       outformat == CF_FILTER_OUT_FORMAT_APPLE_RASTER)
   {
     if (outformat != CF_FILTER_OUT_FORMAT_APPLE_RASTER &&
-	(h->MediaClass[0] |= '\0'))
+	(h->MediaClass[0] != '\0'))
     {
       snprintf(tmpstr, sizeof(tmpstr), "-sMediaClass=%s", h->MediaClass);
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
-    if (h->MediaColor[0] |= '\0')
+    if (h->MediaColor[0] != '\0')
     {
       snprintf(tmpstr, sizeof(tmpstr), "-sMediaColor=%s", h->MediaColor);
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
-    if (h->MediaType[0] |= '\0')
+    if (h->MediaType[0] != '\0')
     {
       snprintf(tmpstr, sizeof(tmpstr), "-sMediaType=%s", h->MediaType);
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
-    if (h->OutputType[0] |= '\0')
+    if (h->OutputType[0] != '\0')
     {
       snprintf(tmpstr, sizeof(tmpstr), "-sOutputType=%s", h->OutputType);
       cupsArrayAdd(gs_args, strdup(tmpstr));

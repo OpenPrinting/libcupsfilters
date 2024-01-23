@@ -539,7 +539,7 @@ static void	write_string(int col, int row, int len, lchar_t *s,
 static lchar_t  *make_wide(const char *buf, texttopdf_doc_t *doc);
 static void     write_font_str(float x,float y,int fontid, lchar_t *str,
 			       int len, texttopdf_doc_t *doc);
-static void     write_pretty_header();
+static void     write_pretty_header(texttopdf_doc_t *doc);
 static int      write_prolog(const char *title, const char *user,
 			    const char *classification, const char *label, 
 			    texttopdf_doc_t *doc,
@@ -2234,7 +2234,6 @@ write_line(int     row,			// I - Row number (0 to N)
            lchar_t *line,		// I - Line to print
            texttopdf_doc_t *doc)
 {
-  int		i;		// Looping var
   int		col,xcol,xwid;		// Current column
   int		attr;		// Current attribute
   int		font,		// Font to use
@@ -2338,7 +2337,7 @@ write_line(int     row,			// I - Row number (0 to N)
 	  line ++;
 	}
 
-        for (i = 1; start < line; i ++, start ++)
+        for (; start < line; start ++)
 	  if (!isspace(start->ch & 255))
 	  {
             xwid-=(doc->Widths[lastfont]);

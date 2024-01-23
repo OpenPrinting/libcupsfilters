@@ -375,7 +375,7 @@ __cfFontEmbedEmbPDFFWCIDWidths(const _cf_fontembed_bit_set_t glyphs,
             size -= 4;
             *rlen = in_region - 4;
           }
-          in_region =- 4; // start range region instead
+          in_region -= 4; // start range region instead
           rlen = &ret->warray[size++];
           ret->warray[size ++] = iA - 4;
           ret->warray[size ++] = w;
