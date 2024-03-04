@@ -1571,7 +1571,7 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
     {
       if (*(val + 3) == '_' || *(val + 3) == '-')
 	ptr = val + 4;
-      colorspace = 1;
+      colorspace = pwg_raster ? 19 : 1;
       numcolors = 3;
     }
     else if (!strcasecmp(val, "auto"))
