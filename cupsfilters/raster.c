@@ -1550,7 +1550,7 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
     {
       if (*(val + 4) == '_' || *(val + 4) == '-')
 	ptr = val + 5;
-      colorspace = 18;
+      colorspace = pwg_raster ? 18 : 3;
       numcolors = 1;
     }
     else if (is_color && !strncasecmp(val, "Srgb", 4))
