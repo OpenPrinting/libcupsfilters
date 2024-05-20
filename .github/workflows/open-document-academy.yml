@@ -13,7 +13,7 @@ jobs:
       - name: Copy issue to Open Documentation Academy repository
         uses: actions/github-script@v7
         with:
-          #github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             console.log('An issue has been labeled ODA. Copying the issue to the Open Documentation Academy repository.');
             const issue = context.payload.issue;
