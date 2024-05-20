@@ -1,0 +1,30 @@
+name: Copy Issue on ODA Label Added
+
+on:
+  issues:
+    types:
+      - labeled
+
+jobs:
+  copy-issue:
+    if: github.event.label.name == 'ODA'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy issue to Open Documentation Academy repository
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            console.log('An issue has been labeled ODA. Copying the issue to the Open Documentation Academy repository.');
+            const issue = context.payload.issue;
+            const originRepo = context.payload.repository;
+
+            const originalIssueUrl = originRepo.html_url + '/issues/' + issue.number;
+            const copiedIssueBody = issue.body + '\n\n---\n\nCopied from: [' + originRepo.full_name + '#' + issue.number + '](' + originalIssueUrl + ')';
+
+            await github.rest.issues.create({
+              owner: 'canonical',
+              repo: 'open-documentation-academy',
+              title: issue.title,
+              body: copiedIssueBody
+            });
