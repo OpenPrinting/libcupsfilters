@@ -54,13 +54,6 @@ _cfPDFToPDFGetArtBox(pdfio_obj_t *page)
     	return artBox;
 }
 
-
-/*
-pdfio_obj_t 
-_cfPDFToPDFMakePage()
-{
-}
-*/
 pdfio_rect_t
 _cfPDFToPDFMakeBox(double x1, double y1, double x2, double y2)
 {
