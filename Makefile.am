@@ -186,8 +186,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdftopdf/nup-private.h \
 	cupsfilters/pdftopdf/intervalset.cxx \
 	cupsfilters/pdftopdf/intervalset-private.h \
-	cupsfilters/pdftopdf/qpdf-tools.cxx \
-	cupsfilters/pdftopdf/qpdf-tools-private.h \
+	cupsfilters/pdftopdf/pdfio-tools.c \
+	cupsfilters/pdftopdf/pdfio-tools-private.h \
 	cupsfilters/pdftopdf/qpdf-xobject.cxx \
 	cupsfilters/pdftopdf/qpdf-xobject-private.h \
 	cupsfilters/pdftopdf/qpdf-pdftopdf.cxx \
@@ -211,6 +211,7 @@ libcupsfilters_la_LIBADD = \
 	$(FONTCONFIG_LIBS) \
 	$(CUPS_LIBS) \
 	$(LCMS_LIBS) \
+	$(LIBPDFIO_LIBS) \
 	$(LIBQPDF_LIBS) \
 	$(LIBJPEG_LIBS) \
 	$(EXIF_LIBS) \
