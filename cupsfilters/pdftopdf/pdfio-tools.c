@@ -16,7 +16,7 @@ _cfPDFToPDFGetCropBox(pdfio_obj_t *page) // {{{
   pdfio_rect_t cropBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
   if (!pdfioDictGetRect(page_dict, "CropBox", &cropBox)) 
-    return _cfPDFToPDFGetMediaBox1(page);
+    return _cfPDFToPDFGetMediaBox(page);
   return cropBox;
 } 
 // }}}
@@ -27,7 +27,7 @@ _cfPDFToPDFGetBleedBox(pdfio_obj_t *page) // {{{
   pdfio_rect_t bleedBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
   if (!pdfioDictGetRect(page_dict, "BleedBox", &bleedBox))
-    return _cfPDFToPDFGetCropBox1(page);
+    return _cfPDFToPDFGetCropBox(page);
   return bleedBox;
 }
 // }}}
@@ -38,7 +38,7 @@ _cfPDFToPDFGetTrimBox(pdfio_obj_t *page) // {{{
   pdfio_rect_t trimBox; 
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
   if (!pdfioDictGetRect(page_dict, "TrimBox", &trimBox)) 
-    return _cfPDFToPDFGetCropBox1(page);
+    return _cfPDFToPDFGetCropBox(page);
   return trimBox;
 
 }
@@ -50,7 +50,7 @@ _cfPDFToPDFGetArtBox(pdfio_obj_t *page) // {{{
   pdfio_rect_t artBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
   if (!pdfioDictGetRect(page_dict, "ArtBox", &artBox)) 
-    return _cfPDFToPDFGetCropBox1(page);
+    return _cfPDFToPDFGetCropBox(page);
   return artBox;
 }
 // }}}
