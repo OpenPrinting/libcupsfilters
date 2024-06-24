@@ -174,26 +174,14 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pack.c \
 	cupsfilters/pclmtoraster.cxx \
 	cupsfilters/pdf.cxx \
-	cupsfilters/pdftopdf/pdftopdf.cxx \
-	cupsfilters/pdftopdf/pdftopdf-private.h \
-	cupsfilters/pdftopdf/pdftopdf-processor.cxx \
-	cupsfilters/pdftopdf/pdftopdf-processor-private.h \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-processor.cxx \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-processor-private.h \
-	cupsfilters/pdftopdf/pptypes.cxx \
-	cupsfilters/pdftopdf/pptypes-private.h \
-	cupsfilters/pdftopdf/nup.cxx \
-	cupsfilters/pdftopdf/nup-private.h \
-	cupsfilters/pdftopdf/intervalset.cxx \
-	cupsfilters/pdftopdf/intervalset-private.h \
+	cupsfilters/pdftopdf/C-pptypes.c \
+        cupsfilters/pdftopdf/C-pptypes-private.h \
 	cupsfilters/pdftopdf/pdfio-tools.c \
 	cupsfilters/pdftopdf/pdfio-tools-private.h \
-	cupsfilters/pdftopdf/qpdf-xobject.cxx \
-	cupsfilters/pdftopdf/qpdf-xobject-private.h \
-	cupsfilters/pdftopdf/qpdf-pdftopdf.cxx \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-private.h \
-	cupsfilters/pdftopdf/qpdf-cm.cxx \
-	cupsfilters/pdftopdf/qpdf-cm-private.h \
+	cupsfilters/pdftopdf/pdfio-pdftopdf.c \
+	cupsfilters/pdftopdf/pdfio-pdftopdf-private.h \
+	cupsfilters/pdftopdf/pdfio-cm.c \
+	cupsfilters/pdftopdf/pdfio-cm-private.h \
 	cupsfilters/pdftoraster.cxx \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
