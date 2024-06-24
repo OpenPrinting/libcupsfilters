@@ -178,6 +178,8 @@ libcupsfilters_la_SOURCES = \
         cupsfilters/pdftopdf/C-pptypes-private.h \
 	cupsfilters/pdftopdf/pdfio-tools.c \
 	cupsfilters/pdftopdf/pdfio-tools-private.h \
+	cupsfilters/pdftopdf/pdfio-xobject.c \
+	cupsfilters/pdftopdf/pdfio-xobject-private.h \
 	cupsfilters/pdftopdf/pdfio-pdftopdf.c \
 	cupsfilters/pdftopdf/pdfio-pdftopdf-private.h \
 	cupsfilters/pdftopdf/pdfio-cm.c \
