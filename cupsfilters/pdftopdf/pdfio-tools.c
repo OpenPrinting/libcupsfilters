@@ -1,7 +1,7 @@
 #include "pdfio-tools-private.h"
 
 pdfio_rect_t
-_cfPDFToPDFGetMediaBox1(pdfio_obj_t *page) // {{{
+_cfPDFToPDFGetMediaBox(pdfio_obj_t *page) // {{{
 {
   pdfio_rect_t mediaBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
@@ -11,7 +11,7 @@ _cfPDFToPDFGetMediaBox1(pdfio_obj_t *page) // {{{
 // }}}
 
 pdfio_rect_t
-_cfPDFToPDFGetCropBox1(pdfio_obj_t *page) // {{{
+_cfPDFToPDFGetCropBox(pdfio_obj_t *page) // {{{
 {
   pdfio_rect_t cropBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
@@ -22,7 +22,7 @@ _cfPDFToPDFGetCropBox1(pdfio_obj_t *page) // {{{
 // }}}
 
 pdfio_rect_t
-_cfPDFToPDFGetBleedBox1(pdfio_obj_t *page) // {{{
+_cfPDFToPDFGetBleedBox(pdfio_obj_t *page) // {{{
 {
   pdfio_rect_t bleedBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
@@ -45,7 +45,7 @@ _cfPDFToPDFGetTrimBox(pdfio_obj_t *page) // {{{
 // }}}
 
 pdfio_rect_t
-_cfPDFToPDFGetArtBox1(pdfio_obj_t *page) // {{{
+_cfPDFToPDFGetArtBox(pdfio_obj_t *page) // {{{
 {
   pdfio_rect_t artBox;
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
