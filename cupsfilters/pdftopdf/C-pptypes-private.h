@@ -34,7 +34,8 @@ pdftopdf_rotation_e negate_rotation(pdftopdf_rotation_e rhs);
 typedef enum{
     NONE = 0,
     ONE_THIN = 2,
-    ONE_THICK = 3,                                                                                       TWO_THIN = 4, 
+    ONE_THICK = 3,
+    TWO_THIN = 4, 
     TWO_THICK = 5,
     ONE = 0x02,
     TWO = 0x04,
