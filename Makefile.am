@@ -176,6 +176,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdf.cxx \
 	cupsfilters/pdftopdf/C-pptypes.c \
         cupsfilters/pdftopdf/C-pptypes-private.h \
+	cupsfilters/pdftopdf/C-nup.c \
+        cupsfilters/pdftopdf/C-nup-private.h \
 	cupsfilters/pdftopdf/pdfio-tools.c \
 	cupsfilters/pdftopdf/pdfio-tools-private.h \
 	cupsfilters/pdftopdf/pdfio-xobject.c \
