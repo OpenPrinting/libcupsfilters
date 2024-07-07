@@ -9,35 +9,10 @@
 bool 
 _cfPDFToPDFHasOutputIntent(pdfio_file_t *pdf)   // {{{
 {
-  int numObj = pdfioFileGetNumObjs(pdf);
-  for(int count=0; count<numObj; count++)
-  {
-     pdfio_obj_t *tempObj = pdfioFileGetObj(pdf, count+1);
-     pdfio_dict_t *tempDict = pdfioObjGetDict(tempObj);
-     if(pdfioDictGetObj(tempDict, "Root"))
-     {
-       pdfio_obj_t *rootObj = pdfioDictGetObj(tempDict, "Root");
-       pdfio_dict_t *rootDict = pdfioObjGetDict(rootObj);
-    
-       if(pdfioDictGetArray(rootDict, "OutputIntents"))
-       {
-	 pdfioObjClose(tempObj);
-         pdfioObjClose(rootObj);
-	 return (true); 
-       }
-
-       else
-       {
-	 pdfioObjClose(tempObj);
-         pdfioObjClose(rootObj);
-	 return (false); 
-       }
-     }
-
-     pdfioObjClose(tempObj);
-  }
-
-  return (false);
+  pdfio_dict_t *catalogDict = pdfioFileGetCatalog(pdf);
+  if(!pdfioDictGetArray(catalogDict, "OutputIntents"))
+    return false;
+  return true; 
 }
 // }}}
 
@@ -60,35 +35,18 @@ _cfPDFToPDFAddOutputIntent(pdfio_file_t *pdf,
   pdfioDictSetObj(intent, "DestOutputProfile", outicc);
 
 
-  int numObj = pdfioFileGetNumObjs(pdf);
-  for(int count=0; count<numObj; count++)
+  pdfio_dict_t *catalogDict = pdfioFileGetCatalog(pdf);
+  if(!pdfioDictGetArray(catalogDict, "OutputIntents"))
   {
-     pdfio_obj_t *tempObj = pdfioFileGetObj(pdf, count+1);
-     pdfio_dict_t *tempDict = pdfioObjGetDict(tempObj);
-     if(pdfioDictGetObj(tempDict, "Root"))
-     {
-       pdfio_obj_t *rootObj = pdfioDictGetObj(tempDict, "Root");
-       pdfio_dict_t *rootDict = pdfioObjGetDict(rootObj);
-    
-       if(!pdfioDictGetArray(rootDict, "OutputIntents"))
-       { 
-         pdfio_array_t *arrayOutputIntents = pdfioArrayCreate(pdf);
-         pdfioDictSetArray(rootDict, "OutputIntents", arrayOutputIntents);
-       }
-       
-       pdfio_array_t *arrayOutputIntents = pdfioDictGetArray(rootDict, "OutputIntents");
-       pdfioDictSetArray(rootDict, "OutputIntents", arrayOutputIntents);
-     
-       pdfioObjClose(tempObj); 
-       pdfioObjClose(rootObj);
-       break;
-     }
+    pdfio_array_t *newArray = pdfioArrayCreate(pdf);
+    pdfioDictSetArray(catalogDict, "OutputIntents", newArray);
   }
+  pdfioDictSetArray(intent, "OutputIntents", pdfioDictGetArray(catalogDict, "OutputIntents"));
 }
 //  }}}
 
 void _cfPDFToPDFAddDefaultRGB(pdfio_file_t *pdf, 
-			      pdfio_obj_t *srcicc) //  {{{
+			      pdfio_stream_t *srcicc) //  {{{
 {
 
   int numPages = pdfioFileGetNumPages(pdf);
@@ -115,8 +73,8 @@ void _cfPDFToPDFAddDefaultRGB(pdfio_file_t *pdf,
      {
        pdfio_array_t *defaultRGB = pdfioArrayCreate(pdf);
        pdfioArrayAppendName(defaultRGB, "ICCBased");
-       pdfioArrayAppendObj(defaultRGB, srcicc);
        pdfioDictSetArray(cdict, "DefaultRGB", defaultRGB);
+	
      }
      break;
   }
@@ -124,11 +82,12 @@ void _cfPDFToPDFAddDefaultRGB(pdfio_file_t *pdf,
 // }}}
 
 
-pdfio_obj_t* 
+pdfio_stream_t* 
 _cfPDFToPDFSetDefaultICC(pdfio_file_t *pdf, 
 			 const char *filename)// {{{
 {
-	pdfio_obj_t *ret = pdfioFileCreateICCObjFromFile(pdf, filename, 3);
+	pdfio_obj_t *retobj = pdfioFileCreateICCObjFromFile(pdf, filename, 3);
+	pdfio_stream_t *ret = pdfioObjCreateStream(retobj, PDFIO_FILTER_NONE);
 	return ret;
 }
 //  }}}
