@@ -178,6 +178,8 @@ libcupsfilters_la_SOURCES = \
         cupsfilters/pdftopdf/C-pptypes-private.h \
 	cupsfilters/pdftopdf/C-nup.c \
         cupsfilters/pdftopdf/C-nup-private.h \
+        cupsfilters/pdftopdf/C-intervalset.c \
+        cupsfilters/pdftopdf/C-intervalset-private.h \
 	cupsfilters/pdftopdf/pdfio-tools.c \
 	cupsfilters/pdftopdf/pdfio-tools-private.h \
 	cupsfilters/pdftopdf/pdfio-xobject.c \
