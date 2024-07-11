@@ -10,7 +10,7 @@ doc_DATA = \
 	COPYING \
 	CHANGES.md \
 	CHANGES-1.x.md \
-	INSTALL \
+	INSTALL.md \
 	LICENSE \
 	NOTICE \
 	README.md \
@@ -105,7 +105,7 @@ check_PROGRAMS = \
 	test-pdf \
 	test-ps \
 	testfilters
-	
+
 TESTS = \
 	testdither \
 	testpdf1 \
@@ -173,6 +173,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
 	cupsfilters/ipp.c \
+	cupsfilters/libcups2.c \
+	cupsfilters/libcups2-private.h \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
@@ -240,7 +242,7 @@ libcupsfilters_la_LDFLAGS = \
 	-version-info 2
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
-libcupsfilters_CXXFLAGS = -std=c++0x $(libcupsfilters_CFLAGS)   # -std=c++11
+libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11
 libcupsfilters_la_LIBADD += $(DBUS_LIBS)
 endif
 
@@ -315,7 +317,6 @@ test_pdf_LDADD = libcupsfilters.la
 test_ps_SOURCES = cupsfilters/fontembed/test-ps.c
 test_ps_LDADD = libcupsfilters.la
 
-
 testfilters_SOURCES = \
 	cupsfilters/testfilters.c \
 	$(pkgfiltersinclude_DATA)
@@ -327,7 +328,7 @@ testfilters_LDADD = \
 testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib
-	
+
 EXTRA_DIST += \
 	$(pkgfiltersinclude_DATA) \
 	cupsfilters/image.pgm \
@@ -372,15 +373,3 @@ uninstall-hook:
 	$(RM) $(DESTDIR)$(pkgcharsetdir)/pdf.utf-8
 
 SUBDIRS =
-
-#testdestdir := $(shell pwd)/test
-#testcases = 3
-
-#$(testdestdir)/cupsfilterssuite.exe: $(testdestdir)/cupsfilterssuite.c
-#	gcc $< -L -D_GNU_SOURCE -lcupsfilters -lm -ldl -o $@
-
-#.PHONY: check
-#check: 
-#	echo "Running the input output test for universal..."
-#	$(testdestdir)/cupsfilterssuite.exe $(testdestdir)/test-filter-cases.txt $(testcases) &> $(testdestdir)/Test_summary.txt
-	
