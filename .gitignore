@@ -85,3 +85,12 @@ m4/visibility.m4
 m4/wchar_t.m4
 m4/wint_t.m4
 m4/xsize.m4
+
+# ignore test tmp files
+*.log
+*.trs
+test-pdf
+test-ps
+testfilters
+test-analyze
+Test_summary_final.txt
