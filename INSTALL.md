@@ -85,9 +85,9 @@ or
   ```
   sudo apt-get install build-essential autoconf autopoint automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, mupdf-tools:
+- Install Poppler, fontconfig, liblcms2, mupdf-tools, gettext, libcups2-dev, libqpdf-dev:
   ```
-  sudo apt-get install libpoppler-cpp-dev poppler-utils libfontconfig1-dev liblcms2-dev mupdf-tools
+  sudo apt-get install libpoppler-cpp-dev poppler-utils libfontconfig1-dev liblcms2-dev mupdf-tools gettext libcups2-dev libqpdf-dev
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
