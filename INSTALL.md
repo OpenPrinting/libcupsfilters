@@ -77,6 +77,11 @@ or
 - libcupsfilters is supported for CUPS from version 2.2.2.
 - For earlier CUPS versions (1.5.x, required since 1.6.x), use cups-filters 1.x.
 
+## Testing
+- For CI testing and build checks, run with:
+```
+make check
+```
 
 ## Installing Required Tools
 
