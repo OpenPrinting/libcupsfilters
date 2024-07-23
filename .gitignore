@@ -94,3 +94,5 @@ test-ps
 testfilters
 test-analyze
 Test_summary_final.txt
+test.pdf
+test.ps
