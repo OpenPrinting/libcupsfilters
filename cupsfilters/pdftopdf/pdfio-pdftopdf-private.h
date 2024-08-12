@@ -1,61 +1,36 @@
-//
-//
-//
-//
-#include <pdfio.h>
 #include "C-pptypes-private.h"
+#include <math.h>
+#include <string.h>
+#include <pdfio.h>
 
-//helper functions
+// helper functions
 
 _cfPDFToPDFPageRect _cfPDFToPDFGetBoxAsRect(pdfio_rect_t *box);
-pdfio_rect_t _cfPDFToPDFGetRectAsBox(const _cfPDFToPDFPageRect *rect);
+pdfio_rect_t* _cfPDFToPDFGetRectAsBox(_cfPDFToPDFPageRect *rect);
 
 // Note that PDF specification is CW, but our Rotation is CCW
 pdftopdf_rotation_e _cfPDFToPDFGetRotate(pdfio_obj_t *page);
-int _cfPDFToPDFMakeRotate(pdftopdf_rotation_e rot); // integer, change all calls
+double _cfPDFToPDFMakeRotate(pdftopdf_rotation_e rot);	
 
 double _cfPDFToPDFGetUserUnit(pdfio_obj_t *page);
 
-//class
-typedef struct 
-{
-  double ctm[6];
+// PDF CTM
+typedef struct {
+    double ctm[6];
 } _cfPDFToPDFMatrix;
 
-void _cfPDFToPDFMatrix_init(_cfPDFToPDFMatrix *matrix);
+void _cfPDFToPDFMatrix_init(_cfPDFToPDFMatrix *matrix); // identity
+void _cfPDFToPDFMatrix_init_with_array(_cfPDFToPDFMatrix *matrix, pdfio_array_t *array);
 
-void _cfPDFToPDFMatrix_init_with_handle(_cfPDFToPDFMatrix *matrix, 
-					pdfio_array_t *ar);
+void _cfPDFToPDFMatrix_rotate(_cfPDFToPDFMatrix *matrix, pdftopdf_rotation_e rot);
+void _cfPDFToPDFMatrix_rotate_move(_cfPDFToPDFMatrix *matrix, pdftopdf_rotation_e rot, double width, double height);
+void _cfPDFToPDFMatrix_rotate_rad(_cfPDFToPDFMatrix *matrix, double rad);
 
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_rotate_function(_cfPDFToPDFMatrix *matrix, 
-						     pdftopdf_rotation_e rot);
+void _cfPDFToPDFMatrix_translate(_cfPDFToPDFMatrix *matrix, double tx, double ty);
+void _cfPDFToPDFMatrix_scale(_cfPDFToPDFMatrix *matrix, double sx, double sy);
 
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_rotate_move(_cfPDFToPDFMatrix *matrix, 
-						pdftopdf_rotation_e rot, 
-						double width, 
-						double height);
+void _cfPDFToPDFMatrix_multiply(_cfPDFToPDFMatrix *lhs, const _cfPDFToPDFMatrix *rhs);
 
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_rotate_rad(_cfPDFToPDFMatrix *matrix, 
-					       double rad);
-
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_translate(_cfPDFToPDFMatrix *matrix, 
-					      double tx, 
-					      double ty);
-
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_scale(_cfPDFToPDFMatrix *matrix, 
-					  double sx, 
-					  double sy);
-
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_scale_uniform(_cfPDFToPDFMatrix *matrix, 
-						  double s);
-
-
-_cfPDFToPDFMatrix _cfPDFToPDFMatrix_multiply(_cfPDFToPDFMatrix *matrix, 
-					     const _cfPDFToPDFMatrix *rhs);
-
-pdfio_array_t *_cfPDFToPDFMatrix_get_array(const _cfPDFToPDFMatrix *matrix);
-
-char _cfPDFToPDFMatrix_get_string(const _cfPDFToPDFMatrix *matrix);
-
-
+void _cfPDFToPDFMatrix_get(const _cfPDFToPDFMatrix *matrix, double *array);
+void _cfPDFToPDFMatrix_get_string(const _cfPDFToPDFMatrix *matrix, char *buffer, size_t bufsize);
 
