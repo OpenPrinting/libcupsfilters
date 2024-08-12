@@ -1,4 +1,12 @@
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
+#include "pdfio-cm-private.h"
 #include <stdio.h>
+#include "cupsfilters/debug-internal.h" 
+
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
@@ -8,17 +16,18 @@
 #include <pdfio-content.h>
 
 bool 
-_cfPDFToPDFHasOutputIntent(pdfio_file_t *pdf) 
+_cfPDFToPDFHasOutputIntent(pdfio_file_t *pdf) // {{{
 {
   pdfio_dict_t *catalog = pdfioFileGetCatalog(pdf);
   if(!pdfioDictGetArray(catalog, "OutputIntents"))
     return false;
   return true;
 }
+// }}}
 
 void 
 _cfPDFToPDFAddOutputIntent(pdfio_file_t *pdf, 
-			   const char *filename) 
+			   const char *filename) // {{{
 {
   pdfio_obj_t *outicc = pdfioFileCreateICCObjFromFile(pdf, filename, 4);
   
@@ -41,6 +50,7 @@ _cfPDFToPDFAddOutputIntent(pdfio_file_t *pdf,
   
   pdfioArrayAppendDict(outputIntents, intent);
 }
+// }}}
 
 //
 // for color management:
@@ -62,10 +72,11 @@ _cfPDFToPDFAddOutputIntent(pdfio_file_t *pdf,
 //
 // ? maybe we need to set /ColorSpace  in /Images ?
 //   [gs idea is to just add the /Default-key and then reprocess...]
+//
 
 void 
 _cfPDFToPDFAddDefaultRGB(pdfio_file_t *pdf, 
-			 pdfio_obj_t *icc_obj)
+			 pdfio_obj_t *icc_obj) // {{{
 {
   pdfio_array_t *icc_array = pdfioArrayCreate(pdf);
     
@@ -95,11 +106,12 @@ _cfPDFToPDFAddDefaultRGB(pdfio_file_t *pdf,
     pdfioDictSetArray(cdict, "DefaultRGB", icc_array);
   }
 }
-
+// }}}
 
 pdfio_obj_t*
 _cfPDFToPDFSetDefaultICC(pdfio_file_t *pdf, 
-			 const char *filename) 
+			 const char *filename) // {{{
 {
     return pdfioFileCreateICCObjFromFile(pdf, filename, 3);
 }
+// }}}
