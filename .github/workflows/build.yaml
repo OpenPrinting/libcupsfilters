@@ -42,6 +42,24 @@ jobs:
         sudo make install
         cd ..
         cd ..
+    - name: Install libpdfio > 1.3.0
+      run: |
+        cd ..
+        mkdir pdfio
+        wget -O pdf-1.3.1.tar.gz https://github.com/michaelrsweet/pdfio/releases/download/v1.3.1/pdfio-1.3.1.tar.gz
+        tar -xzf pdf-1.3.1.tar.gz
+        cd pdfio-1.3.1
+        mkdir build &&
+        cd build &&
+        cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_STATIC_LIBS=OFF \
+        -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/pdfio-1.3.1 \
+        .. &&
+        make
+        sudo make install
+        cd ..
+        cd ..
     - name: Install poppler and mupdf
       run: |
        sudo apt install libpoppler-cpp-dev libpython3-dev libdbus-1-dev
