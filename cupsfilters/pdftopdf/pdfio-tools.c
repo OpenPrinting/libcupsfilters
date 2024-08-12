@@ -66,7 +66,7 @@ _cfPDFToPDFMakeBox(double x1,
 		   double x2, 
 		   double y2) // {{{
 {
-  pdfio_rect_t *ret;
+  pdfio_rect_t *ret = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t)); 
   ret->x1 = x1;
   ret->y1 = y1;
   ret->x2 = x2;
