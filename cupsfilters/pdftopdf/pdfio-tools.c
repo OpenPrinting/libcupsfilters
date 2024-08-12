@@ -1,3 +1,8 @@
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
 #include "pdfio-tools-private.h"
 
 pdfio_rect_t
@@ -55,17 +60,17 @@ _cfPDFToPDFGetArtBox(pdfio_obj_t *page) // {{{
 }
 // }}}
 
-pdfio_rect_t
+pdfio_rect_t*
 _cfPDFToPDFMakeBox(double x1, 
 		   double y1, 
 		   double x2, 
 		   double y2) // {{{
 {
-  pdfio_rect_t ret;
-  ret.x1 = x1;
-  ret.y1 = y1;
-  ret.x2 = x2;
-  ret.y2 = y2;
+  pdfio_rect_t *ret;
+  ret->x1 = x1;
+  ret->y1 = y1;
+  ret->x2 = x2;
+  ret->y2 = y2;
 
   return ret;
 }
