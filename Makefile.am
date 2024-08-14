@@ -330,6 +330,7 @@ testfilters_LDFLAGS = \
 	-L/usr/lib
 
 EXTRA_DIST += \
+	$(check_SCRIPTS) \
 	$(pkgfiltersinclude_DATA) \
 	cupsfilters/image.pgm \
 	cupsfilters/image.ppm \
