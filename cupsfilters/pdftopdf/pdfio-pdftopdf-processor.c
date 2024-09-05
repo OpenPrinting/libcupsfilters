@@ -150,7 +150,8 @@ append_debug_box(char *content,
 
 void 
 _cfPDFToPDF_PDFioProcessor_existingMode(_cfPDFToPDF_PDFioProcessor *handle, 
-			                pdfio_obj_t *page, 
+			                pdfio_file_t *pdf,
+					pdfio_obj_t *page, 
 					int orig_no) // {{{
 {
   handle->page = page;
@@ -166,7 +167,7 @@ _cfPDFToPDF_PDFioProcessor_existingMode(_cfPDFToPDF_PDFioProcessor *handle,
   handle->xobjs->count = 0;
   handle->content = NULL;
 
-  handle->pdf = NULL;
+  handle->pdf = pdf;
   handle->orig_pages = NULL;
   handle->orig_pages_size = 0;
   handle->orig_pages_capacity = 0;
@@ -209,7 +210,7 @@ _cfPDFToPDF_PDFioProcessor_create_newMode(_cfPDFToPDF_PDFioProcessor *handle,
   handle->xobjs = NULL;
   handle->xobjs->count = 0;
 
-  handle->pdf = NULL;
+  handle->pdf = pdf;
   handle->orig_pages = NULL;
   handle->orig_pages_size = 0;
   handle->orig_pages_capacity = 0;
@@ -351,7 +352,6 @@ ungetRect(_cfPDFToPDFPageRect rect,
 
 void 
 _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,   
-					   pdfio_file_t *pdf,	
    					   const _cfPDFToPDFPageRect givenRect,              
 					   pdftopdf_border_type_e border, 
 					   float fscale) // {{{
@@ -412,8 +412,8 @@ _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,
   const char *pre = "%pdftopdf q\nq\n";
   const char *post = "%pdftopdf Q\nQ\n";
  
-  pdfio_dict_t *stm1_dict = pdfioDictCreate(pdf);
-  pdfio_obj_t *stm1_obj = pdfioFileCreateObj(pdf, stm1_dict);
+  pdfio_dict_t *stm1_dict = pdfioDictCreate(handle->pdf);
+  pdfio_obj_t *stm1_obj = pdfioFileCreateObj(handle->pdf, stm1_dict);
   pdfio_stream_t *stm1 = pdfioObjCreateStream(stm1_obj, PDFIO_FILTER_NONE);
   if (stm1) 
   {
@@ -426,8 +426,8 @@ _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,
   char combined[2048]; // Ensure this is large enough
   snprintf(combined, sizeof(combined), "%s%s", post, boxcmd);
 
-  pdfio_dict_t *stm2_dict = pdfioDictCreate(pdf);
-  pdfio_obj_t *stm2_obj = pdfioFileCreateObj(pdfio_file_t *pdf, stm2_dict);
+  pdfio_dict_t *stm2_dict = pdfioDictCreate(handle->pdf);
+  pdfio_obj_t *stm2_obj = pdfioFileCreateObj(handle->pdf, stm2_dict);
   pdfio_stream_t *stm2 = pdfioObjCreateStream(stm2_obj, PDFIO_FILTER_NONE);
   if (stm2) 
   {
@@ -439,8 +439,8 @@ _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,
 
 
 #else 
-  pdfio_dict_t *stm_dict = pdfioDictCreate(pdf);
-  pdfio_obj_t *stm_obj = pdfioFileCreateObj(pdf, stm_dict);
+  pdfio_dict_t *stm_dict = pdfioDictCreate(handle->pdf);
+  pdfio_obj_t *stm_obj = pdfioFileCreateObj(handle->pdf, stm_dict);
   pdfio_stream_t *stm = pdfioObjCreateStream(stm_obj, PDFIO_FILTER_NONE);
   if (stm) 
   {
@@ -575,7 +575,6 @@ _cfPDFToPDF_PDFioProcessor_is_landscape(const _cfPDFToPDF_PDFioProcessor *handle
 void 
 _cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle, 
 				       	_cfPDFToPDF_PDFioProcessor *sub, 
-					pdfio_file_t *pdf, 
 					float xpos, float ypos, float scale, 
 					const _cfPDFToPDFPageRect *crop) // {{{
 {
@@ -605,7 +604,7 @@ _cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle,
     pdfioDictSetRect(pageDict, "TrimBox", trimBox);
   }
   
-  hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, sub->page));
+  hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(handle->pdf, sub->page));
   // Prepare transformation matrix
   _cfPDFToPDFMatrix mtx;
   _cfPDFToPDFMatrix_init(&mtx);
@@ -636,8 +635,7 @@ _cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle,
 // }}}
 
 void
-_cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle,
-				  pdfio_file_t *pdf)
+_cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle)
 {
   _cfPDFToPDFPageRect orig = _cfPDFToPDF_PDFioProcessor_get_rect(handle);
   if(_cfPDFToPDF_PDFioProcessor_is_existing(handle))
@@ -648,9 +646,9 @@ _cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle,
     // Get the page to mirror (this would be replaced by actual pdfio page handling)
     pdfio_obj_t *subpage = _cfPDFToPDF_PDFioProcessor_get(handle);;
 
-    _cfPDFToPDF_PDFioProcessor_create_newMode(handle, pdf, orig.width, orig.height); 
+    _cfPDFToPDF_PDFioProcessor_create_newMode(handle, handle->pdf, orig.width, orig.height); 
     // Reinitialize the handle with new dimensions
-    hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, subpage));
+    hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(handle->pdf, subpage));
 
     char temp_content[1024];
     snprintf(temp_content, sizeof(temp_content), "%s Do\n", xoname);
@@ -684,35 +682,35 @@ _cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
 				     const char *label)
 {
   
-  _cfPDFToPDFPageRect rect_mod = ungetRect(rect);
+  _cfPDFToPDFPageRect rect_mod = ungetRect(*rect, handle, handle->rotation, handle->page);
 
   if (rect_mod.left > rect_mod.right || rect_mod.bottom > rect_mod.top)
   {
     fprintf(stderr, "Invalid rectangle dimensions!\n");
     return;
   }
-  pdfio_dict_t *font_dict = pdfioDictCreate(pdf);
+  pdfio_dict_t *font_dict = pdfioDictCreate(handle->pdf);
   pdfioDictSetName(font_dict, "Type", "Font");
   pdfioDictSetName(font_dict, "Subtype", "Type1");
   pdfioDictSetName(font_dict, "Name", "pagelabel-font");
   pdfioDictSetName(font_dict, "BaseFont", "Helvetica");
 
   // Add font to the document as an indirect object
-  pdfio_obj_t *font_obj = pdfioFileCreateObj(pdf, font_dict);
+  pdfio_obj_t *font_obj = pdfioFileCreateObj(handle->pdf, font_dict);
 
   // Get the Resources dictionary from the page
-  pdfio_dict_t *resources = pdfioObjGetDict(page);
+  pdfio_dict_t *resources = pdfioObjGetDict(handle->page);
   if (resources == NULL)
   {
-    resources = pdfioDictCreate(pdf);
-    pdfioDictSetDict(resources, "Font", pdfioDictCreate(pdf));
+    resources = pdfioDictCreate(handle->pdf);
+    pdfioDictSetDict(resources, "Font", pdfioDictCreate(handle->pdf));
   }
 
   // Get or create the Font dictionary in Resources
   pdfio_dict_t *font_resources = pdfioDictGetDict(resources, "Font");
   if (font_resources == NULL)
   {
-    font_resources = pdfioDictCreate(pdf);
+    font_resources = pdfioDictCreate(handle->pdf);
     pdfioDictSetDict(resources, "Font", font_resources);
   }
 
@@ -772,18 +770,15 @@ _cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
   snprintf(post, sizeof(post), "%%pdftopdf Q\nQ\n%s", boxcmd);
 
   // Create the first stream (pre)
-  pdfio_stream_t *stream1 = pdfioPageOpenStream(page, PDFIO_FILTER_FLATE, true);
+  pdfio_stream_t *stream1 = pdfioPageOpenStream(handle->page, PDFIO_FILTER_FLATE, true);
   pdfioStreamPuts(stream1, pre);
   pdfioStreamClose(stream1);
 
     // Create the second stream (post + boxcmd)
-  pdfio_stream_t *stream2 = pdfioPageOpenStream(page, PDFIO_FILTER_FLATE, true);
+  pdfio_stream_t *stream2 = pdfioPageOpenStream(handle->page, PDFIO_FILTER_FLATE, true);
   pdfioStreamPuts(stream2, post);
   pdfioStreamClose(stream2);
 
-  // Add the streams as page contents
-  pdfioPageDictAddFont(page, "Contents", stream1); // before content
-  pdfioPageDictAddFont(page, "Contents", stream2); // after content
 }
 
 void 
