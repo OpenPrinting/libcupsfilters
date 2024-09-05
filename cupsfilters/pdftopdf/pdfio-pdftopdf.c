@@ -1,12 +1,17 @@
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
 
 #include "pdfio-pdftopdf-private.h"
+#include "pdfio-tools-private.h"
 #include "cupsfilters/debug-internal.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include "pdfio-tools-private.h"
 
 _cfPDFToPDFPageRect 
-_cfPDFToPDFGetBoxAsRect(pdfio_rect_t *box) 
+_cfPDFToPDFGetBoxAsRect(pdfio_rect_t *box) // {{{
 {
   _cfPDFToPDFPageRect ret;
 
@@ -20,15 +25,17 @@ _cfPDFToPDFGetBoxAsRect(pdfio_rect_t *box)
 
   return ret;
 }
+// }}}
 
 pdfio_rect_t* 
-_cfPDFToPDFGetRectAsBox(_cfPDFToPDFPageRect *rect) 
+_cfPDFToPDFGetRectAsBox(_cfPDFToPDFPageRect *rect) // {{{
 {
   return (_cfPDFToPDFMakeBox(rect->left, rect->bottom, rect->right, rect->top));
 }
+// }}}
 
 pdftopdf_rotation_e 
-_cfPDFToPDFGetRotate(pdfio_obj_t *page) 
+_cfPDFToPDFGetRotate(pdfio_obj_t *page) // {{{
 {
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
   double rotate = pdfioDictGetNumber(pageDict, "Rotate");
@@ -50,9 +57,10 @@ _cfPDFToPDFGetRotate(pdfio_obj_t *page)
     
   return ROT_0;
 }
+// }}}
 
 double 
-_cfPDFToPDFGetUserUnit(pdfio_obj_t *page) 
+_cfPDFToPDFGetUserUnit(pdfio_obj_t *page) // {{{
 {
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
   double userUnit = pdfioDictGetNumber(pageDict, "UserUnit");
@@ -60,9 +68,10 @@ _cfPDFToPDFGetUserUnit(pdfio_obj_t *page)
     return 1.0;
   return userUnit;
 }
+// }}}
 
 double 
-_cfPDFToPDFMakeRotate(pdftopdf_rotation_e rot)                                                        
+_cfPDFToPDFMakeRotate(pdftopdf_rotation_e rot) // {{{ 
 { 
     switch (rot)                                                                                          
     { 
@@ -79,9 +88,10 @@ _cfPDFToPDFMakeRotate(pdftopdf_rotation_e rot)
 	    return NAN;
     }
 }
+// }}}
 
 void 
-_cfPDFToPDFMatrix_init(_cfPDFToPDFMatrix *matrix) 
+_cfPDFToPDFMatrix_init(_cfPDFToPDFMatrix *matrix) // {{{
 {
   matrix->ctm[0] = 1.0;
   matrix->ctm[1] = 0.0;
@@ -90,10 +100,11 @@ _cfPDFToPDFMatrix_init(_cfPDFToPDFMatrix *matrix)
   matrix->ctm[4] = 0.0;
   matrix->ctm[5] = 0.0;
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_init_with_array(_cfPDFToPDFMatrix *matrix, 
-				  pdfio_array_t *array) 
+				  pdfio_array_t *array) // {{{
 {
   if (pdfioArrayGetSize(array) != 6)
     fprintf(stderr, "Not a ctm matrix");
@@ -101,10 +112,11 @@ _cfPDFToPDFMatrix_init_with_array(_cfPDFToPDFMatrix *matrix,
   for (int iA = 0; iA < 6; iA ++)
     matrix->ctm[iA] = pdfioArrayGetNumber(array, iA);
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_rotate(_cfPDFToPDFMatrix *matrix, 
-			 pdftopdf_rotation_e rot) 
+			 pdftopdf_rotation_e rot) // {{{
 {
   double tmp[6];
   memcpy(tmp, matrix->ctm, sizeof(tmp));
@@ -133,11 +145,12 @@ _cfPDFToPDFMatrix_rotate(_cfPDFToPDFMatrix *matrix,
     DEBUG_assert(0);
   }
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_rotate_move(_cfPDFToPDFMatrix *matrix, 
 			      pdftopdf_rotation_e rot, 
-			      double width, double height) 
+			      double width, double height) // {{{
 {
   _cfPDFToPDFMatrix_rotate(matrix, rot);
   switch (rot) 
@@ -155,10 +168,11 @@ _cfPDFToPDFMatrix_rotate_move(_cfPDFToPDFMatrix *matrix,
       break;
   }
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_rotate_rad(_cfPDFToPDFMatrix *matrix, 
-			     double rad) 
+			     double rad) // {{{
 {
   _cfPDFToPDFMatrix tmp;
   _cfPDFToPDFMatrix_init(&tmp);
@@ -170,28 +184,31 @@ _cfPDFToPDFMatrix_rotate_rad(_cfPDFToPDFMatrix *matrix,
 
   _cfPDFToPDFMatrix_multiply(matrix, &tmp);
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_translate(_cfPDFToPDFMatrix *matrix, 
-			    double tx, double ty) 
+			    double tx, double ty) // {{{
 {
   matrix->ctm[4] += matrix->ctm[0] * tx + matrix->ctm[2] * ty;
   matrix->ctm[5] += matrix->ctm[1] * tx + matrix->ctm[3] * ty;
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_scale(_cfPDFToPDFMatrix *matrix, 
-			double sx, double sy) 
+			double sx, double sy) // {{{
 {
   matrix->ctm[0] *= sx;
   matrix->ctm[1] *= sx;
   matrix->ctm[2] *= sy;
   matrix->ctm[3] *= sy;
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_multiply(_cfPDFToPDFMatrix *lhs, 
-			   const _cfPDFToPDFMatrix *rhs) 
+			   const _cfPDFToPDFMatrix *rhs) // {{{
 {
   double tmp[6];
   memcpy(tmp, lhs->ctm, sizeof(tmp));
@@ -205,19 +222,22 @@ _cfPDFToPDFMatrix_multiply(_cfPDFToPDFMatrix *lhs,
   lhs->ctm[4] = tmp[0] * rhs->ctm[4] + tmp[2] * rhs->ctm[5] + tmp[4];
   lhs->ctm[5] = tmp[1] * rhs->ctm[4] + tmp[3] * rhs->ctm[5] + tmp[5];
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_get(const _cfPDFToPDFMatrix *matrix, 
-		      double *array) 
+		      double *array) // {{{
 {
   memcpy(array, matrix->ctm, sizeof(double) * 6);
 }
+// }}}
 
 void 
 _cfPDFToPDFMatrix_get_string(const _cfPDFToPDFMatrix *matrix, 
-			     char *buffer, size_t bufsize) 
+			     char *buffer, size_t bufsize) // {{{
 {
   snprintf(buffer, bufsize, "%f %f %f %f %f %f", 
 	   matrix->ctm[0], matrix->ctm[1], matrix->ctm[2], 
 	   matrix->ctm[3], matrix->ctm[4], matrix->ctm[5]);
 }
+// }}}

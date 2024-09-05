@@ -1,7 +1,15 @@
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
 #include "C-pptypes-private.h"
 #include <math.h>
 #include <string.h>
 #include <pdfio.h>
+
+#ifndef _CUPS_FILTERS_PDFTOPDF_PDFIO_PDFTOPDF_H
+#define _CUPS_FILTERS_PDFTOPDF_PDFIO_PDFTOPDF_H
 
 // helper functions
 
@@ -34,3 +42,4 @@ void _cfPDFToPDFMatrix_multiply(_cfPDFToPDFMatrix *lhs, const _cfPDFToPDFMatrix 
 void _cfPDFToPDFMatrix_get(const _cfPDFToPDFMatrix *matrix, double *array);
 void _cfPDFToPDFMatrix_get_string(const _cfPDFToPDFMatrix *matrix, char *buffer, size_t bufsize);
 
+#endif // !_CUPS_FILTERS_PDFTOPDF_PDFIO_PDFTOPDF_H
