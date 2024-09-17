@@ -5,6 +5,7 @@
 #include "C-pptypes-private.h"
 #include "C-nup-private.h"
 #include "C-pdftopdf-private.h"
+#include "pdfio-pdftopdf-processor-private.h"
 #include "C-intervalset-private.h"
 #include <stdio.h>
 #include <stdbool.h>
@@ -14,6 +15,29 @@ typedef enum {
   CF_PDFTOPDF_BOOKLET_ON,
   CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE
 } pdftopdf_booklet_mode_e;
+
+typedef struct _cfPDFToPDF_PDFioProcessor{
+
+    // 1st mode: existing
+    pdfio_obj_t *page;      // Equivalent to QPDFObjectHandle
+    int no;
+
+    // 2nd mode: create new
+    HashTable *xobjs;       // Pointer to a single HashTable
+
+    char *content;          // Equivalent to std::string content
+
+    pdftopdf_rotation_e rotation;
+
+    // Other members
+    pdfio_file_t *pdf;      // Equivalent to std::unique_ptr<QPDF>
+    pdfio_obj_t **orig_pages; // Equivalent to std::vector<QPDFObjectHandle>
+    size_t orig_pages_size;   // Current number of pages
+    size_t orig_pages_capacity; // Capacity for page array
+
+    bool hasCM;
+    char *extraheader;
+} _cfPDFToPDF_PDFioProcessor;
 
 
 typedef struct {
@@ -74,77 +98,10 @@ void _cfPDFToPDFProcessingParameters_dump(const _cfPDFToPDFProcessingParameters 
 
 
 
-typedef enum {
-  CF_PDFTOPDF_WILL_STAY_ALIVE,
-  CF_PDFTOPDF_MUST_DUPLICATE,
-  CF_PDFTOPDF_TAKE_OWNERSHIP
-} pdftopdf_arg_ownership_e;
 
-/*
-// Example function to initialize the struct (constructor equivalent)
-typedef struct _cfPDFToPDFProcessor _cfPDFToPDFProcessor;
+int* _cfPDFToPDFBookletShuffle(int numPages, int signature, int* ret_size); 
 
-struct _cfPDFToPDFProcessor {
-  void (*destroy)(_cfPDFToPDFProcessor *self);
-    
-  bool (*load_file)(_cfPDFToPDFProcessor *self, 
-		    FILE *f, pdftopdf_doc_t *doc, 
-		    pdftopdf_arg_ownership_e take, 
-		    int flatten_forms);
-
-  bool (*load_filename)(_cfPDFToPDFProcessor *self, 
-		        const char *name, 
-			pdftopdf_doc_t *doc, 
-			int flatten_forms);
-
-  bool (*check_print_permissions)(_cfPDFToPDFProcessor *self, 
-		  		  pdftopdf_doc_t *doc);
-
-  void (*get_pages)(_cfPDFToPDFProcessor *self, 
-		    pdftopdf_doc_t *doc, 
-		    _cfPDFToPDFPageHandle **pages, 
-		    size_t *count);
-
-  _cfPDFToPDFPageHandle *(*new_page)(_cfPDFToPDFProcessor *self, 
-		  		     float width, float height, 
-				     pdftopdf_doc_t *doc);
-
-  void (*add_page)(_cfPDFToPDFProcessor *self, 
-		   _cfPDFToPDFPageHandle *page, 
-		   bool front);
-
-  void (*multiply)(_cfPDFToPDFProcessor *self, 
-		   int copies, bool collate);
-
-  void (*auto_rotate_all)(_cfPDFToPDFProcessor *self, 
-		  	  bool dst_lscape, 
-			  pdftopdf_rotation_e normal_landscape);
-
-  void (*add_cm)(_cfPDFToPDFProcessor *self, 
-		 const char *defaulticc, 
-		 const char *outputicc);
-
-  void (*set_comments)(_cfPDFToPDFProcessor *self, 
-		       const char **comments,
-		       size_t count);
-
-  void (*emit_file)(_cfPDFToPDFProcessor *self, 
-		    FILE *dst, pdftopdf_doc_t *doc, 
-		    pdftopdf_arg_ownership_e take);
-
-  void (*emit_filename)(_cfPDFToPDFProcessor *self, 
-		        const char *name, 
+bool _cfProcessPDFToPDF(_cfPDFToPDF_PDFioProcessor *proc,
+		   	_cfPDFToPDFProcessingParameters *param, 
 			pdftopdf_doc_t *doc);
-
-  bool (*has_acro_form)(_cfPDFToPDFProcessor *self);
-};
-
-// Example function to initialize the struct (constructor equivalent)
-void _cfPDFToPDFProcessor_init(_cfPDFToPDFProcessor *self) {
-    // Initialize function pointers and any necessary data members
-}
-
-_cfPDFToPDFProcessor* _cfPDFToPDFFactory_processor(void);
-*/
-
 #endif // C_PDFTOPDF_PROCESSOR_PRIVATE_H

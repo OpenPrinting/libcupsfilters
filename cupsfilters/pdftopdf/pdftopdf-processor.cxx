@@ -193,7 +193,7 @@ _cfPDFToPDFBookletShuffle(int numPages,
 // }}}
 
 bool
-_cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
+_cfProcessPDFToPDF(_cfPDFToPDF_PDFioProcessor &proc,
 		   _cfPDFToPDFProcessingParameters &param,
 		   pdftopdf_doc_t *doc) // {{{
 {

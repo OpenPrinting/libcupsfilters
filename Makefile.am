@@ -181,9 +181,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pclmtoraster.cxx \
 	cupsfilters/pdf.cxx \
 	cupsfilters/pdftopdf/C-pdftopdf-processor.c \
-	cupsfilters/pdftopdf/C-pdftopdf-processor-private.h \
 	cupsfilters/pdftopdf/pdfio-pdftopdf-processor.c \
-	cupsfilters/pdftopdf/pdfio-pdftopdf-processor-private.h \
+	cupsfilters/pdftopdf/processor.h \
 	cupsfilters/pdftopdf/C-pptypes.c \
         cupsfilters/pdftopdf/C-pptypes-private.h \
 	cupsfilters/pdftopdf/C-nup.c \

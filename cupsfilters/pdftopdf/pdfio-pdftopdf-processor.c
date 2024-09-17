@@ -8,11 +8,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include "pdfio.h"  // Replace with appropriate PDFIO headers
-#include "C-pdftopdf-processor-private.h"
+#include "pdfio-content.h"
 #include "pdfio-pdftopdf-private.h"
 #include "pdfio-tools-private.h"
 #include "pdfio-xobject-private.h"
-#include "pdfio-pdftopdf-processor-private.h"
+#include "processor.h"
+#include "pdfio-cm-private.h"
 
 #define DEBUG_assert(x) do { if (!(x)) abort(); } while (0)
 
@@ -149,10 +150,9 @@ append_debug_box(char *content,
 // }}}
 
 void 
-_cfPDFToPDF_PDFioProcessor_existingMode(_cfPDFToPDF_PDFioProcessor *handle, 
-			                pdfio_file_t *pdf,
-					pdfio_obj_t *page, 
-					int orig_no) // {{{
+_cfPDFToPDFPageHandle_existingMode(_cfPDFToPDFPageHandle *handle, 
+				   pdfio_obj_t *page, 
+				   int orig_no) // {{{
 {
   handle->page = page;
   
@@ -166,21 +166,13 @@ _cfPDFToPDF_PDFioProcessor_existingMode(_cfPDFToPDF_PDFioProcessor *handle,
   handle->xobjs = NULL;
   handle->xobjs->count = 0;
   handle->content = NULL;
-
-  handle->pdf = pdf;
-  handle->orig_pages = NULL;
-  handle->orig_pages_size = 0;
-  handle->orig_pages_capacity = 0;
-  
-  handle->hasCM = false; 
-  handle->extraheader = NULL;
 }
 // }}}
 
 void 
-_cfPDFToPDF_PDFioProcessor_create_newMode(_cfPDFToPDF_PDFioProcessor *handle, 
-				          pdfio_file_t *pdf, 
-					  float width, float height) // {{{
+_cfPDFToPDFPageHandle_create_newMode(_cfPDFToPDFPageHandle *handle, 
+				     pdfio_file_t *pdf, 
+				     float width, float height) // {{{
 {
   handle->no = 0;
   handle->rotation = ROT_0;
@@ -209,37 +201,19 @@ _cfPDFToPDF_PDFioProcessor_create_newMode(_cfPDFToPDF_PDFioProcessor *handle,
 
   handle->xobjs = NULL;
   handle->xobjs->count = 0;
-
-  handle->pdf = pdf;
-  handle->orig_pages = NULL;
-  handle->orig_pages_size = 0;
-  handle->orig_pages_capacity = 0;
-  
-  handle->hasCM = false; 
-  handle->extraheader = NULL;
 }
 // }}}
 
 void 
-_cfPDFToPDF_PDFioProcessor_destroy(_cfPDFToPDF_PDFioProcessor *handle) // {{{
+_cfPDFToPDFPageHandle_destroy(_cfPDFToPDFPageHandle *handle) // {{{
 {
-  if (handle->pdf != NULL) 
-    pdfioFileClose(handle->pdf);
-    
-
   free(handle->xobjs);
-  free(handle->content);
-  free(handle->orig_pages);
-
-  // Free the extraheader if it was allocated
-  if (handle->extraheader != NULL) 
-    free(handle->extraheader);
-  
+  free(handle->content); 
 }
 // }}}
 
 bool 
-_cfPDFToPDF_PDFioProcessor_is_existing(struct _cfPDFToPDF_PDFioProcessor *handle) // {{{
+_cfPDFToPDFPageHandle_is_existing(_cfPDFToPDFPageHandle *handle) // {{{
 {
   return (handle->content == NULL || 
 		  strlen((const char *)handle->content) == 0);
@@ -248,7 +222,7 @@ _cfPDFToPDF_PDFioProcessor_is_existing(struct _cfPDFToPDF_PDFioProcessor *handle
 
 
 _cfPDFToPDFPageRect 
-_cfPDFToPDF_PDFioProcessor_get_rect(const _cfPDFToPDF_PDFioProcessor *handle) // {{{
+_cfPDFToPDFPageHandle_get_rect(const _cfPDFToPDFPageHandle *handle) // {{{
 {
   pdfio_rect_t trimBox = _cfPDFToPDFGetTrimBox(handle->page); 
   _cfPDFToPDFPageRect ret = _cfPDFToPDFGetBoxAsRect(&trimBox);
@@ -261,57 +235,45 @@ _cfPDFToPDF_PDFioProcessor_get_rect(const _cfPDFToPDF_PDFioProcessor *handle) //
 // }}}
 
 pdfio_obj_t*
-_cfPDFToPDF_PDFioProcessor_get(struct _cfPDFToPDF_PDFioProcessor *handle) // {{{
+_cfPDFToPDFPageHandle_get(_cfPDFToPDFPageHandle *handle) // {{{
 {
   pdfio_dict_t *resources, *contents_dict;
   pdfio_stream_t *contents_stream;
-
   pdfio_obj_t *ret = handle->page;
 
-  if (!_cfPDFToPDF_PDFioProcessor_is_existing(handle)) 
+  if (!_cfPDFToPDFPageHandle_is_existing(handle)) 
   {
-    // Step 1: Replace /XObject in /Resources
     resources = pdfioDictGetDict(pdfioObjGetDict(ret), "/Resources");
     if (resources)
     {
       char name_buffer[handle->xobjs->count];   
       int xobj_index = 0; 
-      // Loop through all the buckets
       for (int i = 0; i < HASH_TABLE_SIZE && xobj_index < handle->xobjs->count; i++) 
       {
         KeyValuePair *current = handle->xobjs->buckets[i];
 
-        // Traverse the linked list in case of collisions
         while (current != NULL) 
 	{
-          // Build the XObject name (e.g., "/X1", "/X2", ...)
           snprintf(name_buffer, sizeof(name_buffer), "/X%d", xobj_index + 1);
-            
-          // Add the object to the PDF resources dictionary
-          pdfioDictSetObj(resources, name_buffer, current->value);  // current->value is pdfio_obj_t *
-
-          // Move to the next element in the linked list (in case of collisions)
+          pdfioDictSetObj(resources, name_buffer, current->value); 
           current = current->next;
-            
-          // Increment the XObject index
           xobj_index++;
         }
       }
-
-      pdfioDictSetDict(resources, "/XObject", resources);  // Set new dictionary for XObject
+      pdfioDictSetDict(resources, "/XObject", resources);
     }
 
-    contents_stream = pdfioPageOpenStream(ret, 0, true);  // Open the content stream of the page
+    contents_stream = pdfioPageOpenStream(ret, 0, true);
     if (contents_stream)
     {
-      pdfioStreamPuts(contents_stream, "Q\n");  // Append "Q\n" to content
-      pdfioStreamClose(contents_stream);  // Close the stream
+      pdfioStreamPuts(contents_stream, "Q\n"); 
+      pdfioStreamClose(contents_stream);
     }
 
     contents_dict = pdfioDictGetDict(pdfioObjGetDict(ret), "/Contents");
     if (contents_dict)
     {
-      pdfioDictSetNull(contents_dict, "/Filter");  // Remove filter keys
+      pdfioDictSetNull(contents_dict, "/Filter");  
       pdfioDictSetNull(contents_dict, "/DecodeParms");
     }
 
@@ -331,12 +293,12 @@ _cfPDFToPDF_PDFioProcessor_get(struct _cfPDFToPDF_PDFioProcessor *handle) // {{{
 
 static _cfPDFToPDFPageRect
 ungetRect(_cfPDFToPDFPageRect rect,
-          const _cfPDFToPDF_PDFioProcessor *ph,
+          const _cfPDFToPDFPageHandle *ph,
           pdftopdf_rotation_e rotation,
           pdfio_obj_t *page)  // {{{
 {
   
-  _cfPDFToPDFPageRect pg1 = _cfPDFToPDF_PDFioProcessor_get_rect(ph);
+  _cfPDFToPDFPageRect pg1 = _cfPDFToPDFPageHandle_get_rect(ph);
   pdfio_rect_t TrimBox = _cfPDFToPDFGetTrimBox(page);
   _cfPDFToPDFPageRect pg2 = _cfPDFToPDFGetBoxAsRect(&TrimBox); 
   rect.width = pg1.width;
@@ -351,10 +313,11 @@ ungetRect(_cfPDFToPDFPageRect rect,
 // }}}
 
 void 
-_cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,   
-   					   const _cfPDFToPDFPageRect givenRect,              
-					   pdftopdf_border_type_e border, 
-					   float fscale) // {{{
+_cfPDFToPDFPageHandle_add_border_rect(_cfPDFToPDFPageHandle *handle,   
+				      pdfio_file_t *pdf,
+				      const _cfPDFToPDFPageRect givenRect,              
+				      pdftopdf_border_type_e border, 
+				      float fscale) // {{{
 {
   double lw = (border & THICK) ? 0.5 : 0.24;
   double line_width = lw * fscale;
@@ -412,40 +375,40 @@ _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,
   const char *pre = "%pdftopdf q\nq\n";
   const char *post = "%pdftopdf Q\nQ\n";
  
-  pdfio_dict_t *stm1_dict = pdfioDictCreate(handle->pdf);
-  pdfio_obj_t *stm1_obj = pdfioFileCreateObj(handle->pdf, stm1_dict);
+  pdfio_dict_t *stm1_dict = pdfioDictCreate(pdf);
+  pdfio_obj_t *stm1_obj = pdfioFileCreateObj(pdf, stm1_dict);
   pdfio_stream_t *stm1 = pdfioObjCreateStream(stm1_obj, PDFIO_FILTER_NONE);
   if (stm1) 
   {
     pdfioStreamWrite(stm1, pre, strlen(pre));
-    pdfioStreamClose(stm1); // Finalize the stream
+    pdfioStreamClose(stm1);
   } 
   else 
     fprintf(stderr, "Failed to create PDF stream for pre content\n");
     
-  char combined[2048]; // Ensure this is large enough
+  char combined[2048]; 
   snprintf(combined, sizeof(combined), "%s%s", post, boxcmd);
 
-  pdfio_dict_t *stm2_dict = pdfioDictCreate(handle->pdf);
-  pdfio_obj_t *stm2_obj = pdfioFileCreateObj(handle->pdf, stm2_dict);
+  pdfio_dict_t *stm2_dict = pdfioDictCreate(pdf);
+  pdfio_obj_t *stm2_obj = pdfioFileCreateObj(pdf, stm2_dict);
   pdfio_stream_t *stm2 = pdfioObjCreateStream(stm2_obj, PDFIO_FILTER_NONE);
   if (stm2) 
   {
     pdfioStreamWrite(stm2, combined, strlen(combined));
-    pdfioStreamClose(stm2); // Finalize the stream
+    pdfioStreamClose(stm2);
   } 
   else 
     fprintf(stderr, "Failed to create PDF stream for post content\n");
 
 
 #else 
-  pdfio_dict_t *stm_dict = pdfioDictCreate(handle->pdf);
-  pdfio_obj_t *stm_obj = pdfioFileCreateObj(handle->pdf, stm_dict);
+  pdfio_dict_t *stm_dict = pdfioDictCreate(pdf);
+  pdfio_obj_t *stm_obj = pdfioFileCreateObj(pdf, stm_dict);
   pdfio_stream_t *stm = pdfioObjCreateStream(stm_obj, PDFIO_FILTER_NONE);
   if (stm) 
   {
     pdfioStreamWrite(stm, boxcmd, strlen(boxcmd));
-    pdfioStreamClose(stm); // Finalize the stream
+    pdfioStreamClose(stm);
   } 
   else 
     fprintf(stderr, "Failed to create PDF stream for boxcmd content\n");
@@ -454,13 +417,13 @@ _cfPDFToPDF_PDFioProcessor_add_border_rect(_cfPDFToPDF_PDFioProcessor *handle,
 // }}}
 
 pdftopdf_rotation_e 
-_cfPDFToPDF_PDFioProcessor_crop(_cfPDFToPDF_PDFioProcessor *handle,
-				const _cfPDFToPDFPageRect *cropRect,
-				pdftopdf_rotation_e orientation, 
-				pdftopdf_rotation_e param_orientation,
-				pdftopdf_position_e xpos, pdftopdf_position_e ypos, 
-				bool scale, bool autorotate,
-				pdftopdf_doc_t *doc) // {{{
+_cfPDFToPDFPageHandle_crop(_cfPDFToPDFPageHandle *handle,
+	       		   const _cfPDFToPDFPageRect *cropRect,
+			   pdftopdf_rotation_e orientation, 
+			   pdftopdf_rotation_e param_orientation, 
+			   pdftopdf_position_e xpos, pdftopdf_position_e ypos, 
+			   bool scale, bool autorotate,
+			   pdftopdf_doc_t *doc) // {{{
 {
   pdftopdf_rotation_e save_rotate = _cfPDFToPDFGetRotate(handle->page);
 
@@ -542,13 +505,10 @@ _cfPDFToPDF_PDFioProcessor_crop(_cfPDFToPDF_PDFioProcessor *handle,
 // }}}
 
 bool 
-_cfPDFToPDF_PDFioProcessor_is_landscape(const _cfPDFToPDF_PDFioProcessor *handle, 
-					pdftopdf_rotation_e orientation) // {{{
+_cfPDFToPDFPageHandle_is_landscape(const _cfPDFToPDFPageHandle *handle, 
+				   pdftopdf_rotation_e orientation) // {{{
 {
   pdftopdf_rotation_e save_rotate = _cfPDFToPDFGetRotate(handle->page);
-  
-  // Temporarily set the page rotation based on the orientation
-  
   pdfio_dict_t *pageDict = pdfioObjGetDict(handle->page); 
   
   if (orientation == ROT_0 || orientation == ROT_180)
@@ -562,10 +522,8 @@ _cfPDFToPDF_PDFioProcessor_is_landscape(const _cfPDFToPDF_PDFioProcessor *handle
   double width = currpage.right - currpage.left;
   double height = currpage.top - currpage.bottom;
 
-  // Restore the original page rotation
   pdfioDictSetNumber(pageDict, "Rotate", save_rotate);
 
-  // Determine if the page is in landscape orientation
   if (width > height)
     return true;
   return false;
@@ -573,17 +531,18 @@ _cfPDFToPDF_PDFioProcessor_is_landscape(const _cfPDFToPDF_PDFioProcessor *handle
 // }}}
 
 void 
-_cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle, 
-				       	_cfPDFToPDF_PDFioProcessor *sub, 
-					float xpos, float ypos, float scale, 
-					const _cfPDFToPDFPageRect *crop) // {{{
+_cfPDFToPDFPageHandle_add_subpage(_cfPDFToPDFPageHandle *handle, 
+				  _cfPDFToPDFPageHandle *sub, 
+				  pdfio_file_t *pdf, 
+				  float xpos, float ypos, float scale, 
+				  const _cfPDFToPDFPageRect *crop) // {{{
 {
   char xoname[64];
   snprintf(xoname, sizeof(xoname), "/X%d", (sub->no != -1) ? sub->no : ++handle->no);
 
   if (crop) 
   {
-    _cfPDFToPDFPageRect pg = _cfPDFToPDF_PDFioProcessor_get_rect(sub);
+    _cfPDFToPDFPageRect pg = _cfPDFToPDFPageHandle_get_rect(sub);
     _cfPDFToPDFPageRect tmp = *crop;
     tmp.width = tmp.right - tmp.left;
     tmp.height = tmp.top - tmp.bottom;
@@ -599,13 +558,12 @@ _cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle,
     
     pdfio_rect_t *trimBox = _cfPDFToPDFMakeBox(rect.left, rect.bottom, rect.right, rect.top);
 
-    // Set TrimBox in pdfio (adjust if pdfio allows this kind of modification)
     pdfio_dict_t *pageDict = pdfioObjGetDict(sub->page);
     pdfioDictSetRect(pageDict, "TrimBox", trimBox);
   }
   
-  hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(handle->pdf, sub->page));
-  // Prepare transformation matrix
+  hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, sub->page));
+  
   _cfPDFToPDFMatrix mtx;
   _cfPDFToPDFMatrix_init(&mtx);
   _cfPDFToPDFMatrix_translate(&mtx, xpos, ypos);
@@ -635,20 +593,19 @@ _cfPDFToPDF_PDFioPageHandle_add_subpage(_cfPDFToPDF_PDFioProcessor *handle,
 // }}}
 
 void
-_cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle)
+_cfPDFToPDFPageHandle_mirror(_cfPDFToPDFPageHandle *handle,
+			     pdfio_file_t *pdf)
 {
-  _cfPDFToPDFPageRect orig = _cfPDFToPDF_PDFioProcessor_get_rect(handle);
-  if(_cfPDFToPDF_PDFioProcessor_is_existing(handle))
+  _cfPDFToPDFPageRect orig = _cfPDFToPDFPageHandle_get_rect(handle);
+  if(_cfPDFToPDFPageHandle_is_existing(handle))
   {
     char xoname[10];
-    snprintf(xoname, sizeof(xoname), "/X%d", 1); // Assuming 'no' is 1 for example
+    snprintf(xoname, sizeof(xoname), "/X%d", handle->no);
 
-    // Get the page to mirror (this would be replaced by actual pdfio page handling)
-    pdfio_obj_t *subpage = _cfPDFToPDF_PDFioProcessor_get(handle);;
+    pdfio_obj_t *subpage = _cfPDFToPDFPageHandle_get(handle);;
 
-    _cfPDFToPDF_PDFioProcessor_create_newMode(handle, handle->pdf, orig.width, orig.height); 
-    // Reinitialize the handle with new dimensions
-    hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(handle->pdf, subpage));
+    _cfPDFToPDFPageHandle_create_newMode(handle, pdf, orig.width, orig.height); 
+    hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, subpage));
 
     char temp_content[1024];
     snprintf(temp_content, sizeof(temp_content), "%s Do\n", xoname);
@@ -659,7 +616,6 @@ _cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle)
   char mrcmd[100];
   snprintf(mrcmd, sizeof(mrcmd), "-1 0 0 1 %.2f 0 cm\n", orig.right);
 
-  // Insert the mirroring matrix at the beginning of the content
   size_t new_len = strlen(pre) + strlen(mrcmd) + strlen(handle->content) + 1;
   char *new_content = (char *)malloc(new_len);
   snprintf(new_content, new_len, "%s%s%s", pre, mrcmd, handle->content);
@@ -670,16 +626,17 @@ _cfPDFToPDF_PDFioProcessor_mirror(_cfPDFToPDF_PDFioProcessor *handle)
 
 
 void
-_cfPDFToPDF_PDFioProcessor_rotate(_cfPDFToPDF_PDFioProcessor *handle,
-				  pdftopdf_rotation_e rot)
+_cfPDFToPDFPageHandle_rotate(_cfPDFToPDFPageHandle *handle,
+			     pdftopdf_rotation_e rot)
 {
   handle->rotation = rot;
 }
 
 void 
-_cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
-				     const _cfPDFToPDFPageRect *rect, 
-				     const char *label)
+_cfPDFToPDFPageHandle_add_label(_cfPDFToPDFPageHandle *handle,
+				pdfio_file_t *pdf,
+				const _cfPDFToPDFPageRect *rect, 
+				const char *label)
 {
   
   _cfPDFToPDFPageRect rect_mod = ungetRect(*rect, handle, handle->rotation, handle->page);
@@ -689,92 +646,74 @@ _cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
     fprintf(stderr, "Invalid rectangle dimensions!\n");
     return;
   }
-  pdfio_dict_t *font_dict = pdfioDictCreate(handle->pdf);
+  pdfio_dict_t *font_dict = pdfioDictCreate(pdf);
   pdfioDictSetName(font_dict, "Type", "Font");
   pdfioDictSetName(font_dict, "Subtype", "Type1");
   pdfioDictSetName(font_dict, "Name", "pagelabel-font");
   pdfioDictSetName(font_dict, "BaseFont", "Helvetica");
 
-  // Add font to the document as an indirect object
-  pdfio_obj_t *font_obj = pdfioFileCreateObj(handle->pdf, font_dict);
+  pdfio_obj_t *font_obj = pdfioFileCreateObj(pdf, font_dict);
 
-  // Get the Resources dictionary from the page
   pdfio_dict_t *resources = pdfioObjGetDict(handle->page);
   if (resources == NULL)
   {
-    resources = pdfioDictCreate(handle->pdf);
-    pdfioDictSetDict(resources, "Font", pdfioDictCreate(handle->pdf));
+    resources = pdfioDictCreate(pdf);
+    pdfioDictSetDict(resources, "Font", pdfioDictCreate(pdf));
   }
 
-  // Get or create the Font dictionary in Resources
   pdfio_dict_t *font_resources = pdfioDictGetDict(resources, "Font");
   if (font_resources == NULL)
   {
-    font_resources = pdfioDictCreate(handle->pdf);
+    font_resources = pdfioDictCreate(pdf);
     pdfioDictSetDict(resources, "Font", font_resources);
   }
-
-  // Add the pagelabel-font to the Font dictionary in Resources
   pdfioDictSetObj(font_resources, "pagelabel-font", font_obj);
-
-  // Finally, replace the Resources key in the page with updated Resources
   pdfioDictSetDict(resources, "Resources", resources);
 
   double margin = 2.25;
   double height = 12;
-
-  // Start creating the PDF content commands (simplified for pdfio)
+  
   char boxcmd[1024] = "q\n";
 
-  // White filled rectangle (top)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "1 1 1 rg\n%f %f %f %f re f\n",
            rect_mod.left + margin, rect_mod.top - height - 2 * margin,
            rect_mod.right - rect_mod.left - 2 * margin, height + 2 * margin);
 
-    // White filled rectangle (bottom)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "%f %f %f %f re f\n",
            rect_mod.left + margin, rect_mod.bottom + height + margin,
            rect_mod.right - rect_mod.left - 2 * margin, height + 2 * margin);
 
-  // Black outline (top)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "0 0 0 RG\n%f %f %f %f re S\n",
            rect_mod.left + margin, rect_mod.top - height - 2 * margin,
            rect_mod.right - rect_mod.left - 2 * margin, height + 2 * margin);
 
-  // Black outline (bottom)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "%f %f %f %f re S\n",
            rect_mod.left + margin, rect_mod.bottom + height + margin,
            rect_mod.right - rect_mod.left - 2 * margin, height + 2 * margin);
 
-  // Black text (top)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "0 0 0 rg\nBT\n/f1 12 Tf\n%f %f Td\n(%s) Tj\nET\n",
            rect_mod.left + 2 * margin, rect_mod.top - height - margin, label);
 
-  // Black text (bottom)
   snprintf(boxcmd + strlen(boxcmd), sizeof(boxcmd) - strlen(boxcmd),
            "BT\n/f1 12 Tf\n%f %f Td\n(%s) Tj\nET\n",
            rect_mod.left + 2 * margin, rect_mod.bottom + height + 2 * margin, label);
 
-  // End the graphic context
   strcat(boxcmd, "Q\n");
  
   const char *pre = "%pdftopdf q\nq\n";
-  char post[256]; // Make sure the buffer is large enough for the combined string
+  char post[256];
 
-  // Combine the "post" string with the passed boxcmd
   snprintf(post, sizeof(post), "%%pdftopdf Q\nQ\n%s", boxcmd);
 
-  // Create the first stream (pre)
   pdfio_stream_t *stream1 = pdfioPageOpenStream(handle->page, PDFIO_FILTER_FLATE, true);
   pdfioStreamPuts(stream1, pre);
   pdfioStreamClose(stream1);
 
-    // Create the second stream (post + boxcmd)
   pdfio_stream_t *stream2 = pdfioPageOpenStream(handle->page, PDFIO_FILTER_FLATE, true);
   pdfioStreamPuts(stream2, post);
   pdfioStreamClose(stream2);
@@ -782,276 +721,394 @@ _cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
 }
 
 void 
-debug(_cfPDFToPDF_PDFioProcessor *handle, 
-      const _cfPDFToPDFPageRect *rect, 
-      float xpos, float ypos) 
+_cfPDFToPDFPageHandle_debug(_cfPDFToPDFPageHandle *handle, 
+		  	    const _cfPDFToPDFPageRect *rect, 
+			    float xpos, float ypos) 
 {
-  if (!_cfPDFToPDF_PDFioProcessor_is_existing(handle)) 
+  if (!_cfPDFToPDFPageHandle_is_existing(handle)) 
     return;
 
-  // append to the content stream 
   append_debug_box(handle->content, rect, xpos, ypos);
 }
 
-/*
-// Define the _cfPDFToPDFQPDFProcessor structure
-struct _cfPDFToPDFQPDFProcessor {
-    pdfio_file_t *pdf;  // pdfio object to represent the PDF document
-    _cfPDFToPDFQPDFPageHandle **orig_pages;
-    int num_pages;
-    bool hasCM;
-    char *extraheader;  // Dynamic string for comments
-};
-
-void
-_cfPDFToPDFQPDFProcessor_close_file(_cfPDFToPDFQPDFProcessor *processor)
+void _cfPDFToPDF_PDFioProcessor_close_file(_cfPDFToPDF_PDFioProcessor *handle)
 {
-    if (processor->pdf)
+    if (handle->pdf != NULL)
     {
-        pdfioFileClose(processor->pdf);
-        processor->pdf = NULL;
+        pdfioFileClose(handle->pdf);
+        handle->pdf = NULL;
     }
-    processor->hasCM = false;
+    handle->hasCM = false;
 }
 
-bool
-_cfPDFToPDFQPDFProcessor_load_file(_cfPDFToPDFQPDFProcessor *processor,
-                                   FILE *f, pdftopdf_doc_t *doc,
-                                   pdftopdf_arg_ownership_e take,
-                                   int flatten_forms)
+
+bool 
+_cfPDFToPDF_PDFioProcessor_load_file(_cfPDFToPDF_PDFioProcessor *handle, 
+				      FILE *f, pdftopdf_doc_t *doc, 
+				      pdftopdf_arg_ownership_e take, int flatten_forms)
 {
-    _cfPDFToPDFQPDFProcessor_close_file(processor);
+  _cfPDFToPDF_PDFioProcessor_close_file(handle);
 
-    if (!f) {
-        // Handle error in C style
-        return false;
+  if (!f)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+      		      		   "load_file(NULL, ...) not allowed");
+    return false;
+  }
+
+  handle->pdf = pdfioFileCreate("tempfile", NULL, NULL, NULL, NULL, NULL);
+
+  
+  if (handle->pdf == NULL)
+  {
+    if (take == CF_PDFTOPDF_TAKE_OWNERSHIP)
+    {
+      fclose(f);
     }
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+		    		   "Failed to open PDF file.");
+    return false;
+  }
 
-    // Simulate opening the file with PDFIO
-    processor->pdf = pdfioFileOpen(f, NULL);
-    if (!processor->pdf) {
-        if (take == CF_PDFTOPDF_TAKE_OWNERSHIP)
-            fclose(f);
+  switch (take)
+  {
+    case CF_PDFTOPDF_WILL_STAY_ALIVE:
+      break;
+
+    case CF_PDFTOPDF_TAKE_OWNERSHIP:
+      if (fclose(f) != 0)
+      {
+        if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+				       "Failed to close file after loading.");
         return false;
-    }
+      }
+      break;
 
-    // Call start function to initialize the pages
-    _cfPDFToPDFQPDFProcessor_start(processor, flatten_forms);
+    case CF_PDFTOPDF_MUST_DUPLICATE:
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+		      		     "CF_PDFTOPDF_MUST_DUPLICATE is not supported.");
+      return false;
+  }
+
+
+  //_cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
+  return true;
+}
+
+bool _cfPDFToPDF_PDFioProcessor_load_filename(_cfPDFToPDF_PDFioProcessor *handle,
+					      const char *name, 
+					      pdftopdf_doc_t *doc, 
+					      int flatten_forms)
+{
+  _cfPDFToPDF_PDFioProcessor_close_file(handle);
+
+  handle->pdf = pdfioFileOpen(name, NULL, NULL, NULL, NULL);
+  if (!handle->pdf) 
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, 3, 
+                                   "cfFilterPDFToPDF: load_filename failed: Could not open file %s", 
+				   name);
+    return false;
+  }
+
+  //_cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
+  return true;
+}
+
+
+bool 
+_cfPDFToPDF_PDFioProcessor_check_print_permissions(_cfPDFToPDF_PDFioProcessor *handle, 
+					           pdftopdf_doc_t *doc)
+{
+  if (!handle->pdf)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                   "cfFilterPDFToPDF: No PDF loaded");
+    return false;
+  }
+
+  int permissions = pdfioFileGetPermissions(handle->pdf, NULL);
+   
+  if ((permissions & PDFIO_PERMISSION_PRINT_HIGH) || (permissions & PDFIO_PERMISSION_PRINT))
     return true;
+    
+  return false;
 }
 
-bool
-_cfPDFToPDFQPDFProcessor_load_filename(_cfPDFToPDFQPDFProcessor *processor,
-                                       const char *name, pdftopdf_doc_t *doc,
-                                       int flatten_forms)
+pdfio_obj_t**
+get_all_pages(pdfio_file_t *pdf)
 {
-    _cfPDFToPDFQPDFProcessor_close_file(processor);
-
-    processor->pdf = pdfioFileOpenFile(name, NULL);
-    if (!processor->pdf) {
-        return false;
+    size_t num_pages = pdfioFileGetNumPages(pdf);
+    pdfio_obj_t **pages = malloc(sizeof(pdfio_obj_t *) * num_pages);
+    for (size_t i = 0; i < num_pages; i++)
+    {
+        pages[i] = pdfioFileGetPage(pdf, i);
     }
-
-    // Call start function to initialize the pages
-    _cfPDFToPDFQPDFProcessor_start(processor, flatten_forms);
-    return true;
+    return pages;
 }
 
-void
-_cfPDFToPDFQPDFProcessor_start(_cfPDFToPDFQPDFProcessor *processor, int flatten_forms)
+/*
+void 
+_cfPDFToPDF_PDFioProcessor_start(_cfPDFToPDF_PDFioProcessor *proc,
+				 int flatten_forms)
 {
-    DEBUG_assert(processor->pdf);
+  if (!proc->pdf)
+  {
+    fprintf(stderr, "No PDF loaded.\n");
+    return;
+  }
 
-    processor->orig_pages = pdfioFileGetPages(processor->pdf, &(processor->num_pages));
-    // Remove the pages from the PDF document for processing
-    for (int i = 0; i < processor->num_pages; i++) {
-        pdfioPageRemove(processor->orig_pages[i]);
-    }
+  if (flatten_forms)
+  {
+    pdfio_dict_t *catalog = pdfioFileGetCatalog(proc->pdf);
+    pdfio_obj_t *acroForm = pdfioDictGetObj(catalog, "AcroForm");
 
-    // Initialize other PDF data as necessary (e.g., remove defunct keys)
-    pdfioFileRemoveKey(processor->pdf, "/PageMode");
-    pdfioFileRemoveKey(processor->pdf, "/Outlines");
-    pdfioFileRemoveKey(processor->pdf, "/OpenAction");
-    pdfioFileRemoveKey(processor->pdf, "/PageLabels");
-}
+    if (acroForm)
+    {
+      pdfio_dict_t *acroForm_dict = pdfioObjGetDict(acroForm);
+      pdfio_array_t *fields = pdfioDictGetArray(acroForm_dict, "Fields");
+      size_t num_fields = pdfioArrayGetSize(fields);
 
-bool
-_cfPDFToPDFQPDFProcessor_check_print_permissions(_cfPDFToPDFQPDFProcessor *processor, pdftopdf_doc_t *doc)
-{
-    if (!processor->pdf) {
-        return false;
-    }
+      // Iterating over each field and generating render as static content
+      for (size_t i = 0; i < num_fields; i++)
+      {
+        pdfio_obj_t *field = pdfioArrayGetObj(fields, i);
+        pdfio_dict_t *field_dict = pdfioObjGetDict(field);
+	const char *field_type = pdfioDictGetName(field_dict, "FT");  // Field type
+        const char *field_value = pdfioDictGetString(field_dict, "V");  // Field value
 
-    // Simulate permission checking with PDFIO
-    return pdfioFileAllowPrint(processor->pdf);
-}
+        if (field_type && strcmp(field_type, "Tx") == 0) 
+        {
+          double x = 100.0, y = 200.0;  
+          pdfio_stream_t *stream = pdfioPageOpenStream(handle->page, 0, true); 
 
-_cfPDFToPDFQPDFPageHandle **
-_cfPDFToPDFQPDFProcessor_get_pages(_cfPDFToPDFQPDFProcessor *processor,
-                                   pdftopdf_doc_t *doc, int *num_pages)
-{
-    if (!processor->pdf) {
-        *num_pages = 0;
-        return NULL;
-    }
+          pdfioContentTextMoveTo(stream, x, y);  
+          pdfioContentTextShow(stream, 1, field_value);   // Render the text
 
-    *num_pages = processor->num_pages;
-    return processor->orig_pages;
-}
-
-_cfPDFToPDFQPDFPageHandle *
-_cfPDFToPDFQPDFProcessor_new_page(_cfPDFToPDFQPDFProcessor *processor,
-                                  float width, float height,
-                                  pdftopdf_doc_t *doc)
-{
-    if (!processor->pdf) {
-        return NULL;
-    }
-
-    return _cfPDFToPDFQPDFPageHandle_new_new(processor->pdf, width, height);
-}
-
-void
-_cfPDFToPDFQPDFProcessor_add_page(_cfPDFToPDFQPDFProcessor *processor,
-                                  _cfPDFToPDFQPDFPageHandle *page, bool front)
-{
-    DEBUG_assert(processor->pdf);
-    if (front) {
-        pdfioFileInsertPage(processor->pdf, page->page, 0);  // Insert at the front
-    } else {
-        pdfioFileAppendPage(processor->pdf, page->page);  // Append at the end
-    }
-}
-
-void
-_cfPDFToPDFQPDFProcessor_multiply(_cfPDFToPDFQPDFProcessor *processor,
-                                  int copies, bool collate)
-{
-    DEBUG_assert(processor->pdf);
-    DEBUG_assert(copies > 0);
-
-    _cfPDFToPDFQPDFPageHandle **pages = _cfPDFToPDFQPDFProcessor_get_pages(processor, NULL, &processor->num_pages);
-
-    if (collate) {
-        for (int i = 1; i < copies; i++) {
-            for (int j = 0; j < processor->num_pages; j++) {
-                pdfioFileAppendPage(processor->pdf, pages[j]->page);
-            }
+          pdfioStreamClose(stream);  // Closing the stream after render
         }
-    } else {
-        for (int j = 0; j < processor->num_pages; j++) {
-            for (int i = 1; i < copies; i++) {
-                pdfioFileAppendPage(processor->pdf, pages[j]->page);
-            }
-        }
+      }
+      pdfioDictSetNull(catalog, "AcroForm");
     }
+  }
+
+
+    // Get all pages
+  proc->orig_pages = get_all_pages(proc->pdf);
+  size_t num_pages = pdfioFileGetNumPages(proc->pdf);
+
+  // Remove (unlink) all pages
+  for (size_t i = 0; i < num_pages; i++)
+  {
+//    pdfio_remove_page(pdf, orig_pages[i]);
+  }
+
+  pdfio_dict_t *root = pdfioFileGetCatalog(proc->pdf);
+  pdfioDictSetNull(root, "PageMode");
+  pdfioDictSetNull(root, "Outlines");
+  pdfioDictSetNull(root, "OpenAction");
+  pdfioDictSetNull(root, "PageLabels");
+
+  pdfioFileClose(proc->pdf);
 }
-
-void
-_cfPDFToPDFQPDFProcessor_auto_rotate_all(_cfPDFToPDFQPDFProcessor *processor,
-                                         bool dst_lscape,
-                                         pdftopdf_rotation_e normal_landscape)
-{
-    DEBUG_assert(processor->pdf);
-
-    for (int i = 0; i < processor->num_pages; i++) {
-        _cfPDFToPDFQPDFPageHandle *page = processor->orig_pages[i];
-
-        pdftopdf_rotation_e src_rot = pdfioPageGetRotation(page->page);
-        _cfPDFToPDFPageRect rect = _cfPDFToPDFQPDFPageHandle_get_rect(page);
-
-        bool src_lscape = rect.width > rect.height;
-        if (src_lscape != dst_lscape) {
-            pdfioPageSetRotation(page->page, src_rot + normal_landscape);
-        }
-    }
-}
-
-void
-_cfPDFToPDFQPDFProcessor_add_cm(_cfPDFToPDFQPDFProcessor *processor,
-                                const char *defaulticc, const char *outputicc)
-{
-    DEBUG_assert(processor->pdf);
-
-    if (pdfioFileHasOutputIntent(processor->pdf)) {
-        return;  // Nothing to do
-    }
-
-    // Simulate adding ICC profile and output intent with PDFIO
-    pdfioFileAddICCProfile(processor->pdf, defaulticc);
-    pdfioFileAddOutputIntent(processor->pdf, outputicc);
-
-    processor->hasCM = true;
-}
-
-void
-_cfPDFToPDFQPDFProcessor_set_comments(_cfPDFToPDFQPDFProcessor *processor,
-                                      const char **comments, int num_comments)
-{
-    if (processor->extraheader) {
-        free(processor->extraheader);
-    }
-
-    // Concatenate comments into one string
-    int total_len = 0;
-    for (int i = 0; i < num_comments; i++) {
-        total_len += strlen(comments[i]) + 1;
-    }
-
-    processor->extraheader = malloc(total_len + 1);
-    processor->extraheader[0] = '\0';
-
-    for (int i = 0; i < num_comments; i++) {
-        strcat(processor->extraheader, comments[i]);
-        strcat(processor->extraheader, "\n");
-    }
-}
-
-void
-_cfPDFToPDFQPDFProcessor_emit_file(_cfPDFToPDFQPDFProcessor *processor,
-                                   FILE *dst, pdftopdf_doc_t *doc,
-                                   pdftopdf_arg_ownership_e take)
-{
-    if (!processor->pdf) {
-        return;
-    }
-
-    // Simulate writing the PDF to a file with PDFIO
-    pdfioFileWrite(processor->pdf, dst, processor->hasCM, processor->extraheader);
-
-    if (take == CF_PDFTOPDF_TAKE_OWNERSHIP) {
-        fclose(dst);
-    }
-}
-
-void
-_cfPDFToPDFQPDFProcessor_emit_filename(_cfPDFToPDFQPDFProcessor *processor,
-                                       const char *name, pdftopdf_doc_t *doc)
-{
-    if (!processor->pdf) {
-        return;
-    }
-
-    // Special case: name == NULL -> stdout
-    FILE *output = name ? fopen(name, "wb") : stdout;
-
-    // Simulate writing the PDF to a file with PDFIO
-    pdfioFileWrite(processor->pdf, output, processor->hasCM, processor->extraheader);
-
-    if (name) {
-        fclose(output);
-    }
-}
-
-bool
-_cfPDFToPDFQPDFProcessor_has_acro_form(_cfPDFToPDFQPDFProcessor *processor)
-{
-    if (!processor->pdf) {
-        return false;
-    }
-
-    // Simulate checking for an AcroForm in the PDF with PDFIO
-    return pdfioFileHasAcroForm(processor->pdf);
-}
-
 */
+
+_cfPDFToPDFPageHandle**
+_cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle, 
+	                             pdftopdf_doc_t *doc, int *out_len) 
+{
+  _cfPDFToPDFPageHandle **ret = NULL;
+
+  if (handle->orig_pages_size == 0 || handle->orig_pages == NULL) 
+  {
+    if (doc->logfunc) 
+    {
+      doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+		   "cfFilterPDFToPDF: No PDF loaded");
+    }
+    *out_len = 0;
+    return ret; 
+  }
+
+  int len = handle->orig_pages_size;
+  *out_len = len;
+
+  ret = (_cfPDFToPDFPageHandle **)malloc(len * sizeof(_cfPDFToPDFPageHandle *));
+  if (!ret) 
+  {
+    fprintf(stderr, "Memory allocation failed for pages array\n");
+  }
+
+  for (int i = 0; i < len; i++) 
+  {
+    ret[i] = (_cfPDFToPDFPageHandle *)malloc(sizeof(_cfPDFToPDFPageHandle));
+    if (!ret[i]) 
+    {
+      fprintf(stderr, "Memory allocation failed for page handle %d\n", i + 1);
+      for (int j = 0; j < i; j++) 
+      {
+        free(ret[j]);
+      }
+      free(ret);
+    }
+
+    ret[i]->page = handle->orig_pages[i];
+    //ret[i]->orig_pages_size = i + 1;
+  }
+
+  return ret;
+}
+
+_cfPDFToPDFPageHandle*
+_cfPDFToPDF_PDFioProcessor_new_page(_cfPDFToPDF_PDFioProcessor *handle,
+	 			    float width, float height, 
+				    pdftopdf_doc_t *doc) 
+{
+  if (!handle->pdf)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
+		                   "cfFilterPDFToPDF: No PDF loaded"); 
+    return NULL;
+  }
+
+  _cfPDFToPDFPageHandle *page_handle = (_cfPDFToPDFPageHandle *)malloc(sizeof(_cfPDFToPDFPageHandle));
+   
+  _cfPDFToPDFPageHandle_create_newMode(page_handle, handle->pdf, width, height);
+
+  return page_handle;
+}
+
+void
+_cfPDFToPDF_PDFioProcessor_multiply(_cfPDFToPDF_PDFioProcessor *handle,
+				    int copies, bool collate)
+{
+  int num_pages=pdfioFileGetNumPages(handle->pdf);
+ 
+  pdfio_obj_t **pages = (pdfio_obj_t **)malloc(num_pages * sizeof(pdfio_obj_t *));
+  
+  for (int i = 0; i < num_pages; i++) 
+  {
+    pages[i] = pdfioFileGetPage(handle->pdf, i); 
+  }
+  
+  if (collate) {
+    for (int iA = 1; iA < copies; iA++) 
+    {
+      for (int iB = 0; iB < num_pages; iB++) 
+      {
+        pdfioPageCopy(handle->pdf, pages[iB]);
+      }
+    }
+  }
+
+  else 
+  {
+    for (int iB = 0; iB < num_pages; iB++) 
+    { 
+      for (int iA = 1; iA < copies; iA++) 
+      {
+        pdfioPageCopy(handle->pdf, pages[iB]); 
+      }
+    }
+  }
+}
+
+void 
+_cfPDFToPDF_PDFioProcessor_auto_rotate_all(_cfPDFToPDF_PDFioProcessor *handle,
+					   bool dst_lscape,
+					   pdftopdf_rotation_e normal_landscape)
+{
+  const int len = handle->orig_pages_size; 
+
+  for (int iA = 0; iA < len; iA ++)
+  {
+    pdfio_obj_t *page = handle->orig_pages[iA]; 
+    
+    pdftopdf_rotation_e src_rot = _cfPDFToPDFGetRotate(page);
+    
+    pdfio_rect_t trimBox = _cfPDFToPDFGetTrimBox(page); 
+    _cfPDFToPDFPageRect ret = _cfPDFToPDFGetBoxAsRect(&trimBox);
+
+    _cfPDFToPDFPageRect_rotate_move(&ret, src_rot, ret.width, ret.height);
+
+    const bool src_lscape = (ret.width > ret.height); 
+    
+    if (src_lscape != dst_lscape)
+    {
+      pdftopdf_rotation_e rotation = normal_landscape; 
+      
+      pdfio_dict_t *pageDict = pdfioObjGetDict(page);
+      pdfioDictSetNumber(pageDict, "Rotate", 
+		         _cfPDFToPDFMakeRotate(src_rot + rotation));
+    }
+  }
+}
+
+void 
+_cfPDFToPDF_PDFioProcessor_add_cm(_cfPDFToPDF_PDFioProcessor *handle,
+				  const char *defaulticc, const char *outputicc) 
+{
+  if (_cfPDFToPDFHasOutputIntent(handle->pdf))
+    return;
+
+  pdfio_obj_t *srcicc = _cfPDFToPDFSetDefaultICC(handle->pdf, defaulticc);
+  _cfPDFToPDFAddDefaultRGB(handle->pdf, srcicc); 
+  _cfPDFToPDFAddOutputIntent(handle->pdf, outputicc);
+  
+  handle->hasCM = true; 
+}
+
+void 
+_cfPDFToPDF_PDFioProcessor_set_comments(_cfPDFToPDF_PDFioProcessor *handle,
+		               		char **comments, int num_comments)
+{
+  if (handle->extraheader) 
+  {
+    free(handle->extraheader); 
+  }
+
+  handle->extraheader = (char *)malloc(1);
+  handle->extraheader[0] = '\0'; 
+
+  int total_length = 0;
+  for (int i = 0; i < num_comments; i++) 
+  {
+    total_length += strlen(comments[i]) + 1; 
+  }
+
+  handle->extraheader = (char *)realloc(handle->extraheader, total_length + 1);
+
+  for (int i = 0; i < num_comments; i++) 
+  {
+    strcat(handle->extraheader, comments[i]);
+    strcat(handle->extraheader, "\n");
+  }
+}
+
+void 
+_cfPDFToPDF_PDFioProcessor_emit_file(_cfPDFToPDF_PDFioProcessor *handle,
+				     FILE *f, pdftopdf_doc_t *doc, 
+				     pdftopdf_arg_ownership_e take) 
+{
+}
+
+void 
+_cfPDFToPDF_PDFioProcessor_emit_filename(_cfPDFToPDF_PDFioProcessor *handle,
+				         const char *name, pdftopdf_doc_t *doc) 
+{
+}
+
+bool 
+_cfPDFToPDF_PDFioProcessor_has_acro_form(_cfPDFToPDF_PDFioProcessor *handle)
+{
+  if (!handle->pdf) 
+  {
+    return false;
+  }
+
+  pdfio_dict_t *root = pdfioFileGetCatalog(handle->pdf);
+
+  if (!pdfioDictGetDict(root, "AcroForm")) 
+    return false;
+  return true;
+}
