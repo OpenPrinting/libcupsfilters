@@ -6,7 +6,7 @@
 #ifndef _CUPS_FILTERS_PDFTOPDF_PPTYPES_H_
 #define _CUPS_FILTERS_PDFTOPDF_PPTYPES_H_
 
-#include "pdftopdf-private.h"
+#include "C-pdftopdf-private.h"
 #include <math.h>
 
 typedef enum 
