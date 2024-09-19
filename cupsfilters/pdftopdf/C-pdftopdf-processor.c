@@ -1,6 +1,7 @@
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
+//
 
 #include "processor.h"
 #include <stdio.h>
@@ -247,8 +248,7 @@ _cfPDFToPDFBookletShuffle(int numPages, int signature, int* ret_size)
 }
 
 bool 
-_cfProcessPDFToPDF(pdfio_file_t *pdf,
-		   _cfPDFToPDF_PDFioProcessor *proc,
+_cfProcessPDFToPDF( _cfPDFToPDF_PDFioProcessor *proc,
 		   _cfPDFToPDFProcessingParameters *param,
 		   pdftopdf_doc_t *doc) 
 {
@@ -494,7 +494,7 @@ _cfProcessPDFToPDF(pdfio_file_t *pdf,
       {
 	_cfPDFToPDFPageHandle_rotate(curpage, param->orientation);
 	if (param->mirror)
-	  _cfPDFToPDFPageHandle_mirror(curpage, pdf);
+	  _cfPDFToPDFPageHandle_mirror(curpage, proc->pdf);
 
 //	_cfPDFToPDF_PDFioProcessor_add_page(proc, curpage, param->reverse);
 	// Log page in /var/log/cups/page_log
@@ -513,11 +513,11 @@ _cfProcessPDFToPDF(pdfio_file_t *pdf,
       continue;
 
     if (param->border != NONE)
-      _cfPDFToPDFPageHandle_add_border_rect(page, pdf, rect, param->border, 1.0 / pgedit.scale);
+      _cfPDFToPDFPageHandle_add_border_rect(page, proc->pdf, rect, param->border, 1.0 / pgedit.scale);
 
     if (param->page_label[0] != '\0')
     {
-      _cfPDFToPDFPageHandle_add_label(page, pdf, &param->page, param->page_label); 
+      _cfPDFToPDFPageHandle_add_label(page, proc->pdf, &param->page, param->page_label); 
     }
 
     if(param->cropfit)
@@ -533,22 +533,22 @@ _cfProcessPDFToPDF(pdfio_file_t *pdf,
 	{
 	  xpos2 = (param->page.width - (get_rect_height.height)) / 2;
 	  ypos2 = (param->page.height - (get_rect_width.width)) / 2;
-	  _cfPDFToPDFPageHandle_add_subpage(curpage, page, pdf, ypos2 + xpos, xpos2 + ypos, 1, NULL);
+	  _cfPDFToPDFPageHandle_add_subpage(curpage, page, proc->pdf, ypos2 + xpos, xpos2 + ypos, 1, NULL);
 	}
 	else
 	{
 	  xpos2 = (param->page.width - get_rect_width.width) / 2;
 	  ypos2 = (param->page.height - get_rect_height.height) /2;
-	  _cfPDFToPDFPageHandle_add_subpage(curpage, page, pdf, xpos2 + xpos, ypos2 + ypos, 1, NULL);
+	  _cfPDFToPDFPageHandle_add_subpage(curpage, page, proc->pdf, xpos2 + xpos, ypos2 + ypos, 1, NULL);
 	}
       }
       else
       {
-	_cfPDFToPDFPageHandle_add_subpage(curpage, page, pdf, pgedit.xpos + xpos, pgedit.ypos + ypos, pgedit.scale, NULL);
+	_cfPDFToPDFPageHandle_add_subpage(curpage, page, proc->pdf, pgedit.xpos + xpos, pgedit.ypos + ypos, pgedit.scale, NULL);
       }
     }
     else
-      _cfPDFToPDFPageHandle_add_subpage(curpage, page, pdf, pgedit.xpos + xpos, pgedit.ypos + ypos, pgedit.scale, NULL);
+      _cfPDFToPDFPageHandle_add_subpage(curpage, page, proc->pdf, pgedit.xpos + xpos, pgedit.ypos + ypos, pgedit.scale, NULL);
    
 #ifdef DEBUG
     _cfPDFToPDFPageHandle *dbg = (_cfPDFToPDFPageHandle *)curpage;
@@ -563,11 +563,11 @@ _cfProcessPDFToPDF(pdfio_file_t *pdf,
   {
     _cfPDFToPDFPageHandle_rotate(curpage, param->orientation);
     if(param->mirror)
-      _cfPDFToPDFPageHandle_mirror(curpage, pdf);
+      _cfPDFToPDFPageHandle_mirror(curpage, proc->pdf);
 
     // need to output empty page to not confuse duplex
-    _cfPDFToPDF_PDFioProcessor_add_page(proc, _cfPDFToPDF_PDFioProcessor_new_page(proc,
-		  			      param->page.width, param->page.height, doc), param->reverse);
+//    _cfPDFToPDF_PDFioProcessor_add_page(proc, _cfPDFToPDF_PDFioProcessor_new_page(proc,
+//		  			      param->page.width, param->page.height, doc), param->reverse);
     
     // Log page in /var/log/cups/page_log
     if(param->page_logging == 1)

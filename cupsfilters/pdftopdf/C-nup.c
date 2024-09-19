@@ -317,6 +317,6 @@ _cfPDFToPDFParseNupLayout(const char *val,
     ret->ystart = pos0.second;
   }
 
-  return (val[4] == 0); // everything seen?
+  return (val[4] == 0); 
 }
 

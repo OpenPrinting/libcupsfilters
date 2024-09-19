@@ -145,9 +145,9 @@ _cfPDFToPDFPageHandle* _cfPDFToPDF_PDFioProcessor_new_page(_cfPDFToPDF_PDFioProc
 							   float width, float height, 
 							   pdftopdf_doc_t *doc);
 
-void _cfPDFToPDF_PDFioProcessor_add_page(_cfPDFToPDF_PDFioProcessor *handle,
-					 _cfPDFToPDFPageHandle *page,
-					 bool front);
+//void _cfPDFToPDF_PDFioProcessor_add_page(_cfPDFToPDF_PDFioProcessor *handle,
+//					 _cfPDFToPDFPageHandle *page,
+//					 bool front);
 					 
 
 void _cfPDFToPDF_PDFioProcessor_multiply(_cfPDFToPDF_PDFioProcessor *handle,
@@ -239,8 +239,7 @@ void _cfPDFToPDFProcessingParameters_dump(const _cfPDFToPDFProcessingParameters 
 
 int* _cfPDFToPDFBookletShuffle(int numPages, int signature, int* ret_size); 
 
-bool _cfProcessPDFToPDF(pdfio_file_t *pdf,
-			_cfPDFToPDF_PDFioProcessor *proc,
+bool _cfProcessPDFToPDF( _cfPDFToPDF_PDFioProcessor *proc,
 		   	_cfPDFToPDFProcessingParameters *param, 
 			pdftopdf_doc_t *doc);
 #endif // C_PDFTOPDF_PROCESSOR_PRIVATE_H

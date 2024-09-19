@@ -180,6 +180,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pack.c \
 	cupsfilters/pclmtoraster.cxx \
 	cupsfilters/pdf.cxx \
+	cupsfilters/pdftopdf/C-pdftopdf.c \
+	cupsfilters/pdftopdf/C-pdftopdf-private.h \
 	cupsfilters/pdftopdf/C-pdftopdf-processor.c \
 	cupsfilters/pdftopdf/pdfio-pdftopdf-processor.c \
 	cupsfilters/pdftopdf/processor.h \
