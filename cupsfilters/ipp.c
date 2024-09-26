@@ -404,6 +404,14 @@ cfGetPrinterAttributes5(http_t *http_printer,
 	    ippDelete(response2);
 	  }
 	}
+
+	// Check if the response is valid
+	if (!ippValidateAttributes(response))
+	{
+	  ippDelete(response);
+	  response = NULL;
+	}
+
 	if (have_http == 0) httpClose(http_printer);
 	if (uri) free(uri);
 	return (response);
