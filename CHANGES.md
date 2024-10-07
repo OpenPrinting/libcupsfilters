@@ -1,4 +1,89 @@
-# CHANGES - OpenPrinting libcupsfilters v2.0.0 - 2023-09-22
+# CHANGES - OpenPrinting libcupsfilters v2.1b1 - 2024-08-14
+
+## CHANGES IN V2.1b1 (14th August 2024)
+
+- Added support for libcups3 (libcups of CUPS 3.x)
+  With these changes libcupsfilters can be built either with libcups2
+  (libcups of CUPS 2.x) or libcups3 (libcups of CUPS 3.x).
+
+- Fix obsolete constant name so that build with libcups of CUPS 2.5.x works
+  Replaced `HTTP_URI_OK` by `HTTP_URI_STATUS_OK` (Issue #36)
+
+- Always use sRGB/sGray if driver is PWG/URF and RGB/Gray is requested
+  PWG Raster and Apple Raster (URF) are for driverless printing abd
+  require the sRGB and sGRay standard color profiles (Pull request
+  #51).
+
+- `raster_base_header()`: Several fixes on color space selection
+  Internal (static) function to create a CUPS or PWG Raster header
+  from scratch, without using data of a PPD file, only IPP attributes
+  and command line options. Fixes are done to make sure a monochrome
+  color space is used for monochrome printers, the actual color space
+  seletions (if supported) is used for PWG Raster, not always sRGB
+  8-bit, and DeviceN can be selected also without specifying the depth
+  (Issue #38).
+
+- Fix content data stream concatenation mangling output in `cfFilterPDFToPDF()`
+  In `cfFilterPDFToPDF()` add newline after each content stream in
+  `::provideStreamData`. When concatenating the data streams for the
+  page's contents, add a new line at the end of each data stream to
+  avoid cases where the concatenation might result in a corruption
+  (Pull request #56).
+
+- `cfCatalogLoad()`: Fix incorrect `strncpy()` limit calculation
+  Preserve the new allocated size in a variable and use it instead of
+  `sizeof()` (Pull request #49).
+
+- Remove redundant data type definition in `libcups2-private.h`
+  (Pull request #44)
+
+- `pdf-cm.cxx`: Fix possible integer overflow
+  (Issue #42, Pull request #43)
+
+- `cfImageCMYKToCMY()`: Fixed copy-and-paste error
+  (Issue #41)
+
+- Fix compilation with clang and libc++
+  Define `_GLIBCXX_THROW` to empty for C++ 11 and newer.
+  (Issue #35, Pull request #47)
+
+- Fix warnings reported by clang 17
+  (Pull request #48)
+
+- Added test programm for the filter functions to the build tests
+  In the GSoC 2023 Pratyush Ranjan created a program for CI/build/unit
+  testing which runs filter tasks defined in a table, by input files,
+  input and output file formats, and options settings and checks
+  whether they got correctly executed. This allows easily adding test
+  cases from bug reports to avoid regressions (similar to
+  Ghostscript's CI tests). This program is now incorporated and added
+  to the tests run by `make check`, so that it gets commonly used as
+  CI test, especially also when distros package libcupsfilters (Pull
+  request #58).
+
+- pkgconfig: Add '-I${includedir}' to Cflags
+  This way, includes prefixed with the "cupsfilters/" directory path
+  also work. Especially libppd build also without problem when
+  libcupsfilters is installed in a non-default path (Pull request #57).
+
+- `.gitignore`: Ignore temporary files created by the build tests
+
+- Convert `INSTALL` to `INSTALL.md`
+  (Pull request #45)
+
+- `INSTALL.md`: Updated dependencies
+  We also need: gettext, libcups2-dev, libqpdf-dev (Pull request #59)
+
+- `Install.md`: Tell that we have `make check` for build testing
+  (Pull request #59)
+
+- Added GitHub workflow for Canonical Open Documentation Academy
+  OpenPrinting is participating in Canonical's [Open Documentation
+  Academy](https://github.com/canonical/open-documentation-academy/),
+  as an organization in need of documentation. The workflow is still
+  experimental and servs for auto-forwarding documentation-related
+  issues.
+
 
 ## CHANGES IN V2.0.0 (22th September 2023)
 
