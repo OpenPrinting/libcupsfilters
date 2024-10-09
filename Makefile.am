@@ -86,7 +86,7 @@ pkgfiltersinclude_DATA = \
 	cupsfilters/image.h \
 	cupsfilters/ipp.h \
 	cupsfilters/log.h \
-	cupsfilters/pdf.h \
+	cupsfilters/C-pdf.h \
 	cupsfilters/raster.h
 
 lib_LTLIBRARIES = libcupsfilters.la
@@ -179,7 +179,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
 	cupsfilters/pclmtoraster.cxx \
-	cupsfilters/pdf.cxx \
+	cupsfilters/C-pdf.c \
 	cupsfilters/pdftopdf/C-pdftopdf.c \
 	cupsfilters/pdftopdf/C-pdftopdf-private.h \
 	cupsfilters/pdftopdf/C-pdftopdf-processor.c \

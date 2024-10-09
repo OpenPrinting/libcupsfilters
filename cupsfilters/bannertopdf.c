@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/filter.h>
-#include <cupsfilters/pdf.h>
+#include <cupsfilters/C-pdf.h>
 #include <cupsfilters/raster.h>
 #include <cupsfilters/libcups2-private.h>
 
