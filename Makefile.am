@@ -178,7 +178,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
-	cupsfilters/pclmtoraster.cxx \
+	cupsfilters/C-pclmtoraster.c \
 	cupsfilters/C-pdf.c \
 	cupsfilters/pdftopdf/C-pdftopdf.c \
 	cupsfilters/pdftopdf/C-pdftopdf-private.h \
