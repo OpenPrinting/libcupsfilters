@@ -1,4 +1,15 @@
-# CHANGES - OpenPrinting libcupsfilters v2.1b1 - 2024-08-14
+# CHANGES - OpenPrinting libcupsfilters v2.1.0 - 2024-10-17
+
+## CHANGES IN V2.1.0 (17th October 2024)
+
+- `cfGetPrinterAttributes5()`: Validate response attributes before return
+  The IPP print destination which we are querying can be corrupted or
+  forged, so validate the response to strenghten security. Fixes
+  CVE-2024-47076.
+
+- Include `cupsfilters/testfilters.sh` in release tarball
+  `check_SCRIPTS` is not automatically included, has to be added to
+  EXTRA_DIST.
 
 ## CHANGES IN V2.1b1 (14th August 2024)
 
