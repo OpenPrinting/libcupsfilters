@@ -1,14 +1,7 @@
 //
 // Copyright 2012 Canonical Ltd.
 // Copyright 2018 Sahil Arora <sahilarora.535@gmail.com>
-//
-// Licensed under Apache License v2.0.  See the file "LICENSE" for more
-// information.
-//
-
-//
-// Copyright 2012 Canonical Ltd.
-// Copyright 2018 Sahil Arora <sahilarora.535@gmail.com>
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.

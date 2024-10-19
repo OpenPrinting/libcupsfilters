@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -10,7 +12,7 @@
 #include "cupsfilters/debug-internal.h"
 
 void 
-_cfPDFToPDFNupParameters_init(_cfPDFToPDFNupParameters *nupParams)
+_cfPDFToPDFNupParameters_init(_cfPDFToPDFNupParameters *nupParams) // {{{
 {
   nupParams->nupX = 1;
   nupParams->nupY = 1;
@@ -23,10 +25,11 @@ _cfPDFToPDFNupParameters_init(_cfPDFToPDFNupParameters *nupParams)
   nupParams->xalign = CENTER;
   nupParams->yalign = CENTER;
 }
+// }}}
 
 void 
 _cfPDFToPDFNupParameters_dump(const _cfPDFToPDFNupParameters *nupParams, 
-			      pdftopdf_doc_t *doc)
+			      pdftopdf_doc_t *doc) // {{{
 {
   if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, "cfFilterPDFToPDF: NupX: %d, NupY: %d, "
 				 "width: %f, height: %f",
@@ -83,18 +86,20 @@ _cfPDFToPDFNupParameters_dump(const _cfPDFToPDFNupParameters *nupParams,
     _cfPDFToPDFPositionAndAxisDump(nupParams->xalign, X, doc);
     _cfPDFToPDFPositionAndAxisDump(nupParams->yalign, Y, doc);
 }
+// }}}
 
 bool 
-_cfPDFToPDFNupParameters_possible(int nup)
+_cfPDFToPDFNupParameters_possible(int nup) // {{{
 {
   return ((nup >= 1) && (nup <= 16) &&
           ((nup != 5) && (nup != 7) && (nup != 11) && (nup != 13) &&
            (nup != 14)));
 }
+// }}}
 
 void 
 _cfPDFToPDFNupParameters_preset(int nup, 
-				_cfPDFToPDFNupParameters *ret)
+				_cfPDFToPDFNupParameters *ret) // {{{
 {
   switch (nup)
   {
@@ -150,10 +155,11 @@ _cfPDFToPDFNupParameters_preset(int nup,
     break;
   }
 }
+// }}}
 
 void 
 _cfPDFToPDFNupState_init(_cfPDFToPDFNupState *state, 
-			 const _cfPDFToPDFNupParameters *param)
+			 const _cfPDFToPDFNupParameters *param) // {{{
 {
   state->param = *param;
   state->in_pages = 0;
@@ -161,24 +167,27 @@ _cfPDFToPDFNupState_init(_cfPDFToPDFNupState *state,
   state->nup = param->nupX * param->nupY;
   state->subpage = state->nup;
 }
+// }}}
 
 void 
-_cfPDFToPDFNupState_reset(_cfPDFToPDFNupState *state)
+_cfPDFToPDFNupState_reset(_cfPDFToPDFNupState *state) // {{{
 {
   state->in_pages = 0;
   state->out_pages = 0;
   state->subpage = state->nup;
 }
+// }}}
 
 void 
 _cfPDFToPDFNupPageEdit_dump(const _cfPDFToPDFNupPageEdit *edit, 
-			    pdftopdf_doc_t *doc)
+			    pdftopdf_doc_t *doc) // {{{
 {
   if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
 	      		         "cfFilterPDFToPDF: xpos: %f, ypos: %f, scale: %f",
 				 edit->xpos, edit->ypos, edit->scale);
   _cfPDFToPDFPageRect_dump(&edit->sub, doc);
 }
+// }}}
 
 typedef struct {
   int first;
@@ -187,7 +196,7 @@ typedef struct {
 
 static int_pair 
 _cfPDFToPDFNupState_convert_order(const _cfPDFToPDFNupState *state, 
-				  int subpage)
+				  int subpage) // {{{
 {
   int subx, suby;
   if (state->param.first == X)
@@ -207,9 +216,10 @@ _cfPDFToPDFNupState_convert_order(const _cfPDFToPDFNupState *state,
   int_pair result = {subx, suby};
   return result;
 }
+// }}}
 
 static float 
-lin(pdftopdf_position_e pos, float size)
+lin(pdftopdf_position_e pos, float size) // {{{
 {
   if (pos == -1)
     return 0;
@@ -219,11 +229,12 @@ lin(pdftopdf_position_e pos, float size)
     return size;
   return size * (pos + 1) / 2;
 }
+// }}}
 
 void 
 _cfPDFToPDFNupState_calculate_edit(const _cfPDFToPDFNupState *state, 
 				   int subx, int suby, 
-				   _cfPDFToPDFNupPageEdit *ret)
+				   _cfPDFToPDFNupPageEdit *ret) // {{{
 {
   const float width = state->param.width / state->param.nupX;
   const float height = state->param.height / state->param.nupY;
@@ -254,11 +265,12 @@ _cfPDFToPDFNupState_calculate_edit(const _cfPDFToPDFNupState *state,
   ret->sub.right = ret->sub.left + subwidth;
   ret->sub.top = ret->sub.bottom + subheight;
 }
+// }}}
 
 bool 
 _cfPDFToPDFNupState_next_page(_cfPDFToPDFNupState *state, 
 			      float in_width, float in_height, 
-			      _cfPDFToPDFNupPageEdit *ret)
+			      _cfPDFToPDFNupPageEdit *ret) // {{{
 {
   state->in_pages++;
   state->subpage++;
@@ -276,9 +288,10 @@ _cfPDFToPDFNupState_next_page(_cfPDFToPDFNupState *state,
 
   return (state->subpage == 0);
 }
+// }}}
 
 static int_pair 
-parsePosition(char a, char b)
+parsePosition(char a, char b) // {{{
 {
   a |= 0x20; // make lowercase
   b |= 0x20;
@@ -292,12 +305,12 @@ parsePosition(char a, char b)
     return (int_pair){Y, BOTTOM};
   return (int_pair){X, CENTER};
 }
+// }}}
 
 bool 
 _cfPDFToPDFParseNupLayout(const char *val, 
-			  _cfPDFToPDFNupParameters *ret)
+			  _cfPDFToPDFNupParameters *ret) // {{{
 {
-  DEBUG_assert(val);
   int_pair pos0 = parsePosition(val[0], val[1]);
   if (pos0.second == CENTER)
     return false;
@@ -319,4 +332,5 @@ _cfPDFToPDFParseNupLayout(const char *val,
 
   return (val[4] == 0); 
 }
+// }}}
 

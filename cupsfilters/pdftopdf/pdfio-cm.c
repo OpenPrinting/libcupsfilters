@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -6,7 +8,6 @@
 #include "pdfio-cm-private.h"
 #include <stdio.h>
 #include "cupsfilters/debug-internal.h" 
-
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>

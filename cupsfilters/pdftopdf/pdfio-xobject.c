@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -21,7 +23,7 @@ typedef struct
 
 CombineFromContents_Provider* 
 CombineFromContents_Provider_new(pdfio_stream_t **contents, 
-				 size_t content_count) 
+				 size_t content_count) // {{{
 {
   CombineFromContents_Provider *provider = (CombineFromContents_Provider*)malloc(sizeof(CombineFromContents_Provider));
     
@@ -29,9 +31,10 @@ CombineFromContents_Provider_new(pdfio_stream_t **contents,
   provider->contents = contents;
   return provider;
 }
+// }}}
 
 void 
-CombineFromContents_Provider_free(CombineFromContents_Provider *provider) 
+CombineFromContents_Provider_free(CombineFromContents_Provider *provider) // {{{
 {
   if (provider) 
   {
@@ -39,10 +42,11 @@ CombineFromContents_Provider_free(CombineFromContents_Provider *provider)
     free(provider);
   }
 }
+// }}}
 
 void 
 CombineFromContents_Provider_provideStreamData(CombineFromContents_Provider *provider, 
-					       pdfio_stream_t *pipeline) 
+					       pdfio_stream_t *pipeline) // {{{
 {
   char buffer[8192];
   size_t bytes;
@@ -56,6 +60,7 @@ CombineFromContents_Provider_provideStreamData(CombineFromContents_Provider *pro
     }
   }
 }
+// }}}
 
 //
 //  To convert a page to an XObject there are several keys to consider:
@@ -100,7 +105,7 @@ CombineFromContents_Provider_provideStreamData(CombineFromContents_Provider *pro
 
 pdfio_obj_t*
 _cfPDFToPDFMakeXObject(pdfio_file_t *pdf, 
-		       pdfio_obj_t *page) 
+		       pdfio_obj_t *page) // {{{
 {
   pdfio_dict_t *page_dict = pdfioObjGetDict(page);
 
@@ -212,4 +217,4 @@ _cfPDFToPDFMakeXObject(pdfio_file_t *pdf,
 
   return xobject;
 }
-
+// }}}

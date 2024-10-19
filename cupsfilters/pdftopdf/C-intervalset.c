@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -14,28 +16,29 @@
 const int _cfPDFToPDFIntervalSet_npos = INT_MAX;
 
 void 
-_cfPDFToPDFIntervalSet_init(_cfPDFToPDFIntervalSet *set)
+_cfPDFToPDFIntervalSet_init(_cfPDFToPDFIntervalSet *set) // {{{
 {
   set->data = NULL;
   set->size = 0;
   set->capacity = 0;
 }
+// }}}
 
 void 
-_cfPDFToPDFIntervalSet_clear(_cfPDFToPDFIntervalSet *set)
+_cfPDFToPDFIntervalSet_clear(_cfPDFToPDFIntervalSet *set) // {{{
 {
   free(set->data);
   set->data = NULL;
   set->size = 0;
   set->capacity = 0;
 }
+// }}}
 
 void 
-_cfPDFToPDFIntervalSet_add(_cfPDFToPDFIntervalSet *set, int start, int end)
+_cfPDFToPDFIntervalSet_add(_cfPDFToPDFIntervalSet *set, int start, int end) // {{{
 {
   if (start >= end) 
     return;
-  
 
   if (set->size == set->capacity) 
   {
@@ -47,10 +50,11 @@ _cfPDFToPDFIntervalSet_add(_cfPDFToPDFIntervalSet *set, int start, int end)
   set->data[set->size].end = end;
   set->size++;
 }
+// }}}
 
 void 
 _cfPDFToPDFIntervalSet_add_single(_cfPDFToPDFIntervalSet *set, 
-				  int start) 
+				  int start) // {{{
 {
    key_t end = _cfPDFToPDFIntervalSet_npos;
 
@@ -69,9 +73,10 @@ _cfPDFToPDFIntervalSet_add_single(_cfPDFToPDFIntervalSet *set,
   set->data[set->size].end = end;
   set->size++;
 }
+// }}}
 
 static int 
-compare_intervals(const void *a, const void *b)
+compare_intervals(const void *a, const void *b) // {{{
 {
   interval_t *ia = (interval_t *)a;
   interval_t *ib = (interval_t *)b;
@@ -79,9 +84,10 @@ compare_intervals(const void *a, const void *b)
     return ia->start - ib->start;
   return ia->end - ib->end;
 }
+// }}}
 
 void 
-_cfPDFToPDFIntervalSet_finish(_cfPDFToPDFIntervalSet *set)
+_cfPDFToPDFIntervalSet_finish(_cfPDFToPDFIntervalSet *set) // {{{
 {
   if (set->size == 0) 
     return;
@@ -106,16 +112,18 @@ _cfPDFToPDFIntervalSet_finish(_cfPDFToPDFIntervalSet *set)
   }
   set->size = new_size + 1;
 }
+// }}}}
 
 size_t 
-_cfPDFToPDFIntervalSet_size(const _cfPDFToPDFIntervalSet *set)
+_cfPDFToPDFIntervalSet_size(const _cfPDFToPDFIntervalSet *set) // {{{
 {
   return set->size;
 }
+// }}}
 
 bool 
 _cfPDFToPDFIntervalSet_contains(const _cfPDFToPDFIntervalSet *set, 
-				int val)
+				int val) // {{{
 {
   for (size_t i = 0; i < set->size; i++) 
   {
@@ -126,10 +134,11 @@ _cfPDFToPDFIntervalSet_contains(const _cfPDFToPDFIntervalSet *set,
   }
   return false;
 }
+// }}}
 
 int 
 _cfPDFToPDFIntervalSet_next(const _cfPDFToPDFIntervalSet *set, 
-			    int val)
+			    int val) // {{{
 {
   val++;
   for (size_t i = 0; i < set->size; i++) 
@@ -148,10 +157,11 @@ _cfPDFToPDFIntervalSet_next(const _cfPDFToPDFIntervalSet *set,
   }
   return _cfPDFToPDFIntervalSet_npos;
 }
+// }}}
 
 void 
 _cfPDFToPDFIntervalSet_dump(const _cfPDFToPDFIntervalSet *set, 
-			    pdftopdf_doc_t *doc)
+			    pdftopdf_doc_t *doc) // {{{
 {
   if (set->size == 0) 
   {
@@ -167,4 +177,4 @@ _cfPDFToPDFIntervalSet_dump(const _cfPDFToPDFIntervalSet *set,
                                    set->data[i].start, set->data[i].end);
   }
 }
-
+// }}}

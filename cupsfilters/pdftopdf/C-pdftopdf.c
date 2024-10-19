@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Copyright (c) 6-2011, BBR Inc.  All rights reserved.
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -904,9 +906,9 @@ cfFilterPDFToPDF(int inputfd,
     }
 
     if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-		 "cfFilterPDFToPDF: Processing PDF input with QPDF: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
+		 "cfFilterPDFToPDF: Processing PDF input with PDFio: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
 
-    // Load the PDF input data into QPDF
+    // Load the PDF input data into PDFio
     if (!_cfPDFToPDF_PDFioProcessor_load_file(&proc, inputfp, &doc, CF_PDFTOPDF_WILL_STAY_ALIVE, 1))
     {
       fclose(inputfp);

@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -19,7 +21,7 @@
 
 //map definition
 unsigned int 
-hash(const char *key) 
+hash(const char *key) // {{{
 {
   unsigned int hash = 0;
   while (*key) {
@@ -27,10 +29,11 @@ hash(const char *key)
   }
   return hash % HASH_TABLE_SIZE;
 }
+// }}}
 
 // Initialize a new hash table
 HashTable*
-hashCreate_hash_table() 
+hashCreate_hash_table()  // {{{
 {
   HashTable *table = malloc(sizeof(HashTable));
   for (int i = 0; i < HASH_TABLE_SIZE; i++) 
@@ -40,10 +43,11 @@ hashCreate_hash_table()
   table->count = 0;  // Initialize the count of filled elements
   return table;
 }
+// }}}
 
 // Create a new key-value pair
 KeyValuePair*
-create_key_value_pair(const char *key, pdfio_obj_t *value) 
+create_key_value_pair(const char *key, pdfio_obj_t *value) // {{{
 {
   KeyValuePair *new_pair = malloc(sizeof(KeyValuePair));
   new_pair->key = strdup(key);  // Duplicate the key string
@@ -51,10 +55,11 @@ create_key_value_pair(const char *key, pdfio_obj_t *value)
   new_pair->next = NULL;
   return new_pair;
 }
+// }}}
 
 // Insert a key-value pair into the hash table
 void 
-hashInsert(HashTable *table, const char *key, pdfio_obj_t *value) 
+hashInsert(HashTable *table, const char *key, pdfio_obj_t *value) // {{{
 {
   unsigned int index = hash(key);
   KeyValuePair *new_pair = create_key_value_pair(key, value);
@@ -75,10 +80,11 @@ hashInsert(HashTable *table, const char *key, pdfio_obj_t *value)
   }
   table->count++;  // Increment the count of filled elements
 }
+// }}}
 
 // Retrieve a value by key from the hash table
 pdfio_obj_t*
-hashGet(HashTable *table, const char *key) 
+hashGet(HashTable *table, const char *key) // {{{
 {
   unsigned int index = hash(key);
   KeyValuePair *current = table->buckets[index];
@@ -91,17 +97,19 @@ hashGet(HashTable *table, const char *key)
   }
   return NULL;  // Key not found
 }
+// }}}
 
 // Get the number of elements currently filled in the hash table
 int 
-hashGet_filled_count(HashTable *table) 
+hashGet_filled_count(HashTable *table) // {{{
 {
   return table->count;
 }
+// }}}
 
 // Free the hash table
 void 
-hashFree_hash_table(HashTable *table) 
+hashFree_hash_table(HashTable *table) // {{{
 {
   for (int i = 0; i < HASH_TABLE_SIZE; i++) 
   {
@@ -116,6 +124,7 @@ hashFree_hash_table(HashTable *table)
   }
   free(table);
 }
+// }}}
 
 // main code starts
 

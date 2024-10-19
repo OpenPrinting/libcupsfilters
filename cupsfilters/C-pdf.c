@@ -1,3 +1,14 @@
+//
+// Copyright 2012 Canonical Ltd.
+// Copyright 2013 ALT Linux, Andrew V. Stepanov <stanv@altlinux.com>
+// Copyright 2018 Sahil Arora <sahilarora.535@gmail.com>
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,11 +16,12 @@
 
 #include <pdfio.h>
 #include <pdfio-content.h>
+
 //
-// 'make_real_box()' - Return a QPDF array object of real values for a box.
+// 'make_real_box()' - Return a PDFio rect object of real values for a box.
 //
 
-static pdfio_rect_t         // O - QPDFObjectHandle for an array
+static pdfio_rect_t         // O - PDFioObjectHandle for a rect
 make_real_box(float values[4])  // I - Dimensions of the box in a float array
 {
   pdfio_rect_t rect;
@@ -195,7 +207,7 @@ cfPDFAddType1Font(cf_pdf_t *pdf,
 }
 
 //
-// 'dict_lookup_rect()' - Lookup for an array of rectangle dimensions in a QPDF
+// 'dict_lookup_rect()' - Lookup for an array of rectangle dimensions in a PDFio
 //                        dictionary object. If it is found, store the values in
 //                        an array and return true, else return false.
 //
@@ -353,7 +365,7 @@ lookup_opt(cf_opt_t *opt,
 //
 
 int cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt) {
-    // PDFio does not directly support form filling.
+    // TODO: PDFio does not directly support form filling.
     return 0;
 }
 

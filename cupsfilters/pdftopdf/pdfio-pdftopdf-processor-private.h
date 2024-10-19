@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -29,7 +31,7 @@ void hashFree_hash_table(HashTable *table);
 typedef struct _cfPDFToPDF_PDFioProcessor{
 
     // 1st mode: existing
-    pdfio_obj_t *page;      // Equivalent to QPDFObjectHandle
+    pdfio_obj_t *page;      // Equivalent to PDFioObjectHandle
     int no;
 
     // 2nd mode: create new
@@ -49,7 +51,7 @@ typedef struct _cfPDFToPDF_PDFioProcessor{
     char *extraheader;
 } _cfPDFToPDF_PDFioProcessor;
 */
-//_cfPDFToPDFQPDFPageHandle functions
+//_cfPDFToPDFPDFioPageHandle functions
 
 void _cfPDFToPDF_PDFioProcessor_existingMode(_cfPDFToPDF_PDFioProcessor *handle,
 					     pdfio_file_t *pdf, 
@@ -106,7 +108,7 @@ void _cfPDFToPDF_PDFioProcessor_add_label(_cfPDFToPDF_PDFioProcessor *handle,
 					  const char *label);
 
 
-//_cfPDFToPDFQPDFProcessor functions
+//_cfPDFToPDFPDFioProcessor functions
 void _cfPDFToPDF_PDFioProcessor_close_file(_cfPDFToPDF_PDFioProcessor *processor);
 
 bool _cfPDFToPDF_PDFioProcessor_load_file(_cfPDFToPDF_PDFioProcessor *processor,

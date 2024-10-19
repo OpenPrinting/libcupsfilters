@@ -2,6 +2,7 @@
 // PCLm/Raster-only PDF to Raster filter function for libcupsfilters.
 //
 // Copyright © 2020 by Vikrant Malik
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
@@ -833,7 +834,7 @@ process_image(pdfio_dict_t *dict, const char *key, pclmtoraster_data_t *data, in
 
 static int				// O - Exit status
 out_page(cups_raster_t*	 raster, 	// I - Raster stream
-	 pdfio_obj_t* 	 page,		// I - QPDF Page Object
+	 pdfio_obj_t* 	 page,		// I - PDFio Page Object
 	 int		 pgno,		// I - Page number
 	 cf_logfunc_t    log,		// I - Log function
 	 void*		 ld,		// I - Aux. data for log function

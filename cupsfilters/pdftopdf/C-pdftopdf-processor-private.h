@@ -1,6 +1,12 @@
+//
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
 #ifndef C_PDFTOPDF_PROCESSOR_PRIVATE_H
 #define C_PDFTOPDF_PROCESSOR_PRIVATE_H
-
 
 #include "C-pptypes-private.h"
 #include "C-nup-private.h"

@@ -1,3 +1,10 @@
+//
+//Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+
 #include "C-pptypes-private.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,7 +12,7 @@
 
 void 
 _cfPDFToPDFPositionDump(pdftopdf_position_e pos, 
-			pdftopdf_doc_t *doc)
+			pdftopdf_doc_t *doc) // {{{
 {
   static const char *pstr[3] = {"Left/Bottom", "Center", "Right/Top"};
   if ((pos < LEFT) || (pos > RIGHT))
@@ -19,14 +26,13 @@ _cfPDFToPDFPositionDump(pdftopdf_position_e pos,
                        	           "cfFilterPDFToPDF: %s", pstr[pos+1]);
   }
 }
+// }}}
 
 void 
 _cfPDFToPDFPositionAndAxisDump(pdftopdf_position_e pos, 
 			       pdftopdf_axis_e axis,
-			       pdftopdf_doc_t *doc)
+			       pdftopdf_doc_t *doc) // {{{
 {
-  DEBUG_assert((axis == X) || (axis == Y));
-
   if ((pos < LEFT) || (pos > RIGHT)) 
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
@@ -50,10 +56,11 @@ _cfPDFToPDFPositionAndAxisDump(pdftopdf_position_e pos,
   
   }
 }
+// }}}
 
 void 
 _cfPDFToPDFRotationDump(pdftopdf_rotation_e rot, 
-			pdftopdf_doc_t *doc)
+			pdftopdf_doc_t *doc) // {{{
 {
   static const char *rstr[4] = {"0 deg", "90 deg", "180 deg", "270 deg"}; // CCW
 
@@ -69,30 +76,34 @@ _cfPDFToPDFRotationDump(pdftopdf_rotation_e rot,
                                    "cfFilterPDFToPDF: Rotation(CCW): %s", rstr[rot]);
   }
 }
+// }}}
 
 pdftopdf_rotation_e 
 pdftopdf_rotation_add(pdftopdf_rotation_e lhs, 
-	              pdftopdf_rotation_e rhs)
+	              pdftopdf_rotation_e rhs) // {{{
 {
   return (pdftopdf_rotation_e)(((int)lhs + (int)rhs) % 4);
 }
+// }}}
 
 pdftopdf_rotation_e 
 pdftopdf_rotation_sub(pdftopdf_rotation_e lhs, 
-		      pdftopdf_rotation_e rhs) 
+		      pdftopdf_rotation_e rhs) // {{{
 {
   return (pdftopdf_rotation_e)((((int)lhs - (int)rhs) % 4 + 4) % 4);
 }
+// }}}
 
 pdftopdf_rotation_e 
-pdftopdf_rotation_neg(pdftopdf_rotation_e rhs) 
+pdftopdf_rotation_neg(pdftopdf_rotation_e rhs) // {{{
 {
     return (pdftopdf_rotation_e)((4 - (int)rhs) % 4);
 }
+// }}}
 
 void 
 _cfPDFToPDFBorderTypeDump(pdftopdf_border_type_e border, 
-			  pdftopdf_doc_t *doc) 
+			  pdftopdf_doc_t *doc) // {{{
 {
   if ((border < NONE) || (border == 1) || (border > TWO_THICK)) 
   {
@@ -108,9 +119,10 @@ _cfPDFToPDFBorderTypeDump(pdftopdf_border_type_e border,
                                    "cfFilterPDFToPDF: Border: %s", bstr[border]);
   }
 }
+// }}}
 
 void 
-_cfPDFToPDFPageRect_init(_cfPDFToPDFPageRect *rect) 
+_cfPDFToPDFPageRect_init(_cfPDFToPDFPageRect *rect) // {{{
 {
   rect->top = NAN;
   rect->left = NAN;
@@ -119,19 +131,21 @@ _cfPDFToPDFPageRect_init(_cfPDFToPDFPageRect *rect)
   rect->width = NAN;
   rect->height = NAN;
 }
+// {{{
 
 void 
-swap_float(float *a, float *b) 
+swap_float(float *a, float *b) // {{{
 {
   float temp = *a;
   *a = *b;
   *b = temp;
 }
+// }}}
 
 void 
 _cfPDFToPDFPageRect_rotate_move(_cfPDFToPDFPageRect *rect,
 	      		        pdftopdf_rotation_e r, 
-				float pwidth, float pheight)
+				float pwidth, float pheight) // {{{
 {
   #if 1
   if (r >= ROT_180) 
@@ -202,15 +216,14 @@ _cfPDFToPDFPageRect_rotate_move(_cfPDFToPDFPageRect *rect,
   }
   #endif
 }
+// }}}
 
 void 
 _cfPDFToPDFPageRect_scale(_cfPDFToPDFPageRect *rect, 
-			  float mult) 
+			  float mult) // {{{
 {
   if (mult == 1.0)
     return;
-
-  DEBUG_assert(mult != 0.0);
 
   rect->bottom *= mult;
   rect->left *= mult;
@@ -220,21 +233,23 @@ _cfPDFToPDFPageRect_scale(_cfPDFToPDFPageRect *rect,
   rect->width *= mult;
   rect->height *= mult;
 }
+// }}}
 
 void 
 _cfPDFToPDFPageRect_translate(_cfPDFToPDFPageRect *rect, 
 			      float tx, 
-			      float ty) 
+			      float ty) // {{{
 {
   rect->left += tx;
   rect->bottom += ty;
   rect->right += tx;
   rect->top += ty;
 }
+// }}}
 
 void 
 _cfPDFToPDFPageRect_set(_cfPDFToPDFPageRect *rect, 
-			const _cfPDFToPDFPageRect *rhs) 
+			const _cfPDFToPDFPageRect *rhs) // {{{
 {
   if (!isnan(rhs->top))
     rect->top = rhs->top;
@@ -248,10 +263,11 @@ _cfPDFToPDFPageRect_set(_cfPDFToPDFPageRect *rect,
   if (!isnan(rhs->bottom))
     rect->bottom = rhs->bottom;
 }
+// }}}
 
 void 
 _cfPDFToPDFPageRect_dump(const _cfPDFToPDFPageRect *rect, 
-			 pdftopdf_doc_t *doc) 
+			 pdftopdf_doc_t *doc) // {{{
 {
   if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
             "cfFilterPDFToPDF: top: %f, left: %f, right: %f, bottom: %f, "
@@ -260,4 +276,4 @@ _cfPDFToPDFPageRect_dump(const _cfPDFToPDFPageRect *rect,
             rect->width, rect->height);
     
 }
-
+// }}}
