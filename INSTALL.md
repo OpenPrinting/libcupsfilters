@@ -1,10 +1,10 @@
 
-# libcupsfilters v2.1b1 Installation Guide
+# libcupsfilters v2.1.0 Installation Guide
 
 
 ## Overview
 
-This guide provides step-by-step instructions for compiling and installing the OpenPrinting libcupsfilters version 2.0.0 from source code. For detailed information about libcupsfilters, refer to "README.md", and for a complete change log, see "CHANGES.md".
+This guide provides step-by-step instructions for compiling and installing OpenPrinting libcupsfilters from source code. For detailed information about libcupsfilters, refer to "README.md", and for a complete change log, see "CHANGES.md".
 
 ### Important Note
 For non-PDF printers (excluding Mac OS X users), you must install Ghostscript with specific drivers ("cups", "pwgraster", "appleraster", "urf", "pclm", "pclm8", "pdfwrite", "pdfimage24", "pdfimage32", "pdfimage8") after installing CUPS and before installing libcupsfilters.
