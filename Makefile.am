@@ -202,7 +202,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdftoraster.cxx \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
-	cupsfilters/pwgtopdf.cxx \
+	cupsfilters/C-pwgtopdf.c \
 	cupsfilters/pwgtoraster.c \
 	cupsfilters/raster.c \
 	cupsfilters/rastertopwg.c \
