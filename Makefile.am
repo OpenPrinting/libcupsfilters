@@ -86,7 +86,7 @@ pkgfiltersinclude_DATA = \
 	cupsfilters/image.h \
 	cupsfilters/ipp.h \
 	cupsfilters/log.h \
-	cupsfilters/C-pdf.h \
+	cupsfilters/pdf.h \
 	cupsfilters/raster.h
 
 lib_LTLIBRARIES = libcupsfilters.la
@@ -178,19 +178,19 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
-	cupsfilters/C-pclmtoraster.c \
-	cupsfilters/C-pdf.c \
-	cupsfilters/pdftopdf/C-pdftopdf.c \
-	cupsfilters/pdftopdf/C-pdftopdf-private.h \
-	cupsfilters/pdftopdf/C-pdftopdf-processor.c \
+	cupsfilters/pclmtoraster.c \
+	cupsfilters/pdf.c \
+	cupsfilters/pdftopdf/pdftopdf.c \
+	cupsfilters/pdftopdf/pdftopdf-private.h \
+	cupsfilters/pdftopdf/pdftopdf-processor.c \
 	cupsfilters/pdftopdf/pdfio-pdftopdf-processor.c \
 	cupsfilters/pdftopdf/processor.h \
-	cupsfilters/pdftopdf/C-pptypes.c \
-        cupsfilters/pdftopdf/C-pptypes-private.h \
-	cupsfilters/pdftopdf/C-nup.c \
-        cupsfilters/pdftopdf/C-nup-private.h \
-        cupsfilters/pdftopdf/C-intervalset.c \
-        cupsfilters/pdftopdf/C-intervalset-private.h \
+	cupsfilters/pdftopdf/pptypes.c \
+        cupsfilters/pdftopdf/pptypes-private.h \
+	cupsfilters/pdftopdf/nup.c \
+        cupsfilters/pdftopdf/nup-private.h \
+        cupsfilters/pdftopdf/intervalset.c \
+        cupsfilters/pdftopdf/intervalset-private.h \
 	cupsfilters/pdftopdf/pdfio-tools.c \
 	cupsfilters/pdftopdf/pdfio-tools-private.h \
 	cupsfilters/pdftopdf/pdfio-xobject.c \
@@ -202,7 +202,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdftoraster.cxx \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
-	cupsfilters/C-pwgtopdf.c \
+	cupsfilters/pwgtopdf.c \
 	cupsfilters/pwgtoraster.c \
 	cupsfilters/raster.c \
 	cupsfilters/rastertopwg.c \
