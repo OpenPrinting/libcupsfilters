@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pdf.h"
+#include "C-pdf.h"
 
 #include <pdfio.h>
 #include <pdfio-content.h>
