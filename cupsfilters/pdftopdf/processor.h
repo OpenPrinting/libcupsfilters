@@ -8,12 +8,12 @@
 #ifndef C_PDFTOPDF_PROCESSOR_PRIVATE_H
 #define C_PDFTOPDF_PROCESSOR_PRIVATE_H
 
-#include "C-pptypes-private.h"
+#include "pptypes-private.h"
 #include "pdfio.h"
-#include "C-pptypes-private.h"
-#include "C-nup-private.h"
-#include "C-pdftopdf-private.h"
-#include "C-intervalset-private.h"
+#include "pptypes-private.h"
+#include "nup-private.h"
+#include "pdftopdf-private.h"
+#include "intervalset-private.h"
 #include <stdio.h>
 #include <stdbool.h>
 #define HASH_TABLE_SIZE 2048 

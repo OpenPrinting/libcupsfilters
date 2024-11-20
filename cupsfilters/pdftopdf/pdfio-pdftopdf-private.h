@@ -5,7 +5,7 @@
 // information.
 //
 
-#include "C-pptypes-private.h"
+#include "pptypes-private.h"
 #include <math.h>
 #include <string.h>
 #include <pdfio.h>

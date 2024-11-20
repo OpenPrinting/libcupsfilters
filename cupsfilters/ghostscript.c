@@ -25,7 +25,7 @@
 #include <cupsfilters/raster.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/filter.h>
-#include <cupsfilters/C-pdf.h>
+#include <cupsfilters/pdf.h>
 #include <cupsfilters/libcups2-private.h>
 #include <sys/types.h>
 #include <sys/wait.h>
