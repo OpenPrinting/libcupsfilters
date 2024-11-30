@@ -292,7 +292,6 @@ AS_IF([test x"$lcms2" = "xno"], [
 ])
 PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.3.0])
-PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
 
 # =================
 # Check for Poppler
