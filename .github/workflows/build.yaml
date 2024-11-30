@@ -37,24 +37,6 @@ jobs:
         sudo make install
         cd ..
         cd ..
-    - name: Install libqpdf > 11.0.0
-      run: |
-        cd ..
-        mkdir qpdf
-        wget -O qpdf-11.6.3.tar.gz https://sourceforge.net/projects/qpdf/files/qpdf/11.6.3/qpdf-11.6.3.tar.gz
-        tar -xzf qpdf-11.6.3.tar.gz
-        cd qpdf-11.6.3
-        mkdir build &&
-        cd build &&
-        cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_STATIC_LIBS=OFF \
-        -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/qpdf-11.6.3 \
-        .. &&
-        make
-        sudo make install
-        cd ..
-        cd ..
     - name: Install poppler and mupdf
       run: |
        sudo apt install libpoppler-cpp-dev libpython3-dev libdbus-1-dev
