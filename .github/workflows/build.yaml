@@ -24,21 +24,16 @@ jobs:
        sudo apt-get install -y avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev
        sudo apt install autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev
        sudo apt install libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev libopenjp2-7-dev liblcms2-dev libjpeg-dev
-    - name: Install libqpdf > 11.0.0
+    - name: Install pdfio >= 1.3.0
       run: |
         cd ..
-        mkdir qpdf
-        wget -O qpdf-11.6.3.tar.gz https://sourceforge.net/projects/qpdf/files/qpdf/11.6.3/qpdf-11.6.3.tar.gz
-        tar -xzf qpdf-11.6.3.tar.gz
-        cd qpdf-11.6.3
-        mkdir build &&
-        cd build &&
-        cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_STATIC_LIBS=OFF \
-        -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/qpdf-11.6.3 \
-        .. &&
-        make
+        mkdir pdfio
+        wget https://github.com/michaelrsweet/pdfio/releases/download/v1.3.1/pdfio-1.3.1.tar.gz
+        tar -xzf pdfio-1.3.1.tar.gz
+        cd pdfio-1.3.1
+        ./configure --prefix=/usr --enable-shared
+        make all
+        make test
         sudo make install
         cd ..
         cd ..

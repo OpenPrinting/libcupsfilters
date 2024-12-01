@@ -1,4 +1,6 @@
 //
+//Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com>
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -7,102 +9,47 @@
 #define _CUPS_FILTERS_PDFTOPDF_NUP_H_
 
 #include "pptypes-private.h"
-#include <utility>
+#include <stdbool.h>
 
-// you have to provide this
-struct _cfPDFToPDFNupParameters
+typedef struct _cfPDFToPDFNupParameters
 {
-  _cfPDFToPDFNupParameters() 
-    : nupX(1), nupY(1),
-      width(NAN), height(NAN),
-      landscape(false),
-      first(X),
-      xstart(LEFT), ystart(TOP),
-      xalign(CENTER), yalign(CENTER)
-  {}
-
-  // --- "calculated" parameters ---
   int nupX, nupY;
   float width, height;
-  bool landscape; // post-rotate!
+  bool landscape;
 
-  // --- other settings ---
-  // ordering
   pdftopdf_axis_e first;
   pdftopdf_position_e xstart, ystart;
-
   pdftopdf_position_e xalign, yalign;
+} _cfPDFToPDFNupParameters;
 
-  static bool possible(int nup); // TODO?  float in_ratio, float out_ratio
-  static void preset(int nup, _cfPDFToPDFNupParameters &ret);
-  static float calculate(int nup, float in_ratio, float out_ratio,
-			 _cfPDFToPDFNupParameters &ret); // returns "quality",
-                                                         // 1 is best
+void _cfPDFToPDFNupParameters_init(_cfPDFToPDFNupParameters *nupParams);
+bool _cfPDFToPDFNupParameters_possible(int nup);
+void _cfPDFToPDFNupParameters_preset(int nup, _cfPDFToPDFNupParameters *ret);
+void _cfPDFToPDFNupParameters_dump(const _cfPDFToPDFNupParameters *nupParams, pdftopdf_doc_t *doc);
 
-  void dump(pdftopdf_doc_t *doc) const;
-};
-
-// you get this
-struct _cfPDFToPDFNupPageEdit
+typedef struct _cfPDFToPDFNupPageEdit
 {
-  // required transformation: first translate, then scale
-  float xpos, ypos;  // TODO:  already given by sub.left, sub.bottom
-                     // [but for rotation?]
-  float scale;       // uniform
+    float xpos, ypos;
+    float scale;
 
-  // ? "landscape"  e.g. to rotate labels
+    _cfPDFToPDFPageRect sub;
+} _cfPDFToPDFNupPageEdit;
 
-  // for border, clip, ...
-  // also stores in_width/in_height, unscaled!
-  // everything in "outer"-page coordinates
-  _cfPDFToPDFPageRect sub;
+void _cfPDFToPDFNupPageEdit_dump(const _cfPDFToPDFNupPageEdit *edit, pdftopdf_doc_t *doc);
 
-  void dump(pdftopdf_doc_t *doc) const;
-};
-
-//
-//  This class does the number-up calculation. Example:
-//
-//  _cfPDFToPDFNupParameters param;
-//  param.xyz = ...; // fill it with your data!
-//
-//  _cfPDFToPDFNupState nup(param);
-//  _cfPDFToPDFNupPageEdit edit;
-//  for (auto page : your_pages)
-//  {
-//    bool newPage = nup.mext_page(page.w, page.h, edit); // w, h from input
-//                                                        // page
-//    // create newPage, if required; then place current page as specified
-//    // in edit
-//  }
-//
-
-class _cfPDFToPDFNupState
+typedef struct _cfPDFToPDFNupState
 {
-public:
-  _cfPDFToPDFNupState(const _cfPDFToPDFNupParameters &param);
+    _cfPDFToPDFNupParameters param;
+    int in_pages, out_pages;
+    int nup;
+    int subpage;
+} _cfPDFToPDFNupState;
 
-  void reset();
+void _cfPDFToPDFNupState_init(_cfPDFToPDFNupState *state, const _cfPDFToPDFNupParameters *param);
+void _cfPDFToPDFNupState_reset(_cfPDFToPDFNupState *state);
+bool _cfPDFToPDFNupState_next_page(_cfPDFToPDFNupState *state, float in_width, float in_height, _cfPDFToPDFNupPageEdit *ret);
 
-  // will overwrite ret with the new parameters
-  // returns true, if a new output page should be started first
-  bool mext_page(float in_width, float in_height, _cfPDFToPDFNupPageEdit &ret);
-
-private:
-  std::pair<int, int> convert_order(int subpage) const;
-  void calculate_edit(int subx, int suby, _cfPDFToPDFNupPageEdit &ret) const;
-
-private:
-  _cfPDFToPDFNupParameters param;
-
-  int in_pages, out_pages;
-  int nup; // max. per page (== nupX * nupY)
-  int subpage; // on the current output-page
-};
-
-// TODO? elsewhere
-// parsing functions for cups parameters (will not calculate nupX, nupY!)
-bool _cfPDFToPDFParseNupLayout(const char *val, _cfPDFToPDFNupParameters &ret);
-                                                          // lrtb, btlr, ...
+bool _cfPDFToPDFParseNupLayout(const char *val, _cfPDFToPDFNupParameters *ret);
 
 #endif // !_CUPS_FILTERS_PDFTOPDF_NUP_H_
+
