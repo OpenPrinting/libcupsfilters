@@ -374,10 +374,22 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
   else if (size_name_buf[0])
     _strlcpy(h->cupsPageSizeName, size_name_buf, sizeof(h->cupsPageSizeName));
 
-  cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
-			       &(margins[0]), &(margins[1]),
-			       &(margins[2]), &(margins[3]),
-			       log, ld);
+  if (data->printer_attrs != NULL ||
+      data->job_attrs != NULL ||
+      final_outformat != CF_FILTER_OUT_FORMAT_PDF ||
+      data->content_type == NULL ||
+      strcmp(data->content_type, "application/postscript"))
+  {
+    cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
+				 &(margins[0]), &(margins[1]),
+				 &(margins[2]), &(margins[3]),
+				 log, ld);
+  }
+  else
+  {
+    log(ld, CF_LOGLEVEL_DEBUG,
+	"Postscript to PDF and no attributes: not setting page size.");
+  }
 
   if (!cupsrasterheader)
     memset(margins, 0, sizeof(margins)); 
