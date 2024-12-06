@@ -217,7 +217,6 @@ libcupsfilters_la_LIBADD = \
 	$(CUPS_LIBS) \
 	$(LCMS_LIBS) \
 	$(LIBPDFIO_LIBS) \
-	$(LIBQPDF_LIBS) \
 	$(LIBJPEG_LIBS) \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
@@ -232,7 +231,7 @@ libcupsfilters_la_CFLAGS = \
 	$(FONTCONFIG_CFLAGS) \
 	$(CUPS_CFLAGS) \
 	$(LCMS_CFLAGS) \
-	$(LIBQPDF_CFLAGS) \
+	$(LIBPDFIO_CFLAGS) \
 	$(LIBJPEG_CFLAGS) \
 	$(EXIF_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
@@ -320,11 +319,10 @@ test_ps_LDADD = libcupsfilters.la
 testfilters_SOURCES = \
 	cupsfilters/testfilters.c \
 	$(pkgfiltersinclude_DATA)
-
 testfilters_LDADD = \
 	libcupsfilters.la \
-	-lm -ldl -lcups
-
+	$(CUPS_LIBS) \
+	-lm -ldl
 testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib
