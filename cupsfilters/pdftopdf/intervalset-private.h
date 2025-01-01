@@ -1,4 +1,6 @@
 //
+// Copyright 2024 Uddhav Phatak <uddhavabhijeet@gmail.com
+//
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
@@ -8,34 +10,35 @@
 
 #include "pdftopdf-private.h"
 #include <stddef.h>
-#include <vector>
+#include <stdbool.h>
 
-class _cfPDFToPDFIntervalSet
+typedef struct
 {
-  typedef int key_t; // TODO?! template <typename T>
-  typedef std::pair<key_t, key_t> value_t;
-  typedef std::vector<value_t> data_t;
- public:
-  static const key_t npos;
+  int start;
+  int end;
+} interval_t;
 
-  void clear();
-  // [start; end) !
-  void add(key_t start, key_t end = npos);
-  void finish();
+typedef struct
+{
+  interval_t *data;
+  size_t size;
+  size_t capacity;
+} _cfPDFToPDFIntervalSet;
 
-  size_t size() const { return data.size(); }
+extern const int _cfPDFToPDFIntervalSet_npos;
 
-  // only after finish() has been called:
-  bool contains(key_t val) const;
-  key_t next(key_t val) const;
+void _cfPDFToPDFIntervalSet_init(_cfPDFToPDFIntervalSet *set);
+void _cfPDFToPDFIntervalSet_clear(_cfPDFToPDFIntervalSet *set);
+void _cfPDFToPDFIntervalSet_add(_cfPDFToPDFIntervalSet *set, int start, int end);
+void _cfPDFToPDFIntervalSet_add_single(_cfPDFToPDFIntervalSet *set, int start);
+void _cfPDFToPDFIntervalSet_finish(_cfPDFToPDFIntervalSet *set);
 
-  void dump(pdftopdf_doc_t *doc) const;
- private:
-  // currently not used
-  bool intersect(const value_t &a, const value_t &b) const;
-  void unite(value_t &aret, const value_t &b) const;
- private:
-  data_t data;
-};
+size_t _cfPDFToPDFIntervalSet_size(const _cfPDFToPDFIntervalSet *set);
+
+bool _cfPDFToPDFIntervalSet_contains(const _cfPDFToPDFIntervalSet *set, int val);
+int _cfPDFToPDFIntervalSet_next(const _cfPDFToPDFIntervalSet *set, int val);
+
+void _cfPDFToPDFIntervalSet_dump(const _cfPDFToPDFIntervalSet *set, pdftopdf_doc_t *doc);
 
 #endif // !_CUPS_FILTERS_PDFTOPDF_INTERVALSET_H_
+

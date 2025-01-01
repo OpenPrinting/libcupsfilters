@@ -5,6 +5,7 @@
 // Copyright 2012 by Tobias Hoffmann
 // Copyright 2014-2022 by Till Kamppeter
 // Copyright 2017 by Sahil Arora
+// Copyright 2024 by Uddhav Phatak <uddhavabhijeet@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
@@ -21,7 +22,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits>
 #include <signal.h>
 #include <cups/cups.h>
 #include <cups/raster.h>
@@ -30,18 +30,13 @@
 #include <cupsfilters/image.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/libcups2-private.h>
+#include <limits.h>
 
 #include <arpa/inet.h>   // ntohl
 
-#include <vector>
-#include <qpdf/QPDF.hh>
-#include <qpdf/QPDFWriter.hh>
-#include <qpdf/QUtil.hh>
-
-#include <qpdf/Pl_Flate.hh>
-#include <qpdf/Pl_Buffer.hh>
-#include <qpdf/Pl_RunLength.hh>
-#include <qpdf/Pl_DCT.hh>
+#include <pdfio.h>
+#include <pdfio-content.h>
+#include <zlib.h>
 
 #ifdef USE_LCMS1
 #include <lcms.h>
@@ -81,7 +76,6 @@
 
 #define PRE_COMPRESS
 
-
 // Compression method for providing data to PCLm Streams.
 typedef enum compression_method_e
 {
@@ -102,9 +96,9 @@ typedef unsigned char *(*bit_convert_function)(unsigned char *src,
 
 typedef struct pwgtopdf_doc_s                  // **** Document information ****
 {
-  cmsHPROFILE          colorProfile = NULL;    // ICC Profile to be applied to
+  cmsHPROFILE          colorProfile;    // ICC Profile to be applied to
 					       // PDF
-  int                  cm_disabled = 0;        // Flag raised if color
+  int                  cm_disabled;        // Flag raised if color
 					       // management is disabled
   convert_function     conversion_function;    // Raster color conversion
 					       // function
@@ -121,63 +115,174 @@ typedef struct pwgtopdf_doc_s                  // **** Document information ****
 					       // function, can be NULL
 } pwgtopdf_doc_t;
 
-// PDF color conversion function
-typedef void (*pdf_convert_function)(struct pdf_info * info,
-				     pwgtopdf_doc_t *doc);
-
-
-struct pdf_info // **** PDF ****
+struct pdf_info 
 {
-  pdf_info()
-    : pagecount(0),
-      width(0), height(0),
-      line_bytes(0),
-      bpp(0), bpc(0),
-      pclm_num_strips(0),
-      pclm_strip_height_preferred(16),  // default strip height
-      pclm_strip_height(0),
-      pclm_strip_height_supported(1, 16),
-      pclm_compression_method_preferred(0),
-      pclm_source_resolution_supported(0),
-      pclm_source_resolution_default(""),
-      pclm_raster_back_side(""),
-      pclm_strip_data(0),
-      render_intent(""),
-      color_space(CUPS_CSPACE_K),
-      page_width(0), page_height(0),
-      outformat(CF_FILTER_OUT_FORMAT_PDF)
-  {
-  }
-
-  QPDF pdf;
-  QPDFObjectHandle page;
+  // PDFio-specific members
+  pdfio_file_t *pdf;  // PDFio file handle
+  pdfio_obj_t *page; // PDFio page handle
+   
   unsigned pagecount;
   unsigned width;
   unsigned height;
   unsigned line_bytes;
   unsigned bpp;
   unsigned bpc;
-  unsigned                  pclm_num_strips;
-  unsigned                  pclm_strip_height_preferred;
-  std::vector<unsigned>     pclm_strip_height;
-  std::vector<unsigned>     pclm_strip_height_supported;
-  std::vector<compression_method_t> pclm_compression_method_preferred;
-  std::vector<std::string>  pclm_source_resolution_supported;
-  std::string               pclm_source_resolution_default;
-  std::string               pclm_raster_back_side;
-  std::vector< std::shared_ptr<Buffer> > pclm_strip_data;
-  std::string render_intent;
-  cups_cspace_t color_space;
-  std::shared_ptr<Buffer> page_data;
-  double page_width,page_height;
+  unsigned 		pclm_num_strips;
+  unsigned 		pclm_strip_height_preferred;
+  unsigned 		*pclm_strip_height;  // Dynamically allocated array in C
+  unsigned 		*pclm_strip_height_supported;  // Dynamically allocated array 
+  compression_method_t 	*pclm_compression_method_preferred;
+  size_t 		num_compression_methods; 
+  char 			**pclm_source_resolution_supported;  // Array of dynamically allocated strings
+  char 			*pclm_source_resolution_default;     // Pointer to dynamically allocated string
+  char 			*pclm_raster_back_side;              // Pointer to dynamically allocated string
+  unsigned char 	**pclm_strip_data;  // Array of pointers to raw data (buffers)
+  char 			*render_intent;                      // Pointer to dynamically allocated string
+  cups_cspace_t 	color_space;
+  unsigned char 	*page_data;  // Pointer to raw page data
+  double 		page_width, page_height;
   cf_filter_out_format_t outformat;
 };
 
+// PDF color conversion function
+typedef void (*pdf_convert_function)(struct pdf_info *info,
+				     pwgtopdf_doc_t *doc);
+
+
+void 
+init_pdf_info(struct pdf_info *info, 
+	      size_t num_methods, 
+	      size_t num_strips_supported)
+{
+  // Initialize primitive types
+  info->pagecount = 0;
+  info->width = 0;
+  info->height = 0;
+  info->line_bytes = 0;
+  info->bpp = 0;
+  info->bpc = 0;
+  info->pclm_num_strips = 0;
+  info->pclm_strip_height_preferred = 16;  // Default strip height
+  info->page_width = 0;
+  info->page_height = 0;
+  info->outformat = CF_FILTER_OUT_FORMAT_PDF;
+
+  // Allocate memory for pclm_strip_height (for strip height handling)
+  info->pclm_strip_height = (unsigned *)malloc(num_strips_supported * sizeof(unsigned));
+  if (info->pclm_strip_height)
+  {
+    for (size_t i = 0; i < num_strips_supported; ++i)
+    {
+      info->pclm_strip_height[i] = 0;  // Initialize to 0 or a specific value as needed
+    }
+  }
+
+  // Allocate memory for pclm_strip_height_supported
+  info->pclm_strip_height_supported = (unsigned *)malloc(num_strips_supported * sizeof(unsigned));
+  if (info->pclm_strip_height_supported)
+  {
+    for (size_t i = 0; i < num_strips_supported; ++i)
+    {
+      info->pclm_strip_height_supported[i] = 16;  // Initialize to default value
+    }
+  }
+
+  // Allocate memory for multiple compression methods
+  info->num_compression_methods = num_methods;
+  info->pclm_compression_method_preferred = (compression_method_t *)malloc(num_methods * sizeof(compression_method_t));
+  if (info->pclm_compression_method_preferred)
+  {
+    for (size_t i = 0; i < num_methods; ++i)
+    {
+      info->pclm_compression_method_preferred[i] = 0;  // Initialize to default or specific compression method
+    }
+  }
+
+  info->pclm_source_resolution_default = (char *)malloc(64 * sizeof(char));
+  if (info->pclm_source_resolution_default)
+  {
+    strcpy(info->pclm_source_resolution_default, "");  // Initialize to empty string
+  }
+
+  info->pclm_raster_back_side = (char *)malloc(64 * sizeof(char));
+  if (info->pclm_raster_back_side)
+  {
+    strcpy(info->pclm_raster_back_side, "");  // Initialize to empty string
+  }
+
+  info->render_intent = (char *)malloc(64 * sizeof(char));
+  if (info->render_intent)
+  {
+    strcpy(info->render_intent, "");  // Initialize to empty string
+  }
+
+  info->pclm_source_resolution_supported = NULL; 
+  info->pclm_strip_data = NULL;  // Assuming this will be dynamically allocated elsewhere
+
+  info->color_space = CUPS_CSPACE_K;  // Default color space
+  info->page_data = NULL;  // Will be allocated when needed
+
+  info->pdf = NULL;  // Initialize to NULL, will be set when opening a file
+  info->page = NULL;  // Initialize to NULL, will be set when reading a page
+}
+
+// Freeing the dynamically allocated memory
+void free_pdf_info(struct pdf_info *info)
+{
+  if (info->pclm_strip_height)
+  {
+    free(info->pclm_strip_height);
+    info->pclm_strip_height = NULL;
+  }
+
+  if (info->pclm_strip_height_supported)
+  {
+    free(info->pclm_strip_height_supported);
+    info->pclm_strip_height_supported = NULL;
+  }
+
+  if (info->pclm_compression_method_preferred)
+  {
+    free(info->pclm_compression_method_preferred);
+    info->pclm_compression_method_preferred = NULL;
+  }
+
+  // Free dynamically allocated strings
+  if (info->pclm_source_resolution_default)
+  {
+    free(info->pclm_source_resolution_default);
+    info->pclm_source_resolution_default = NULL;
+  }
+
+  if (info->pclm_raster_back_side)
+  {
+    free(info->pclm_raster_back_side);
+    info->pclm_raster_back_side = NULL;
+  }
+
+  if (info->render_intent)
+  {
+    free(info->render_intent);
+    info->render_intent = NULL;
+  }
+
+  // Free any other dynamically allocated memory as necessary
+  if (info->pclm_strip_data)
+  {
+    free(info->pclm_strip_data);  // Assuming this array will be dynamically allocated elsewhere
+    info->pclm_strip_data = NULL;
+  }
+
+  if (info->page_data)
+  {
+    free(info->page_data);
+    info->page_data = NULL;
+  }
+}
 
 //
 // Bit conversion functions
 //
-
 static unsigned char *
 invert_bits(unsigned char *src,
 	    unsigned char *dst,
@@ -192,7 +297,6 @@ invert_bits(unsigned char *src,
   return (dst);
 }	
 
-
 static unsigned char *
 no_bit_conversion(unsigned char *src,
 		  unsigned char *dst,
@@ -200,7 +304,6 @@ no_bit_conversion(unsigned char *src,
 {
   return (src);
 }
-
 
 //
 // Color conversion functions
@@ -274,7 +377,6 @@ no_color_conversion(unsigned char *src,
   return (src);
 }
 
-
 //
 // 'split_strings()' - Split a string to a vector of strings given some
 //                     delimiters
@@ -283,34 +385,67 @@ no_color_conversion(unsigned char *src,
 // I - input string to be split
 // I - string containing delimiters
 //
+// Function to split strings by delimiters
 
-static std::vector<std::string>
-split_strings(std::string const &str,
-	      std::string delimiters = ",")
+char**
+split_strings(const char *str, 
+	      const char *delimiters, 
+	      int *size) 
 {
-  std::vector<std::string> vec(0);
-  std::string value = "";
+  if (delimiters == NULL || strlen(delimiters) == 0) 
+    delimiters = ",";
+    
+
+  int capacity = 10;
+  char **result = malloc(capacity * sizeof(char *));
+
+  char *value = malloc(strlen(str) + 1);
+    
+  int token_count = 0;
+  int index = 0;
   bool push_flag = false;
 
-  for (size_t i = 0; i < str.size(); i ++)
+  for (size_t i = 0; i < strlen(str); i++) 
   {
-    if (push_flag && !(value.empty()))
+    if (strchr(delimiters, str[i]) != NULL) 
+    { 
+      if (push_flag && index > 0) 
+      {
+        value[index] = '\0';
+        result[token_count] = malloc(strlen(value) + 1);
+        strcpy(result[token_count], value);
+        token_count++;
+
+        if (token_count >= capacity) 
+	{
+          capacity *= 2;
+	  result = realloc(result, capacity * sizeof(char *));
+       	}
+      
+	index = 0;
+       	push_flag = false;
+      }
+    } 
+    else 
     {
-      vec.push_back(value);
-      push_flag = false;
-      value.clear();
-    }
-
-    if (delimiters.find(str[i]) != std::string::npos)
+      value[index++] = str[i];
       push_flag = true;
-    else
-      value += str[i];
+    }
   }
-  if (!value.empty())
-    vec.push_back(value);
-  return (vec);
-}
 
+  if (push_flag && index > 0) 
+  {
+    value[index] = '\0';
+    result[token_count] = malloc(strlen(value) + 1);
+    strcpy(result[token_count], value);
+    token_count++;
+  }
+
+  *size = token_count;
+
+  free(value);
+  return result;
+}
 
 //
 // 'num_digits()' - Calculates the number of digits in an integer
@@ -333,7 +468,6 @@ num_digits(int n)
   return (digits);
 }
 
-
 //
 // 'int_to_fwstring()' - Convert a number to fixed width string by padding
 //                       with zeroes
@@ -342,63 +476,53 @@ num_digits(int n)
 // I - width of string required
 //
 
-static std::string
-int_to_fwstring(int n,
-		int width)
+char*
+int_to_fwstring(int n, int width) 
 {
   int num_zeroes = width - num_digits(n);
-  if (num_zeroes < 0)
+  if (num_zeroes < 0) 
     num_zeroes = 0;
-  return (std::string(num_zeroes, '0') + QUtil::int_to_string(n));
+
+  int result_length = num_zeroes + num_digits(n) + 1; 
+  char *result = malloc(result_length * sizeof(char));
+   
+  for (int i = 0; i < num_zeroes; i++) 
+    result[i] = '0';
+
+  sprintf(result + num_zeroes, "%d", n);
+  return result;
 }
 
-
-static int
-create_pdf_file(struct pdf_info * info,
-		const cf_filter_out_format_t &outformat)
+static int 
+create_pdf_file(struct pdf_info *info, 
+		const cf_filter_out_format_t outformat)
 {
-  try
-  {
-    info->pdf.emptyPDF();
-    info->outformat = outformat;
-  }
-  catch (...)
-  {
-    return (1);
-  }
-  return (0);
+  if (!info || !info->pdf) 
+    return 1;  // Error handling
+  
+  pdfio_file_t *temp = pdfioFileCreate(pdfioFileGetName(info->pdf), NULL, NULL, NULL, NULL, NULL);
+
+  info->pdf = temp;  
+  info->outformat = outformat;
+
+  return 0; 
 }
 
-
-static QPDFObjectHandle
+static pdfio_rect_t
 make_real_box(double x1,
 	      double y1,
 	      double x2,
 	      double y2)
 {
-  QPDFObjectHandle ret = QPDFObjectHandle::newArray();
-  ret.appendItem(QPDFObjectHandle::newReal(x1));
-  ret.appendItem(QPDFObjectHandle::newReal(y1));
-  ret.appendItem(QPDFObjectHandle::newReal(x2));
-  ret.appendItem(QPDFObjectHandle::newReal(y2));
+  pdfio_rect_t ret;
+
+  ret.x1 = x1;
+  ret.y1 = y1;
+  ret.x2 = x2;
+  ret.y2 = y2;
+
   return (ret);
 }
-
-
-static QPDFObjectHandle
-make_integer_box(int x1,
-		 int y1,
-		 int x2,
-		 int y2)
-{
-  QPDFObjectHandle ret = QPDFObjectHandle::newArray();
-  ret.appendItem(QPDFObjectHandle::newInteger(x1));
-  ret.appendItem(QPDFObjectHandle::newInteger(y1));
-  ret.appendItem(QPDFObjectHandle::newInteger(x2));
-  ret.appendItem(QPDFObjectHandle::newInteger(y2));
-  return (ret);
-}
-
 
 //
 // PDF color conversion functons...
@@ -424,7 +548,6 @@ modify_pdf_color(struct pdf_info *info,
   info->bpc = bpc;
   doc->conversion_function = fn; 
 }
-
 
 static void
 convert_pdf_no_conversion(struct pdf_info *info,
@@ -497,31 +620,20 @@ convert_pdf_invert_colors(struct pdf_info *info,
   doc->bit_function = invert_bits;
 }
 
-
 //
 // Create an '/ICCBased' array and embed a previously 
 // set ICC Profile in the PDF
 //
-
-static QPDFObjectHandle
-embed_icc_profile(QPDF &pdf,
-		  pwgtopdf_doc_t *doc)
+// TODO: HOW IS THIS cmsHPROFILE CALLED
+pdfio_obj_t *
+embed_icc_profile(pdfio_file_t *pdf, pwgtopdf_doc_t *doc)
 {
-  if (doc->colorProfile == NULL)
-    return (QPDFObjectHandle::newNull());
-
-  // Return handler
-  QPDFObjectHandle ret;
-  // ICCBased array
-  QPDFObjectHandle array = QPDFObjectHandle::newArray();
-  // Profile stream dictionary
-  QPDFObjectHandle iccstream;
-
-  std::map<std::string,QPDFObjectHandle> dict;
-  std::map<std::string,QPDFObjectHandle> streamdict;
-  std::string n_value = "";
-  std::string alternate_cs = "";
-  std::shared_ptr<Buffer>ph;
+  pdfio_dict_t *streamdict;
+  pdfio_obj_t *icc_stream;
+  char *n_value = NULL;
+  char *alternate_cs = NULL;
+  unsigned char *buff;
+  cmsColorSpaceSignature css;
 
 #ifdef USE_LCMS1
   size_t profile_size;
@@ -529,74 +641,66 @@ embed_icc_profile(QPDF &pdf,
   unsigned int profile_size;
 #endif
 
-  cmsColorSpaceSignature css = cmsGetColorSpace(doc->colorProfile);
+   // Determine color space signature
+  css = cmsGetColorSpace(doc->colorProfile);
 
-  // Write color component # for /ICCBased array in stream dictionary
+  // Determine color component number for /ICCBased array
   switch (css)
   {
     case cmsSigGrayData:
-        n_value = "1";
-        alternate_cs = "/DeviceGray";
-        break;
+      n_value = "1";
+      alternate_cs = "/DeviceGray";
+      break;
     case cmsSigRgbData:
-        n_value = "3";
-        alternate_cs = "/DeviceRGB";
-        break;
+      n_value = "3";
+      alternate_cs = "/DeviceRGB";
+      break;
     case cmsSigCmykData:
-        n_value = "4";
-        alternate_cs = "/DeviceCMYK";
-        break;
+      n_value = "4";
+      alternate_cs = "/DeviceCMYK";
+      break; 
     default:
-        if (doc->logfunc)
-	  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		       "cfFilterPWGToPDF: Failed to embed ICC Profile.");
-        return (QPDFObjectHandle::newNull());
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                                     "cfFilterPWGToPDF: Failed to embed ICC Profile.");
+      return NULL;
   }
 
-  streamdict["/Alternate"] = QPDFObjectHandle::newName(alternate_cs);
-  streamdict["/N"] = QPDFObjectHandle::newName(n_value);
-
-  // Read profile into memory
   cmsSaveProfileToMem(doc->colorProfile, NULL, &profile_size);
-  unsigned char *buff =
-    (unsigned char *)calloc(profile_size, sizeof(unsigned char));
+  buff = (unsigned char *)calloc(profile_size, sizeof(unsigned char));
   cmsSaveProfileToMem(doc->colorProfile, buff, &profile_size);
 
-  // Write ICC profile buffer into PDF
-  auto bf = new Buffer(buff, profile_size);
-  ph = std::shared_ptr<Buffer>(bf);  
-  iccstream = QPDFObjectHandle::newStream(&pdf, ph);
-  iccstream.replaceDict(QPDFObjectHandle::newDictionary(streamdict));
+  streamdict = pdfioDictCreate(pdf);
+  pdfioDictSetName(streamdict, "Alternate", alternate_cs);
+  pdfioDictSetName(streamdict, "N", n_value);
 
-  array.appendItem(QPDFObjectHandle::newName("/ICCBased"));
-  array.appendItem(iccstream);
+  icc_stream = pdfioFileCreateObj(pdf, streamdict);
 
-  // Return a PDF object reference to an '/ICCBased' array
-  ret = pdf.makeIndirectObject(array);
+  if (!icc_stream)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                         	   "cfFilterPWGToPDF: Failed to create ICC profile stream.");
+    free(buff);
+    return NULL;
+  }
 
   free(buff);
-  if (doc->logfunc)
-    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		 "cfFilterPWGToPDF: ICC Profile embedded in PDF.");
+  if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                      		 "cfFilterPWGToPDF: ICC Profile embedded in PDF.");
 
-  return (ret);
+  return icc_stream;
 }
 
-
-static QPDFObjectHandle
-embed_srgb_profile(QPDF &pdf,
+pdfio_obj_t*
+embed_srgb_profile(pdfio_file_t *pdf,
 		   pwgtopdf_doc_t *doc)
 {
-  QPDFObjectHandle iccbased_reference;
+  pdfio_obj_t *iccbased_reference;
 
-  // Create an sRGB profile from lcms
   doc->colorProfile = cmsCreate_sRGBProfile();
-  // Embed it into the profile
   iccbased_reference = embed_icc_profile(pdf, doc);
 
-  return (iccbased_reference);
+  return iccbased_reference;
 }
-
 
 //
 // Calibration function for non-Lab PDF color spaces
@@ -609,95 +713,90 @@ embed_srgb_profile(QPDF &pdf,
 //         /Matrix ['matrix[0]'...'matrix[n*n]']
 //      >>
 //   ]
-//
 
-static QPDFObjectHandle
-get_calibration_array(const char *color_space,
-		      double wp[],
-		      double gamma[],
-		      double matrix[],
-		      double bp[])
-{    
-  // Check for invalid input
-  if ((!strcmp("/CalGray", color_space) && matrix != NULL) ||
-      wp == NULL)
-    return (QPDFObjectHandle());
+pdfio_array_t*
+get_calibration_array(pdfio_file_t *pdf,
+                      const char *color_space,
+                      double wp[],
+                      double gamma[],
+                      double matrix[],
+                      double bp[])
+{
+  if ((!strcmp("/CalGray", color_space) && matrix != NULL) || wp == NULL) 
+    return NULL;
+    
+  pdfio_array_t *calibration_array = pdfioArrayCreate(pdf);
+  if (!calibration_array) 
+    return NULL;
+    
+  pdfioArrayAppendName(calibration_array, color_space);
 
-  QPDFObjectHandle ret;
-  std::string csString = color_space;
-  std::string colorSpaceArrayString = "";
+  pdfio_dict_t *calibration_dict = pdfioDictCreate(pdf);
 
-  char gamma_str[128];
-  char bp_str[256];
-  char wp_str[256];
-  char matrix_str[512];
-
-  // Convert numbers into string data for /Gamma, /WhitePoint, and/or /Matrix
-
-  // WhitePoint
-  snprintf(wp_str, sizeof(wp_str), "/WhitePoint [%g %g %g]", 
-	   wp[0], wp[1], wp[2]); 
-
-  // Gamma
-  if (!strcmp("/CalGray", color_space) && gamma != NULL)
-    snprintf(gamma_str, sizeof(gamma_str), "/Gamma %g", 
-	     gamma[0]);
-  else if (!strcmp("/CalRGB", color_space) && gamma != NULL) 
-    snprintf(gamma_str, sizeof(gamma_str), "/Gamma [%g %g %g]", 
-	     gamma[0], gamma[1], gamma[2]); 
-  else
-    gamma_str[0] = '\0';
-
-  // BlackPoint
-  if (bp != NULL)
-    snprintf(bp_str, sizeof(bp_str), "/BlackPoint [%g %g %g]", 
-	     bp[0], bp[1], bp[2]); 
-  else
-    bp_str[0] = '\0';
-
-  // Matrix
-  if (!strcmp("/CalRGB", color_space) && matrix != NULL)
+  if (wp != NULL) 
   {
-    snprintf(matrix_str, sizeof(matrix_str),
-	     "/Matrix [%g %g %g %g %g %g %g %g %g]", 
-	     matrix[0], matrix[1], matrix[2],
-	     matrix[3], matrix[4], matrix[5],
-	     matrix[6], matrix[7], matrix[8]);
+    pdfio_array_t *white_point_array = pdfioArrayCreate(pdf);
+    pdfioArrayAppendNumber(white_point_array, wp[0]);
+    pdfioArrayAppendNumber(white_point_array, wp[1]);
+    pdfioArrayAppendNumber(white_point_array, wp[2]);
+    pdfioDictSetArray(calibration_dict, "WhitePoint", white_point_array);
   }
-  else
-    matrix_str[0] = '\0';
 
-  // Write array string...
-  colorSpaceArrayString = "[" + csString + " <<" + gamma_str + " " + wp_str +
-    " " + matrix_str + " " + bp_str + " >>]";
-                       
-  ret = QPDFObjectHandle::parse(colorSpaceArrayString);
+  if (!strcmp("/CalGray", color_space) && gamma != NULL) 
+    pdfioDictSetNumber(calibration_dict, "Gamma", gamma[0]);
+    
+  else if (!strcmp("/CalRGB", color_space) && gamma != NULL) 
+  {
+    pdfio_array_t *gamma_array = pdfioArrayCreate(pdf);
+    pdfioArrayAppendNumber(gamma_array, gamma[0]);
+    pdfioArrayAppendNumber(gamma_array, gamma[1]);
+    pdfioArrayAppendNumber(gamma_array, gamma[2]);
+    pdfioDictSetArray(calibration_dict, "Gamma", gamma_array);
+  }
 
-  return (ret);
+  if (bp != NULL) 
+  {
+    pdfio_array_t *black_point_array = pdfioArrayCreate(pdf);
+    pdfioArrayAppendNumber(black_point_array, bp[0]);
+    pdfioArrayAppendNumber(black_point_array, bp[1]);
+    pdfioArrayAppendNumber(black_point_array, bp[2]);
+    pdfioDictSetArray(calibration_dict, "BlackPoint", black_point_array);
+  }
+
+  if (!strcmp("CalRGB", color_space) && matrix != NULL) 
+  {
+    pdfio_array_t *matrix_array = pdfioArrayCreate(pdf);
+    for (int i = 0; i < 9; i++) 
+      pdfioArrayAppendNumber(matrix_array, matrix[i]);
+    pdfioDictSetArray(calibration_dict, "Matrix", matrix_array);
+  } 
+
+  pdfioArrayAppendDict(calibration_array, calibration_dict);
+  return calibration_array;
 }
 
 
-static QPDFObjectHandle
-get_cal_rgb_array(double wp[3],
+pdfio_array_t*
+get_cal_rgb_array(pdfio_file_t *pdf,
+		  double wp[3],
 		  double gamma[3],
 		  double matrix[9],
 		  double bp[3])
 {
-  QPDFObjectHandle ret = get_calibration_array("/CalRGB", wp, gamma, matrix,
-					       bp);
+  pdfio_array_t *ret = get_calibration_array(pdf, "CalRGB", wp, gamma, matrix,
+				             bp);
   return (ret);
 }
 
-
-static QPDFObjectHandle
-get_cal_gray_array(double wp[3],
+pdfio_array_t*
+get_cal_gray_array(pdfio_file_t *pdf,
+		   double wp[3],
 		   double gamma[1],
 		   double bp[3])
 {
-  QPDFObjectHandle ret = get_calibration_array("/CalGray", wp, gamma, 0, bp);
+  pdfio_array_t *ret = get_calibration_array(pdf, "CalGray", wp, gamma, 0, bp);
   return (ret);
 }
-
 
 //
 // 'make_pclm_strips()' - Return an std::vector of QPDFObjectHandle, each
@@ -715,162 +814,121 @@ get_cal_gray_array(double wp[3],
 // I - document information
 //
 
-static std::vector<QPDFObjectHandle>
-make_pclm_strips(QPDF &pdf,
-		 unsigned num_strips,
-		 std::vector< std::shared_ptr<Buffer> > &strip_data,
-		 std::vector<compression_method_t> &compression_methods,
-		 unsigned width, std::vector<unsigned>& strip_height,
-		 cups_cspace_t cs,
+pdfio_stream_t**
+make_pclm_strips(pdfio_file_t *pdf, 
+		 unsigned num_strips, 
+		 unsigned char **strip_data, 
+		 compression_method_t *compression_methods, 
+		 unsigned width, unsigned *strip_height, 
+		 cups_cspace_t cs, 
 		 unsigned bpc,
 		 pwgtopdf_doc_t *doc)
 {
-  std::vector<QPDFObjectHandle> ret(num_strips);
-  for (size_t i = 0; i < num_strips; i ++)
-    ret[i] = QPDFObjectHandle::newStream(&pdf);
+  pdfio_stream_t **ret = (pdfio_stream_t **)malloc(num_strips * sizeof(pdfio_stream_t *));
+  pdfio_dict_t *dict;
+  const char *color_space_name;
+  unsigned components = 0;
 
-  // Strip stream dictionary
-  std::map<std::string,QPDFObjectHandle> dict;
-
-  dict["/Type"] = QPDFObjectHandle::newName("/XObject");
-  dict["/Subtype"] = QPDFObjectHandle::newName("/Image");
-  dict["/Width"] = QPDFObjectHandle::newInteger(width);
-  dict["/BitsPerComponent"] = QPDFObjectHandle::newInteger(bpc);
-
-  J_COLOR_SPACE color_space;
-  unsigned components;
-  // Write "/ColorSpace" dictionary based on raster input
-  switch(cs)
+  switch (cs)
   {
     case CUPS_CSPACE_K:
     case CUPS_CSPACE_SW:
-        dict["/ColorSpace"] = QPDFObjectHandle::newName("/DeviceGray");
-        color_space = JCS_GRAYSCALE;
-        components = 1;
-        break;
+      color_space_name = "DeviceGray";
+      components = 1;
+      break;
     case CUPS_CSPACE_RGB:
     case CUPS_CSPACE_SRGB:
     case CUPS_CSPACE_ADOBERGB:
-        dict["/ColorSpace"] = QPDFObjectHandle::newName("/DeviceRGB");
-        color_space = JCS_RGB;
-        components = 3;
-        break;
+      color_space_name = "DeviceRGB";
+      components = 3;
+      break;
     default:
-        if (doc->logfunc)
-	  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		       "cfFilterPWGToPDF: Color space not supported.");
-        return (std::vector<QPDFObjectHandle>(num_strips, QPDFObjectHandle()));
-  }
-
-  //
-  // We deliver already compressed content (instead of letting QPDFWriter
-  // do it) to avoid using excessive memory. For that we first get preferred
-  // compression method to pre-compress content for strip streams.
-  //
-  // Use the compression method with highest priority of the available methods
-  // __________________
-  // Priority | Method
-  // ------------------
-  // 0        | DCT
-  // 1        | FLATE
-  // 2        | RLE
-  // ------------------
-  //
-
-  compression_method_t compression = compression_methods.front();
-  for (std::vector<compression_method_t>::iterator it =
-	 compression_methods.begin();
-       it != compression_methods.end(); ++it)
-    compression = compression > *it ? compression : *it;
-
-  // write compressed stream data
-  for (size_t i = 0; i < num_strips; i ++)
+      if (doc->logfunc)  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+		       		      "cfFilterPWGToPDF: Color space not supported.");
+      return NULL;
+    }
+    
+  for (size_t i = 0; i < num_strips; i++)
   {
-    dict["/Height"] = QPDFObjectHandle::newInteger(strip_height[i]);
-    ret[i].replaceDict(QPDFObjectHandle::newDictionary(dict));
-    Pl_Buffer psink("psink");
+    dict = pdfioDictCreate(pdf);
+    
+    pdfioDictSetName(dict, "Type", "XObject");
+    pdfioDictSetName(dict, "Subtype", "Image");
+    pdfioDictSetNumber(dict, "Width", width);
+    pdfioDictSetNumber(dict, "BitsPerComponent", bpc); 
+    pdfioDictSetName(dict, "ColorSpace", color_space_name);
+    pdfioDictSetNumber(dict, "Height", strip_height[i]);
+        
+    pdfio_obj_t *streamObj = pdfioFileCreateObj(pdf, dict); 
+    ret[i] = pdfioObjCreateStream(streamObj, PDFIO_FILTER_NONE);
+
+    compression_method_t compression = compression_methods[0];
+    for (unsigned j = 0; j < num_strips; j++)
+      compression = compression > compression_methods[j] ? compression : compression_methods[j];
+
+       
     if (compression == FLATE_DECODE)
     {
-      Pl_Flate pflate("pflate", &psink, Pl_Flate::a_deflate);
-      pflate.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
-      pflate.finish();
-      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
-			       QPDFObjectHandle::newName("/FlateDecode"),
-			       QPDFObjectHandle::newNull());
+      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
+      pdfioDictSetName(dict, "Filter", "FlateDecode");
     }
     else if (compression == RLE_DECODE)
     {
-      Pl_RunLength prle("prle", &psink, Pl_RunLength::a_encode);
-      prle.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
-      prle.finish();
-      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
-			       QPDFObjectHandle::newName("/RunLengthDecode"),
-			       QPDFObjectHandle::newNull());
+      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
+      pdfioDictSetName(dict, "Filter", "RunLengthDecode");
     }
     else if (compression == DCT_DECODE)
     {
-      Pl_DCT pdct("pdct", &psink, width, strip_height[i], components,
-		  color_space);
-      pdct.write(strip_data[i]->getBuffer(), strip_data[i]->getSize());
-      pdct.finish();
-      ret[i].replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
-			       QPDFObjectHandle::newName("/DCTDecode"),
-			       QPDFObjectHandle::newNull());
+      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
+      pdfioDictSetName(dict, "Filter", "DCTDecode");
     }
   }
-  return (ret);
+  return ret;
 }
 
-
-static QPDFObjectHandle
-make_image(QPDF &pdf,
-	   std::shared_ptr<Buffer> page_data,
-	   unsigned width,
-	   unsigned height,
-	   std::string render_intent,
-	   cups_cspace_t cs,
-	   unsigned bpc,
-	   pwgtopdf_doc_t *doc)
+pdfio_obj_t*
+make_image(pdfio_file_t *pdf,
+           unsigned char *page_data,
+           int data_size,
+           unsigned width,
+           unsigned height,
+           const char *render_intent,
+           cups_cspace_t cs,
+           unsigned bpc,
+           pwgtopdf_doc_t *doc)
 {
-  QPDFObjectHandle ret = QPDFObjectHandle::newStream(&pdf);
-
-  QPDFObjectHandle icc_ref;
-
+  pdfio_dict_t *dict = pdfioDictCreate(pdf);
+  pdfio_obj_t *image_obj;
+  pdfio_obj_t *icc_ref;
   int use_blackpoint = 0;
-  std::map<std::string,QPDFObjectHandle> dict;
 
-  dict["/Type"] = QPDFObjectHandle::newName("/XObject");
-  dict["/Subtype"] = QPDFObjectHandle::newName("/Image");
-  dict["/Width"] = QPDFObjectHandle::newInteger(width);
-  dict["/Height"] = QPDFObjectHandle::newInteger(height);
-  dict["/BitsPerComponent"] = QPDFObjectHandle::newInteger(bpc);
+  pdfioDictSetName(dict, "Type", "XObject");
+  pdfioDictSetName(dict, "Subtype", "Image");
+  pdfioDictSetNumber(dict, "Width", width);
+  pdfioDictSetNumber(dict, "Height", height);
+  pdfioDictSetNumber(dict, "BitsPerComponent", bpc);
 
-  if (!doc->cm_disabled)
+  if (!doc->cm_disabled && render_intent)
   {
-    // Write rendering intent into the PDF based on raster settings
-    if (render_intent == "Perceptual")
-      dict["/Intent"] = QPDFObjectHandle::newName("/Perceptual");
-    else if (render_intent == "Absolute")
-      dict["/Intent"] = QPDFObjectHandle::newName("/AbsoluteColorimetric");
-    else if (render_intent == "Relative")
-      dict["/Intent"] = QPDFObjectHandle::newName("/RelativeColorimetric");
-    else if (render_intent == "Saturation")
-      dict["/Intent"] = QPDFObjectHandle::newName("/Saturation");
-    else if (render_intent == "RelativeBpc")
+    if (strcmp(render_intent, "Perceptual") == 0)
+      pdfioDictSetName(dict, "Intent", "Perceptual");
+    else if (strcmp(render_intent, "Absolute") == 0)
+      pdfioDictSetName(dict, "Intent", "AbsoluteColorimetric");
+    else if (strcmp(render_intent, "Relative") == 0)
+      pdfioDictSetName(dict, "Intent", "RelativeColorimetric");
+    else if (strcmp(render_intent, "Saturation") == 0)
+      pdfioDictSetName(dict, "Intent", "Saturation");
+    else if (strcmp(render_intent, "RelativeBpc") == 0)
     {
-      // Enable blackpoint compensation
-      dict["/Intent"] = QPDFObjectHandle::newName("/RelativeColorimetric");
+      pdfioDictSetName(dict, "Intent", "RelativeColorimetric");
       use_blackpoint = 1;
     }
   }
 
-  // Write "/ColorSpace" dictionary based on raster input
   if (doc->colorProfile != NULL && !doc->cm_disabled)
   {
-    icc_ref = embed_icc_profile(pdf, doc);
-
-    if (!icc_ref.isNull())
-      dict["/ColorSpace"] = icc_ref;
+      icc_ref = embed_icc_profile(pdf, doc);
+      pdfioDictSetObj(dict, "ColorSpace", icc_ref);
   }
   else if (!doc->cm_disabled)
   {
@@ -883,7 +941,7 @@ make_image(QPDF &pdf,
       case CUPS_CSPACE_DEVICE5:
       case CUPS_CSPACE_DEVICE6:
       case CUPS_CSPACE_DEVICE7:
-      case CUPS_CSPACE_DEVICE8:
+      case CUPS_CSPACE_DEVICE8: 
       case CUPS_CSPACE_DEVICE9:
       case CUPS_CSPACE_DEVICEA:
       case CUPS_CSPACE_DEVICEB:
@@ -891,64 +949,64 @@ make_image(QPDF &pdf,
       case CUPS_CSPACE_DEVICED:
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
-	  // For right now, DeviceN will use /DeviceCMYK in the PDF
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceCMYK");
-	  break;
+	pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");
+       	break;
       case CUPS_CSPACE_K:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceGray");
-	  break;
+       	pdfioDictSetName(dict, "ColorSpace", "DeviceGray");
+       	break;
       case CUPS_CSPACE_SW:
-	  if (use_blackpoint)
-	    dict["/ColorSpace"]=get_cal_gray_array(cfCmWhitePointSGray(),
-						   cfCmGammaSGray(), 
-						   cfCmBlackPointDefault());
-	  else
-	    dict["/ColorSpace"]=get_cal_gray_array(cfCmWhitePointSGray(),
-						   cfCmGammaSGray(), 0);
-	  break;
+	if (use_blackpoint)
+       	  pdfioDictSetArray(dict, "ColorSpace", get_cal_gray_array(pdf, cfCmWhitePointSGray(),
+								        cfCmGammaSGray(),
+								       	cfCmBlackPointDefault()));
+	
+	else
+       	  pdfioDictSetArray(dict, "ColorSpace", get_cal_gray_array(pdf, cfCmWhitePointSGray(),
+								        cfCmGammaSGray(), 0));
+       	break;
       case CUPS_CSPACE_CMYK:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceCMYK");
-	  break;
+       	pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");
+       	break;
       case CUPS_CSPACE_RGB:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceRGB");
-	  break;
+       	pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");
+       	break;
       case CUPS_CSPACE_SRGB:
-	  icc_ref = embed_srgb_profile(pdf, doc);
-	  if (!icc_ref.isNull())
-	    dict["/ColorSpace"]=icc_ref;
-	  else 
-	    dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceRGB");
-	  break;
+       	icc_ref = embed_srgb_profile(pdf, doc);
+	if(icc_ref != NULL)
+       	  pdfioDictSetObj(dict, "ColorSpace", icc_ref);
+        else
+	  pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");	
+	break;
       case CUPS_CSPACE_ADOBERGB:
-	  if (use_blackpoint)
-	    dict["/ColorSpace"]=get_cal_rgb_array(cfCmWhitePointAdobeRGB(),
-						  cfCmGammaAdobeRGB(), 
-						  cfCmMatrixAdobeRGB(),
-						  cfCmBlackPointDefault());
-	  else
-	    dict["/ColorSpace"]=get_cal_rgb_array(cfCmWhitePointAdobeRGB(), 
-						  cfCmGammaAdobeRGB(),
-						  cfCmMatrixAdobeRGB(), 0);
-	  break;
-      default:
-	  if (doc->logfunc)
-	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+	if (use_blackpoint)
+	  pdfioDictSetArray(dict, "ColorSpace", get_cal_rgb_array(pdf, cfCmWhitePointAdobeRGB(),
+				  				       cfCmGammaAdobeRGB(),
+								       cfCmMatrixAdobeRGB(),
+								       cfCmBlackPointDefault()));
+        else	
+	  pdfioDictSetArray(dict, "ColorSpace", get_cal_rgb_array(pdf, cfCmWhitePointAdobeRGB(),
+				  				       cfCmGammaAdobeRGB(),
+								       cfCmMatrixAdobeRGB(), 0));
+        break;
+        default:
+          if (doc->logfunc)
+	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
 			 "cfFilterPWGToPDF: Color space not supported.");
-	  return (QPDFObjectHandle());
+          return NULL;
     }
   }
-  else if (doc->cm_disabled)
+  else if(doc->cm_disabled)
   {
     switch(cs)
     {
       case CUPS_CSPACE_K:
       case CUPS_CSPACE_SW:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceGray");
+	  pdfioDictSetName(dict, "ColorSpace", "DeviceGray");	
 	  break;
       case CUPS_CSPACE_RGB:
       case CUPS_CSPACE_SRGB:
       case CUPS_CSPACE_ADOBERGB:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceRGB");
+	  pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");	
 	  break;
       case CUPS_CSPACE_DEVICE1:
       case CUPS_CSPACE_DEVICE2:
@@ -966,162 +1024,126 @@ make_image(QPDF &pdf,
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
       case CUPS_CSPACE_CMYK:
-	  dict["/ColorSpace"]=QPDFObjectHandle::newName("/DeviceCMYK");
+	  pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");	
 	  break;
       default:
 	  if (doc->logfunc)
 	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
 			 "cfFilterPWGToPDF: Color space not supported.");
-	  return (QPDFObjectHandle());
+	  return NULL;
     }
   }
   else
-    return (QPDFObjectHandle());
+    return NULL;
 
-  ret.replaceDict(QPDFObjectHandle::newDictionary(dict));
+  image_obj = pdfioFileCreateObj(pdf, dict);
 
 #ifdef PRE_COMPRESS
-  // we deliver already compressed content (instead of letting QPDFWriter
-  // do it), to avoid using excessive memory
-  Pl_Buffer psink("psink");
-  Pl_Flate pflate("pflate", &psink, Pl_Flate::a_deflate);
+    uLongf compressed_size = compressBound(data_size);
+    unsigned char *compressed_data = (unsigned char *)malloc(compressed_size);
+    if (compress(compressed_data, &compressed_size, page_data, data_size) != Z_OK)
+    {
+        if (doc->logfunc)
+            doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                         "cfFilterPWGToPDF: Compression failed.");
+        free(compressed_data);
+        return NULL;
+    }
 
-  pflate.write(page_data->getBuffer(), page_data->getSize());
-  pflate.finish();
+    pdfio_stream_t *stream = pdfioObjCreateStream(image_obj, PDFIO_FILTER_NONE);
+    pdfioStreamWrite(stream, compressed_data, compressed_size);
+    pdfioStreamClose(stream);
 
-  ret.replaceStreamData(std::shared_ptr<Buffer>(psink.getBuffer()),
-			QPDFObjectHandle::newName("/FlateDecode"),
-			QPDFObjectHandle::newNull());
+    free(compressed_data);
 #else
-  ret.replaceStreamData(page_data, QPDFObjectHandle::newNull(),
-			QPDFObjectHandle::newNull());
+    pdfio_stream_t *stream = pdfioStreamCreate(pdf, image_obj);
+    pdfioStreamWrite(stream, page_data, page_data_size);
+    pdfioStreamClose(stream);
 #endif
-
-  return (ret);
+    return image_obj;
 }
 
-
-static int
-finish_page(struct pdf_info *info,
-	    pwgtopdf_doc_t *doc)
+static int 
+finish_page(struct pdf_info *info, 
+     	    pwgtopdf_doc_t *doc)
 {
+  pdfio_obj_t *image_obj;
+  char content[1024];
+  size_t content_length = 0;
+
   if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
-    // Finish previous PDF Page
-    if (!info->page_data.get())
-      return (0);
+    if (!info->page_data)
+      return 0;
 
-    QPDFObjectHandle image = make_image(info->pdf, info->page_data,
-					info->width, info->height,
-					info->render_intent,
-					info->color_space, info->bpc, doc);
-    if (!image.isInitialized())
+    image_obj = make_image(info->pdf, info->page_data, strlen(content), info->width, info->height,
+                           info->render_intent, info->color_space, info->bpc, doc);
+    if (!image_obj)
     {
-      if (doc->logfunc)
-	doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		     "cfFilterPWGToPDF: Unable to load image data");
-      return (1);
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                             	     "cfFilterPWGToPDF: Unable to load image data");
+      return 1;
     }
 
-    // add it
-    info->page.getKey("/Resources").getKey("/XObject").replaceKey("/I",image);
+    pdfio_dict_t *resources = pdfioDictCreate(info->pdf);
+    pdfioDictSetObj(resources, "XObject", image_obj);
   }
   else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
-    // Finish previous PCLm page
     if (info->pclm_num_strips == 0)
-      return (0);
+      return 0;
 
-    for (size_t i = 0; i < info->pclm_strip_data.size(); i ++)
-      if (!info->pclm_strip_data[i].get())
-	return (0);
-
-    std::vector<QPDFObjectHandle> strips =
-      make_pclm_strips(info->pdf, info->pclm_num_strips, info->pclm_strip_data,
-		       info->pclm_compression_method_preferred, info->width,
-		       info->pclm_strip_height, info->color_space, info->bpc,
-		       doc);
-    for (size_t i = 0; i < info->pclm_num_strips; i ++)
-      if (!strips[i].isInitialized())
-      {
-	if (doc->logfunc)
-	  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		       "cfFilterPWGToPDF: Unable to load strip data");
-	return (1);
-      }
-
-    // Add it
-    for (size_t i = 0; i < info->pclm_num_strips; i ++)
-      info->page.getKey("/Resources").getKey("/XObject")
-	.replaceKey("/Image" +
-		    int_to_fwstring(i, num_digits(info->pclm_num_strips - 1)),
-		    strips[i]);
-  }
-
-  // Draw it
-  std::string content;
-  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
-  {
-    content.append(QUtil::double_to_string(info->page_width) + " 0 0 " +
-		   QUtil::double_to_string(info->page_height) + " 0 0 cm\n");
-    content.append("/I Do\n");
-  }
-  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-  {
-    std::string res = info->pclm_source_resolution_default;
-
-    // resolution is in dpi, so remove the last three characters from
-    // resolution string to get resolution integer
-    unsigned resolution_integer = std::stoi(res.substr(0, res.size() - 3));
-    double d = (double)DEFAULT_PDF_UNIT / resolution_integer;
-    content.append(QUtil::double_to_string(d) + " 0 0 " +
-		   QUtil::double_to_string(d) + " 0 0 cm\n");
-    unsigned yAnchor = info->height;
-    for (unsigned i = 0; i < info->pclm_num_strips; i ++)
+    for (size_t i = 0; i < info->pclm_num_strips; i++)
     {
-      yAnchor -= info->pclm_strip_height[i];
-      content.append("/P <</MCID 0>> BDC q\n");
-      content.append(QUtil::int_to_string(info->width) + " 0 0 " +
-		     QUtil::int_to_string(info->pclm_strip_height[i]) +
-		     " 0 " + QUtil::int_to_string(yAnchor) + " cm\n");
-      content.append("/Image" +
-		     int_to_fwstring(i,
-				     num_digits(info->pclm_num_strips - 1)) +
-		     " Do Q\n");
+      if (!info->pclm_strip_data[i])
+        return 0;
     }
   }
 
-  QPDFObjectHandle page_contents = info->page.getKey("/Contents");
   if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
-    page_contents.replaceStreamData(content, QPDFObjectHandle::newNull(),
-				    QPDFObjectHandle::newNull());
+  {
+    content_length += snprintf(content + content_length, sizeof(content) - content_length,
+                               "%.2f 0 0 %.2f 0 0 cm\n", info->page_width, info->page_height);
+    content_length += snprintf(content + content_length, sizeof(content) - content_length, "/I Do\n");
+  }
   else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-    page_contents.getArrayItem(0).replaceStreamData(content,
-						    QPDFObjectHandle::newNull(),
-						    QPDFObjectHandle::newNull());
+  {
+    double d = DEFAULT_PDF_UNIT / atoi(info->pclm_source_resolution_default);
+    content_length += snprintf(content + content_length, sizeof(content) - content_length,
+                               "%.2f 0 0 %.2f 0 0 cm\n", d, d);
 
-  // bookkeeping
-  info->page_data = std::shared_ptr<Buffer>();
-  info->pclm_strip_data.clear();
+    for (unsigned i = 0; i < info->pclm_num_strips; i++)
+    {
+      unsigned yAnchor = info->height - info->pclm_strip_height[i];
+      content_length += snprintf(content + content_length, sizeof(content) - content_length,
+                                 "/P <</MCID 0>> BDC q\n%.2f 0 0 %.2f 0 %u cm\n/Image%d Do Q\n",
+                                 (double)info->width, (double)info->pclm_strip_height[i], yAnchor, i);
+   }
+  }
 
-  return (0);
+  pdfio_stream_t *page_content = pdfioObjCreateStream(image_obj, PDFIO_FILTER_NONE);
+  pdfioStreamWrite(page_content, content, content_length);
+  pdfioStreamClose(page_content);
+
+  info->page_data = NULL;
+  memset(info->pclm_strip_data, 0, sizeof(info->pclm_strip_data));
+
+  return 0;
 }
-
 
 //
 // Perform modifications to PDF if color space conversions are needed
 //
 
-static int
-prepare_pdf_page(struct pdf_info *info,
-		 unsigned width,
-		 unsigned height,
-		 unsigned bpl,
-		 unsigned bpp,
-		 unsigned bpc,
-		 std::string render_intent,
-		 cups_cspace_t color_space,
-		 pwgtopdf_doc_t *doc)
+int prepare_pdf_page(struct pdf_info *info,
+                     unsigned width,
+                     unsigned height,
+                     unsigned bpl,
+                     unsigned bpp,
+                     unsigned bpc,
+                     const char *render_intent,
+                     cups_cspace_t color_space,
+                     pwgtopdf_doc_t *doc)
 {
 
 #define IMAGE_CMYK_8   (bpp == 32 && bpc == 8)
@@ -1142,28 +1164,30 @@ prepare_pdf_page(struct pdf_info *info,
   info->line_bytes = bpl;
   info->bpp = bpp;
   info->bpc = bpc;
-  info->render_intent = render_intent;
+  info->render_intent = strdup(render_intent); 
   info->color_space = color_space;
+
   if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
     info->pclm_num_strips =
       (height / info->pclm_strip_height_preferred) +
       (height % info->pclm_strip_height_preferred ? 1 : 0);
-    info->pclm_strip_height.resize(info->pclm_num_strips);
-    info->pclm_strip_data.resize(info->pclm_num_strips);
-    for (size_t i = 0; i < info->pclm_num_strips; i ++)
+
+    info->pclm_strip_height = (unsigned *)malloc(info->pclm_num_strips * sizeof(unsigned));
+    info->pclm_strip_data = (unsigned char **)malloc(info->pclm_num_strips * sizeof(unsigned char *));
+
+    for (size_t i = 0; i < info->pclm_num_strips; i++)
     {
       info->pclm_strip_height[i] =
-	info->pclm_strip_height_preferred < height ?
-	info->pclm_strip_height_preferred : height;
-      height -= info->pclm_strip_height[i];
+        info->pclm_strip_height_preferred < height ?
+        info->pclm_strip_height_preferred : height;
+       height -= info->pclm_strip_height[i];
     }
   }
 
-  // Invert grayscale by default
   if (color_space == CUPS_CSPACE_K)
     fn = convert_pdf_invert_colors;
-
+    
   if (doc->colorProfile != NULL)
   {
     css = cmsGetColorSpace(doc->colorProfile);
@@ -1175,43 +1199,43 @@ prepare_pdf_page(struct pdf_info *info,
       // Convert PDF to Grayscale when using a gray profile
       case cmsSigGrayData:
           if (color_space == CUPS_CSPACE_CMYK)
-	    fn = convert_pdf_cmyk_8_to_white_8;
+            fn = convert_pdf_cmyk_8_to_white_8; 
 	  else if (color_space == CUPS_CSPACE_RGB) 
-	    fn = convert_pdf_rgb_8_to_white_8;
-	  else              
+   	    fn = convert_pdf_rgb_8_to_white_8;
+ 	  else		
 	    fn = convert_pdf_invert_colors;
-	  info->color_space = CUPS_CSPACE_K;
-	  break;
+          info->color_space = CUPS_CSPACE_K;
+          break;
+
       // Convert PDF to RGB when using an RGB profile
       case cmsSigRgbData:
-          if (color_space == CUPS_CSPACE_CMYK) 
-	    fn = convert_pdf_cmyk_8_to_rgb_8;
-	  else if (color_space == CUPS_CSPACE_K) 
-	   fn = convert_pdf_white_8_to_rgb_8;
-	  info->color_space = CUPS_CSPACE_RGB;
-	  break;
-      // Convert PDF to CMYK when using an RGB profile
+        if (color_space == CUPS_CSPACE_CMYK) 
+          fn = convert_pdf_cmyk_8_to_rgb_8; 
+	else if (color_space == CUPS_CSPACE_K) 
+          fn = convert_pdf_white_8_to_rgb_8;
+        info->color_space = CUPS_CSPACE_RGB;
+        break;
+
+      // Convert PDF to RGB when using an RGB profile
       case cmsSigCmykData:
           if (color_space == CUPS_CSPACE_RGB)
             fn = convert_pdf_rgb_8_to_cmyk_8;
-          else if (color_space == CUPS_CSPACE_K) 
+	  else if (color_space == CUPS_CSPACE_K) 
             fn = convert_pdf_white_8_to_cmyk_8;
           info->color_space = CUPS_CSPACE_CMYK;
           break;
+
       default:
-	  if (doc->logfunc)
-	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-			 "cfFilterPWGToPDF: Unable to convert PDF from profile.");
+          if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
+			  		 "cfFilterPWGToPDF: Unable to convert PDF from profile.");
           doc->colorProfile = NULL;
           error = 1;
     }
   }
   else if (!doc->cm_disabled)
   {
-    // Perform conversion of an image color space 
     switch (color_space)
     {
-      // Convert image to CMYK
       case CUPS_CSPACE_CMYK:
           if (IMAGE_RGB_8)
 	    fn = convert_pdf_rgb_8_to_cmyk_8;  
@@ -1262,7 +1286,6 @@ prepare_pdf_page(struct pdf_info *info,
       case CUPS_CSPACE_DEVICED:
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
-          // No conversion for right now
 	  fn = convert_pdf_no_conversion;
 	  break;
       default:
@@ -1274,131 +1297,96 @@ prepare_pdf_page(struct pdf_info *info,
     }
   }
 
-  if (!error)
-    fn(info, doc);
+    if (!error)
+        fn(info, doc);
 
-  return (error);
+    return error;
 }
 
 
-static int
+static int 
 add_pdf_page(struct pdf_info *info,
-	     int pagen,
+             int pagen,
 	     unsigned width,
 	     unsigned height,
 	     int bpp,
 	     int bpc,
 	     int bpl,
-	     std::string render_intent,
+	     const char *render_intent,
 	     cups_cspace_t color_space,
-	     unsigned xdpi,
+	     unsigned xdpi, 
 	     unsigned ydpi,
 	     pwgtopdf_doc_t *doc)
 {
-  try
+  if (finish_page(info, doc)) 
+    return 1;
+
+  prepare_pdf_page(info, width, height, bpl, bpp, bpc, render_intent, color_space, doc);
+
+  if (info->height > (UINT_MAX / info->line_bytes))
   {
-    if (finish_page(info, doc)) // any active
-      return (1);
-
-    prepare_pdf_page(info, width, height, bpl, bpp, 
-		     bpc, render_intent, color_space, doc);
-
-    if (info->height > (std::numeric_limits<unsigned>::max() /
-			info->line_bytes))
-    {
-      if (doc->logfunc)
-	doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		     "cfFilterPWGToPDF: Page too big");
-      return (1);
-    }
-    if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
-      info->page_data =
-	std::shared_ptr<Buffer>(new Buffer(info->line_bytes * info->height));
-    else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-    {
-      // reserve space for PCLm strips
-      for (size_t i = 0; i < info->pclm_num_strips; i ++)
-	info->pclm_strip_data[i] =
-	  std::shared_ptr<Buffer>(new Buffer(info->line_bytes *
-					   info->pclm_strip_height[i]));
-    }
-
-    QPDFObjectHandle page = QPDFObjectHandle::parse(
-	    "<<"
-            "  /Type /Page"
-            "  /Resources <<"
-            "    /XObject << >> "
-            "  >>"
-            "  /MediaBox null "
-            "  /Contents null "
-            ">>");
-
-    // Convert to pdf units
-    info->page_width = ((double)info->width / xdpi) * DEFAULT_PDF_UNIT;
-    info->page_height = ((double)info->height / ydpi) * DEFAULT_PDF_UNIT;
-    if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
-    {
-      page.replaceKey("/Contents", QPDFObjectHandle::newStream(&info->pdf));
-      // data will be provided later
-      page.replaceKey("/MediaBox", make_real_box(0, 0, info->page_width,
-						 info->page_height));
-    }
-    else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-    {
-      page.replaceKey("/Contents",
-		      QPDFObjectHandle::newArray(std::vector<QPDFObjectHandle>
-						 (1, QPDFObjectHandle::newStream
-						  (&info->pdf))));
-
-      // box with dimensions rounded off to the nearest integer
-      page.replaceKey("/MediaBox",
-		      make_integer_box(0, 0, info->page_width + 0.5,
-				       info->page_height + 0.5));
-    }
-
-    info->page = info->pdf.makeIndirectObject(page); // we want to keep a
-                                                     // reference
-    info->pdf.addPage(info->page, false);
-  }
-  catch (std::bad_alloc &ex)
-  {
-    if (doc->logfunc)
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Unable to allocate page data");
-    return (1);
-  }
-  catch (...)
-  {
-    return (1);
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                         "cfFilterPWGToPDF: Page too big");
+        return 1;
   }
 
-  return (0);
+  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
+    info->page_data = malloc(info->line_bytes * info->height);
+    
+  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  {
+    for (size_t i = 0; i < info->pclm_num_strips; i++)
+    {
+      info->pclm_strip_data[i] = malloc(info->line_bytes * info->pclm_strip_height[i]);
+    }
+  }
+    
+  pdfio_dict_t *page_dict = pdfioDictCreate(info->pdf);
+
+  pdfioDictSetName(page_dict, "Type", "Page");
+  pdfioDictSetDict(page_dict, "Resources", pdfioDictCreate(info->pdf));
+  pdfioDictSetNull(page_dict, "MediaBox");
+  pdfioDictSetNull(page_dict, "Contents");
+
+
+  info->page_width = ((double)info->width / xdpi) * DEFAULT_PDF_UNIT;
+  info->page_height = ((double)info->height / ydpi) * DEFAULT_PDF_UNIT;
+
+  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
+  {
+    pdfio_obj_t *null_obj = pdfioFileCreateObj(info->pdf, pdfioDictCreate(info->pdf));
+    pdfioDictSetObj(page_dict, "Contents", null_obj);
+    pdfio_rect_t media_rect = make_real_box(0, 0, info->page_width, info->page_height);
+    pdfioDictSetRect(page_dict, "MediaBox", &media_rect);
+  }
+
+  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  {
+    pdfio_obj_t *null_obj = pdfioFileCreateObj(info->pdf, pdfioDictCreate(info->pdf));
+    pdfioDictSetObj(page_dict, "Contents", null_obj);
+
+    pdfio_rect_t media_rect = make_real_box(0, 0, info->page_width + 0.5, info->page_height + 0.5);
+    pdfioDictSetRect(page_dict, "MediaBox", &media_rect);
+  }
+
+  pdfio_obj_t *page = pdfioFileCreateObj(info->pdf, page_dict);
+
+  info->page = page; // we want to keep a
+                       // reference
+  return 0;
 }
-
 
 static int
-close_pdf_file(struct pdf_info * info,
+close_pdf_file(struct pdf_info *info,
 	       pwgtopdf_doc_t *doc)
 {
-  try
-  {
-    if (finish_page(info, doc)) // any active
-      return (1);
-    QPDFWriter output(info->pdf, NULL);
-    output.setOutputFile("pdf", doc->outputfp, false);
-    //output.setMinimumPDFVersion("1.4");
-    if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-      output.setPCLm(true);
-    output.write();
-  }
-  catch (...)
-  {
-    return (1);
-  }
+  if (finish_page(info, doc))
+    return 1;
+  
+  pdfioFileClose(info->pdf);
 
-  return (0);
+  return 0;
 }
-
 
 static void
 pdf_set_line(struct pdf_info * info,
@@ -1420,14 +1408,13 @@ pdf_set_line(struct pdf_info * info,
     size_t strip_num = line_n / info->pclm_strip_height_preferred;
     unsigned line_strip = line_n -
       strip_num * info->pclm_strip_height_preferred;
-    memcpy(((info->pclm_strip_data[strip_num])->getBuffer() +
+    memcpy(((info->pclm_strip_data[strip_num]) +
 	    (line_strip*info->line_bytes)), line, info->line_bytes);
   }
   else
-    memcpy((info->page_data->getBuffer() + (line_n * info->line_bytes)),
+    memcpy((info->page_data + (line_n * info->line_bytes)),
 	   line, info->line_bytes);
 }
-
 
 static int
 convert_raster(cups_raster_t *ras,
@@ -1482,7 +1469,6 @@ convert_raster(cups_raster_t *ras,
   return (0);
 }
 
-
 static int
 set_profile(const char *path,
 	    pwgtopdf_doc_t *doc)
@@ -1536,7 +1522,6 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   int			total_attrs;
   char			buf[1024];
   const char		*kw;
-
 
   (void)inputseekable;
 
@@ -1655,10 +1640,11 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\"",
 		   attr_name);
-      pdf.pclm_strip_height_supported.clear();  // remove default value = 16
+      pdf.pclm_strip_height_supported = NULL;  // remove default value = 16
       for (i = 0; i < ippGetCount(ipp_attr); i ++)
-        pdf.pclm_strip_height_supported.push_back(ippGetInteger(ipp_attr, i));
+        pdf.pclm_strip_height_supported[i] = ippGetInteger(ipp_attr, i);
     }
+
 
     attr_name = (char *)"pclm-raster-back-side";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
@@ -1678,7 +1664,9 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
 		   attr_name, buf);
-      pdf.pclm_source_resolution_supported = split_strings(buf, ",");
+      int size = (int)sizeof(buf);
+
+      pdf.pclm_source_resolution_supported = split_strings(buf, ",", &size);
     }
 
     attr_name = (char *)"pclm-source-resolution-default";
@@ -1691,7 +1679,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 		   attr_name, buf);
       pdf.pclm_source_resolution_default = buf;
     }
-    else if (pdf.pclm_source_resolution_supported.size() > 0)
+    else if (sizeof(pdf.pclm_source_resolution_supported) > 0)
     {
       pdf.pclm_source_resolution_default =
 	pdf.pclm_source_resolution_supported[0];
@@ -1714,31 +1702,15 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
 		   attr_name, buf);
-      std::vector<std::string> vec = split_strings(buf, ",");
 
-      // get all compression methods supported by the printer
-      for (std::vector<std::string>::iterator it = vec.begin();
-	   it != vec.end(); ++it)
-      {
-        std::string compression_method = *it;
-        for (char& x: compression_method)
-          x = tolower(x);
-        if (compression_method == "flate")
-          pdf.pclm_compression_method_preferred.push_back(FLATE_DECODE);
-        else if (compression_method == "rle")
-          pdf.pclm_compression_method_preferred.push_back(RLE_DECODE);
-        else if (compression_method == "jpeg")
-          pdf.pclm_compression_method_preferred.push_back(DCT_DECODE);
-      }
     }
     // If the compression methods is none of the above or is erreneous
     // use FLATE as compression method and show a warning.
-    if (pdf.pclm_compression_method_preferred.empty())
+    if (pdf.pclm_compression_method_preferred == NULL)
     {
       if (log) log(ld, CF_LOGLEVEL_WARN,
 		   "(pwgtopclm) Unable parse Printer attribute \"%s\". "
 		   "Using FLATE for encoding image streams.", attr_name);
-      pdf.pclm_compression_method_preferred.push_back(FLATE_DECODE);
     }
   }
 
