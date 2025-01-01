@@ -117,7 +117,6 @@ typedef struct _cfPDFToPDF_PDFioProcessor{
     pdfio_file_t *pdf;      // Equivalent to std::unique_ptr<QPDF>
     pdfio_obj_t **orig_pages; // Equivalent to std::vector<QPDFObjectHandle>
     size_t orig_pages_size;   // Current number of pages
-    size_t orig_pages_capacity; // Capacity for page array
 
     bool hasCM;
     char *extraheader;
@@ -136,10 +135,10 @@ bool _cfPDFToPDF_PDFioProcessor_load_filename(_cfPDFToPDF_PDFioProcessor *proces
 	       				      const char *name, 
 					      pdftopdf_doc_t *doc, 
 					      int flatten_forms);
-/*
+
 void _cfPDFToPDF_PDFioProcessor_start(_cfPDFToPDF_PDFioProcessor *processor, 
 				      int flatten_forms);
-*/
+
 bool _cfPDFToPDF_PDFioProcessor_check_print_permissions(_cfPDFToPDF_PDFioProcessor *processor,
 							pdftopdf_doc_t *doc);
 

@@ -193,7 +193,7 @@ _cfPDFToPDFPageHandle_create_newMode(_cfPDFToPDFPageHandle *handle,
   pdfio_rect_t *media_box = _cfPDFToPDFMakeBox(0, 0, width, height);
 
   pdfio_dict_t *resources_dict = pdfioDictCreate(pdf);
-  pdfioDictSetNull(resources_dict, "XObject");
+  pdfioDictClear(resources_dict, "XObject");
 
   pdfioDictSetName(pageDict, "Type", "Page");
   pdfioDictSetRect(pageDict, "MediaBox", media_box);
@@ -201,7 +201,7 @@ _cfPDFToPDFPageHandle_create_newMode(_cfPDFToPDFPageHandle *handle,
 
   // Add /Resources dictionary with empty /XObject entry
   pdfio_dict_t *resource_dict = pdfioDictCreate(pdf);
-  pdfioDictSetNull(resource_dict, "XObject");
+  pdfioDictClear(resource_dict, "XObject");
   pdfioDictSetDict(pageDict, "Resources", resource_dict);
 
   pdfio_stream_t *content_stream = pdfioFileCreatePage(pdf, pageDict);
@@ -252,7 +252,7 @@ _cfPDFToPDFPageHandle_get(_cfPDFToPDFPageHandle *handle) // {{{
 
   if (!_cfPDFToPDFPageHandle_is_existing(handle)) 
   {
-    resources = pdfioDictGetDict(pdfioObjGetDict(ret), "/Resources");
+    resources = pdfioDictGetDict(pdfioObjGetDict(ret), "Resources");
     if (resources)
     {
       char name_buffer[handle->xobjs->count];   
@@ -269,7 +269,7 @@ _cfPDFToPDFPageHandle_get(_cfPDFToPDFPageHandle *handle) // {{{
           xobj_index++;
         }
       }
-      pdfioDictSetDict(resources, "/XObject", resources);
+      pdfioDictSetDict(resources, "XObject", resources);
     }
 
     contents_stream = pdfioPageOpenStream(ret, 0, true);
@@ -279,11 +279,11 @@ _cfPDFToPDFPageHandle_get(_cfPDFToPDFPageHandle *handle) // {{{
       pdfioStreamClose(contents_stream);
     }
 
-    contents_dict = pdfioDictGetDict(pdfioObjGetDict(ret), "/Contents");
+    contents_dict = pdfioDictGetDict(pdfioObjGetDict(ret), "Contents");
     if (contents_dict)
     {
-      pdfioDictSetNull(contents_dict, "/Filter");  
-      pdfioDictSetNull(contents_dict, "/DecodeParms");
+      pdfioDictClear(contents_dict, "Filter");
+      pdfioDictClear(contents_dict, "DecodeParms");
     }
 
     pdfioDictSetNumber(pdfioObjGetDict(ret), "/Rotate", _cfPDFToPDFMakeRotate(handle->rotation));
@@ -766,7 +766,6 @@ _cfPDFToPDF_PDFioProcessor_load_file(_cfPDFToPDF_PDFioProcessor *handle,
   }
 
   handle->pdf = pdfioFileCreate("tempfile", NULL, NULL, NULL, NULL, NULL);
-
   
   if (handle->pdf == NULL)
   {
@@ -799,8 +798,7 @@ _cfPDFToPDF_PDFioProcessor_load_file(_cfPDFToPDF_PDFioProcessor *handle,
       return false;
   }
 
-
-  //_cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
+  _cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
   return true;
 }
 
@@ -820,7 +818,7 @@ bool _cfPDFToPDF_PDFioProcessor_load_filename(_cfPDFToPDF_PDFioProcessor *handle
     return false;
   }
 
-  //_cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
+  _cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
   return true;
 }
 
@@ -832,7 +830,7 @@ _cfPDFToPDF_PDFioProcessor_check_print_permissions(_cfPDFToPDF_PDFioProcessor *h
   if (!handle->pdf)
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-                                   "cfFilterPDFToPDF: No PDF loaded");
+                                   "cfFilterPDFToPDF: No PDF loaded(_cfPDFToPDF_PDFioProcessor_new_page)");
     return false;
   }
 
@@ -856,7 +854,7 @@ get_all_pages(pdfio_file_t *pdf)
     return pages;
 }
 
-/*
+
 void 
 _cfPDFToPDF_PDFioProcessor_start(_cfPDFToPDF_PDFioProcessor *proc,
 				 int flatten_forms)
@@ -867,60 +865,20 @@ _cfPDFToPDF_PDFioProcessor_start(_cfPDFToPDF_PDFioProcessor *proc,
     return;
   }
 
-  if (flatten_forms)
-  {
-    pdfio_dict_t *catalog = pdfioFileGetCatalog(proc->pdf);
-    pdfio_obj_t *acroForm = pdfioDictGetObj(catalog, "AcroForm");
-
-    if (acroForm)
-    {
-      pdfio_dict_t *acroForm_dict = pdfioObjGetDict(acroForm);
-      pdfio_array_t *fields = pdfioDictGetArray(acroForm_dict, "Fields");
-      size_t num_fields = pdfioArrayGetSize(fields);
-
-      // Iterating over each field and generating render as static content
-      for (size_t i = 0; i < num_fields; i++)
-      {
-        pdfio_obj_t *field = pdfioArrayGetObj(fields, i);
-        pdfio_dict_t *field_dict = pdfioObjGetDict(field);
-	const char *field_type = pdfioDictGetName(field_dict, "FT");  // Field type
-        const char *field_value = pdfioDictGetString(field_dict, "V");  // Field value
-
-        if (field_type && strcmp(field_type, "Tx") == 0) 
-        {
-          double x = 100.0, y = 200.0;  
-          pdfio_stream_t *stream = pdfioPageOpenStream(handle->page, 0, true); 
-
-          pdfioContentTextMoveTo(stream, x, y);  
-          pdfioContentTextShow(stream, 1, field_value);   // Render the text
-
-          pdfioStreamClose(stream);  // Closing the stream after render
-        }
-      }
-      pdfioDictSetNull(catalog, "AcroForm");
-    }
-  }
-
-
-    // Get all pages
+  // Get all pages
+  
   proc->orig_pages = get_all_pages(proc->pdf);
-  size_t num_pages = pdfioFileGetNumPages(proc->pdf);
-
-  // Remove (unlink) all pages
-  for (size_t i = 0; i < num_pages; i++)
-  {
-//    pdfio_remove_page(pdf, orig_pages[i]);
-  }
+  
+  proc->orig_pages_size = pdfioFileGetNumPages(proc->pdf);
 
   pdfio_dict_t *root = pdfioFileGetCatalog(proc->pdf);
-  pdfioDictSetNull(root, "PageMode");
-  pdfioDictSetNull(root, "Outlines");
-  pdfioDictSetNull(root, "OpenAction");
-  pdfioDictSetNull(root, "PageLabels");
+  pdfioDictClear(root, "PageMode");
+  pdfioDictClear(root, "Outlines");
+  pdfioDictClear(root, "OpenAction");
+  pdfioDictClear(root, "PageLabels");
 
   pdfioFileClose(proc->pdf);
 }
-*/
 
 _cfPDFToPDFPageHandle**
 _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle, 
@@ -928,7 +886,8 @@ _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle,
 {
   _cfPDFToPDFPageHandle **ret = NULL;
 
-  if (handle->orig_pages_size == 0 || handle->orig_pages == NULL) 
+ 
+  if (handle->orig_pages_size == 0 || handle->orig_pages == NULL)
   {
     if (doc->logfunc) 
     {
@@ -976,7 +935,7 @@ _cfPDFToPDF_PDFioProcessor_new_page(_cfPDFToPDF_PDFioProcessor *handle,
   if (!handle->pdf)
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		                   "cfFilterPDFToPDF: No PDF loaded"); 
+		                   "cfFilterPDFToPDF: No PDF loaded(_cfPDFToPDF_PDFioProcessor_new_page)"); 
     return NULL;
   }
 

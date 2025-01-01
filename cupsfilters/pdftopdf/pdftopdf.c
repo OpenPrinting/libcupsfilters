@@ -895,11 +895,23 @@ cfFilterPDFToPDF(int inputfd,
       return 1;
   }
 
+  char temp_filename[] = "/tmp/pdfio_temp_XXXXXX";
+  int temp_fd = mkstemp(temp_filename); // Create a unique temporary file
+  FILE *temp_f = fdopen(temp_fd, "wb");
+  char buffer[8192];
+  size_t bytes_read;
+  while ((bytes_read = fread(buffer, 1, sizeof(buffer), inputfp)) > 0) {
+    fwrite(buffer, 1, bytes_read, temp_f);
+  }
+
+
+
   if (!streaming) 
   {
     if (is_empty(inputfp)) 
     {
       fclose(inputfp);
+      fclose(temp_f); // This closes temp_fd
       if (log) log(ld, CF_LOGLEVEL_DEBUG, 
 		   "cfFilterPDFToPDF: Input is empty, outputting empty file.");
       return 0;
@@ -909,9 +921,10 @@ cfFilterPDFToPDF(int inputfd,
 		 "cfFilterPDFToPDF: Processing PDF input with PDFio: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
 
     // Load the PDF input data into PDFio
-    if (!_cfPDFToPDF_PDFioProcessor_load_file(&proc, inputfp, &doc, CF_PDFTOPDF_WILL_STAY_ALIVE, 1))
+    if (!_cfPDFToPDF_PDFioProcessor_load_filename(&proc, temp_filename, &doc, 1))
     {
       fclose(inputfp);
+      fclose(temp_f); // This closes temp_fd
       return 1;
     }
 
@@ -956,6 +969,7 @@ cfFilterPDFToPDF(int inputfd,
       if (fwrite(buf, 1, bytes, outputfp) != bytes)
         break;
     fclose(inputfp);
+    fclose(temp_f); // This closes temp_fd
   }
 
   fclose(outputfp);
