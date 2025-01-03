@@ -123,8 +123,9 @@ _cfPDFToPDFProcessingParameters()
   int copies_to_be_logged;
 
   // helper functions
+  bool even_odd_page(int outno) const; // 1 based
   bool with_page(int outno) const; // 1 based
-  bool have_page(int pageno) const; //1 based
+  bool have_page(int pageno) const; // 1 based
   void dump(pdftopdf_doc_t *doc) const;
 };
 

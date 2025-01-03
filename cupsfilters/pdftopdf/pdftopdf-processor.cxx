@@ -32,7 +32,7 @@ BookletMode_dump(pdftopdf_booklet_mode_e bkm,
 // }}}
 
 bool
-_cfPDFToPDFProcessingParameters::with_page(int outno) const // {{{
+_cfPDFToPDFProcessingParameters::even_odd_page(int outno) const // {{{
 {
   if (outno % 2 == 0)
   { // 1-based
@@ -41,6 +41,13 @@ _cfPDFToPDFProcessingParameters::with_page(int outno) const // {{{
   }
   else if (!odd_pages)
     return (false);
+  return (true);
+}
+// }}}
+
+bool
+_cfPDFToPDFProcessingParameters::with_page(int outno) const // {{{
+{
   return (page_ranges.contains(outno));
 }
 // }}}
@@ -416,18 +423,21 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
     {
       if ((curpage) && (param.with_page(outputpage)))
       {
-	curpage->rotate(param.orientation);
-	if (param.mirror)
-	  curpage->mirror();
-	  // TODO? update rect? --- not needed any more
-	proc.add_page(curpage, param.reverse); // reverse -> insert at beginning
-	// Log page in /var/log/cups/page_log
 	outputno ++;
-	if (param.page_logging == 1)
-	  if (doc->logfunc) doc->logfunc(doc->logdata,
-					 CF_LOGLEVEL_CONTROL,
-					 "PAGE: %d %d", outputno,
-					 param.copies_to_be_logged);
+	if (param.even_odd_page(outputno))
+	{
+	  curpage->rotate(param.orientation);
+	  if (param.mirror)
+	    curpage->mirror();
+	  // TODO? update rect? --- not needed any more
+	  proc.add_page(curpage, param.reverse); // reverse -> insert at beginning
+	  // Log page in /var/log/cups/page_log
+	  if (param.page_logging == 1)
+	    if (doc->logfunc) doc->logfunc(doc->logdata,
+					   CF_LOGLEVEL_CONTROL,
+					   "PAGE: %d %d", outputno,
+					   param.copies_to_be_logged);
+	}
       }
       curpage = proc.new_page(param.page.width, param.page.height, doc);
       outputpage++;
@@ -481,16 +491,19 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
   }
   if ((curpage) && (param.with_page(outputpage)))
   {
-    curpage->rotate(param.orientation);
-    if (param.mirror)
-      curpage->mirror();
-    proc.add_page(curpage, param.reverse); // reverse -> insert at beginning
-    // Log page in /var/log/cups/page_log
     outputno ++;
-    if (param.page_logging == 1)
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_CONTROL,
-				     "PAGE: %d %d", outputno,
-				     param.copies_to_be_logged);
+    if (param.even_odd_page(outputno))
+    {
+      curpage->rotate(param.orientation);
+      if (param.mirror)
+	curpage->mirror();
+      proc.add_page(curpage, param.reverse); // reverse -> insert at beginning
+      // Log page in /var/log/cups/page_log
+      if (param.page_logging == 1)
+	if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_CONTROL,
+				       "PAGE: %d %d", outputno,
+				       param.copies_to_be_logged);
+    }
   }
 
   if ((param.even_duplex || !param.odd_pages) && (outputno & 1))
