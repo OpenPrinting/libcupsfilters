@@ -414,7 +414,7 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
     bool newPage = nupstate.mext_page(rect.width, rect.height, pgedit);
     if (newPage)
     {
-      if ((curpage) && (param.with_page(outputpage)))
+      if (curpage && (param.with_page(outputpage) || (numOrigPages == 1 && !param.odd_pages)))
       {
 	curpage->rotate(param.orientation);
 	if (param.mirror)
@@ -479,7 +479,7 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
 
     //pgedit.dump(doc);
   }
-  if ((curpage) && (param.with_page(outputpage)))
+  if (curpage && (param.with_page(outputpage) || (numOrigPages == 1 && !param.odd_pages)))
   {
     curpage->rotate(param.orientation);
     if (param.mirror)
@@ -493,7 +493,7 @@ _cfProcessPDFToPDF(_cfPDFToPDFProcessor &proc,
 				     param.copies_to_be_logged);
   }
 
-  if ((param.even_duplex || !param.odd_pages) && (outputno & 1))
+  if (param.even_duplex && (outputno & 1))
   {
     // need to output empty page to not confuse duplex
     proc.add_page(proc.new_page(param.page.width,
