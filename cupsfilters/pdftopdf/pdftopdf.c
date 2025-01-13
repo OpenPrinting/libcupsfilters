@@ -273,55 +273,58 @@ getParameters(cf_filter_data_t *data,
   param->pagesize_requested = 
     (cfGetPageDimensions(printer_attrs, job_attrs, num_options, options, NULL, 
 			 0,
-			 &(param->page.width), &(param->page.height), 
-			 &(param->page.left), &(param->page.bottom), 
-			 &(param->page.right), &(param->page.top), 
+			 &(param->page->width), &(param->page->height), 
+			 &(param->page->left), &(param->page->bottom), 
+			 &(param->page->right), &(param->page->top), 
 			 NULL, NULL) >= 1);
-
-  cfSetPageDimensionsToDefault(&(param->page.width), &(param->page.height), 
-		  	       &(param->page.left), &(param->page.bottom), 
-			       &(param->page.right), &(param->page.top), 
+   
+  cfSetPageDimensionsToDefault(&(param->page->width), &(param->page->height), 
+		  	       &(param->page->left), &(param->page->bottom), 
+			       &(param->page->right), &(param->page->top), 
 			       doc->logfunc, doc->logdata);
 
-  param->page.right = param->page.width - param->page.right;
-  param->page.top = param->page.height - param->page.top;
+  param->page->right = param->page->width - param->page->right;
+  param->page->top = param->page->height - param->page->top;
 
-  param->paper_is_landscape = (param->page.width > param->page.height);
+  param->paper_is_landscape = (param->page->width > param->page->height);
 
-  _cfPDFToPDFPageRect tmp; // borders (before rotation)
+  _cfPDFToPDFPageRect *tmp = (_cfPDFToPDFPageRect *)malloc(sizeof(_cfPDFToPDFPageRect)); 
+  _cfPDFToPDFPageRect_init(tmp);
 
-  optGetFloat("page-top", num_options, options, &tmp.top);
-  optGetFloat("page-left", num_options, options, &tmp.left);
-  optGetFloat("page-right", num_options, options, &tmp.right);
-  optGetFloat("page-bottom", num_options, options, &tmp.bottom);
+  optGetFloat("page-top", num_options, options, &tmp->top);
+  optGetFloat("page-left", num_options, options, &tmp->left);
+  optGetFloat("page-right", num_options, options, &tmp->right);
+  optGetFloat("page-bottom", num_options, options, &tmp->bottom);
 
   if ((val = cupsGetOption("media-top-margin", num_options, options)) 
       != NULL)
-    tmp.top = atof(val) * 72.0 / 2540.0;
+    tmp->top = atof(val) * 72.0 / 2540.0;
   if ((val = cupsGetOption("media-left-margin", num_options, options)) 
       != NULL) 
-    tmp.left = atof(val) * 72.0 / 2540.0;
+    tmp->left = atof(val) * 72.0 / 2540.0;
   if ((val = cupsGetOption("media-right-margin", num_options, options)) 
       != NULL) 
-    tmp.right = atof(val) * 72.0 / 2540.0;
+    tmp->right = atof(val) * 72.0 / 2540.0;
   if ((val = cupsGetOption("media-bottom-margin", num_options, options)) 
       != NULL) 
-    tmp.bottom = atof(val) * 72.0 / 2540.0;
+    tmp->bottom = atof(val) * 72.0 / 2540.0;
 
   if ((param->orientation == ROT_90) || (param->orientation == ROT_270)) 
   { // unrotate page
     // NaN stays NaN
-    tmp.right = param->page.height - tmp.right;
-    tmp.top = param->page.width - tmp.top;
-    _cfPDFToPDFPageRect_rotate_move(&tmp, param->orientation, param->page.height, param->page.width);
+    tmp->right = param->page->height - tmp->right;
+    tmp->top = param->page->width - tmp->top;
+
+    _cfPDFToPDFPageRect_rotate_move(tmp, param->orientation, param->page->height, param->page->width);
   } 
   else 
   {
-    tmp.right = param->page.width - tmp.right;
-    tmp.top = param->page.height - tmp.top;
-    _cfPDFToPDFPageRect_rotate_move(&tmp, param->orientation, param->page.width, param->page.height);
+    tmp->right = param->page->width - tmp->right;
+    tmp->top = param->page->height - tmp->top;
+
+    _cfPDFToPDFPageRect_rotate_move(tmp, param->orientation, param->page->width, param->page->height);
   }
-  _cfPDFToPDFPageRect_set(&param->page, &tmp);
+  _cfPDFToPDFPageRect_set(param->page, tmp);
 
   if ((val = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs, "sides")) != 
       NULL && 
@@ -359,19 +362,19 @@ getParameters(cf_filter_data_t *data,
 				     nup);
       nup = 1;
     }
-    _cfPDFToPDFNupParameters_preset(nup, &(param->nup));
+    _cfPDFToPDFNupParameters_preset(nup, param->nup);
   }
 
   if ((val = cupsGetOption("number-up-layout", num_options, options)) != NULL) 
   {
-    if (!_cfPDFToPDFParseNupLayout(val, &(param->nup))) 
+    if (!_cfPDFToPDFParseNupLayout(val, param->nup)) 
     {
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
 		       		     "cfFilterPDFToPDF: Unsupported number-up-layout %s, using number-up-layout=lrtb!",
 				     val);
-      param->nup.first = X;
-      param->nup.xstart = LEFT;
-      param->nup.ystart = TOP;
+      param->nup->first = X;
+      param->nup->xstart = LEFT;
+      param->nup->ystart = TOP;
     }
   }
 
@@ -541,7 +544,7 @@ getParameters(cf_filter_data_t *data,
 
   if (printer_attrs == NULL && !param->pagesize_requested && 
       param->booklet == CF_PDFTOPDF_BOOKLET_OFF && 
-      param->nup.nupX == 1 && param->nup.nupY == 1)
+      param->nup->nupX == 1 && param->nup->nupY == 1)
     param->cropfit = true;
 
   else if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL) 
@@ -593,7 +596,7 @@ getParameters(cf_filter_data_t *data,
   // when no size got specified by the user.
   if (param->fitplot || param->fillprint || param->autoprint || param->autofit || 
       param->booklet != CF_PDFTOPDF_BOOKLET_OFF || 
-      param->nup.nupX > 1 || param->nup.nupY > 1)
+      param->nup->nupX > 1 || param->nup->nupY > 1)
     param->pagesize_requested = true;
 
   //
@@ -674,6 +677,7 @@ getParameters(cf_filter_data_t *data,
       if (param->page_logging == -1) 
 	param->page_logging = 0;
   }
+  free(tmp);
 }
 
 void 
@@ -759,56 +763,6 @@ calculate(int num_options,
     param->even_duplex = false;
 }
 
-// reads from stdin into temporary file. returns FILE *  or NULL on error
-FILE *
-copy_fd_to_temp(int infd, 
-		pdftopdf_doc_t *doc) 
-{
-  char buf[BUFSIZ];
-  int n;
-
-  int outfd = cupsCreateTempFd(NULL, NULL, buf, sizeof(buf));
-  if (outfd < 0)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		    		   "cfFilterPDFToPDF: Can't create temporary file");
-    return NULL;
-  }
-
-  // remove name
-  unlink(buf);
-
-  // copy stdin to the tmp file
-  while ((n = read(infd, buf, BUFSIZ)) > 0) 
-  {
-    if (write(outfd, buf, n) != n) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Can't copy stdin to temporary file");
-      close(outfd);
-      return NULL;
-    }
-  }
-  
-  if (lseek(outfd, 0, SEEK_SET) < 0) 
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		    		   "cfFilterPDFToPDF: Can't rewind temporary file");
-    close(outfd);
-    return NULL;
-  }
-
-  FILE *f;
-  if ((f = fdopen(outfd, "rb")) == 0) 
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		    		   "cfFilterPDFToPDF: Can't fdopen temporary file");
-    close(outfd);
-    return NULL;
-  }
-  return f;
-}
-
 // check whether a given file is empty
 bool 
 is_empty(FILE *f) 
@@ -820,6 +774,35 @@ is_empty(FILE *f)
   return false;
 }
 
+// coping inputfp data to temp_fp, so that we have a filename, as it is required in pdfioFileOpen API
+int 
+copy_fd_to_tempfile(int inputfd, 
+		    FILE *temp_file, 
+		    pdftopdf_doc_t *doc) 
+{
+  char buffer[BUFSIZ]; 
+  ssize_t bytes_read, bytes_written;
+
+  while ((bytes_read = read(inputfd, buffer, sizeof(buffer))) > 0) 
+  {
+    bytes_written = fwrite(buffer, 1, bytes_read, temp_file);
+    if (bytes_written != bytes_read) 
+    {
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, "write to temporary file failed");
+      return -1; 
+    }
+  }
+
+  if (bytes_read == -1) 
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, "Read from inputfd failed");
+       return -1; 
+    }
+
+    return 0; 
+}
+
+
 int 
 cfFilterPDFToPDF(int inputfd, 
 		 int outputfd,
@@ -827,6 +810,7 @@ cfFilterPDFToPDF(int inputfd,
 		 cf_filter_data_t *data, 
 		 void *parameters) 
 {
+
   pdftopdf_doc_t 	doc;
   char 			*final_content_type = data->final_content_type;
   FILE 			*inputfp, 
@@ -842,16 +826,20 @@ cfFilterPDFToPDF(int inputfd,
   int 			num_options = 0;
   cups_option_t 	*options = NULL;
 
-  _cfPDFToPDFProcessingParameters param;
+  _cfPDFToPDFProcessingParameters *param = (_cfPDFToPDFProcessingParameters *)malloc(sizeof(_cfPDFToPDFProcessingParameters));
+  _cfPDFToPDFProcessingParameters_init(param);
 
-  param.job_id = data->job_id;
-  param.user = data->job_user;
-  param.title = data->job_title;
-  param.num_copies = data->copies;
-  param.copies_to_be_logged = data->copies;
-  param.page.width = param.page.height = 0;
-  param.page.left = param.page.bottom = -1;
-  param.page.right = param.page.top = -1;
+  
+  fprintf(stderr, "_cfPDFToPDFProcessingParameters_init has been done\n");
+  
+  param->job_id = data->job_id;
+  param->user = data->job_user;
+  param->title = data->job_title;
+  param->num_copies = data->copies;
+  param->copies_to_be_logged = data->copies;
+  param->page->width = param->page->height = 0;
+  param->page->left = param->page->bottom = -1;
+  param->page->right = param->page->top = -1;
 
   doc.logfunc = log;
   doc.logdata = ld;
@@ -860,11 +848,11 @@ cfFilterPDFToPDF(int inputfd,
 
   num_options = cfJoinJobOptionsAndAttrs(data, num_options, &options);
 
-  getParameters(data, num_options, options, &param, &doc);
-  calculate(num_options, options, &param, final_content_type);
+  getParameters(data, num_options, options, param, &doc);
+  calculate(num_options, options, param, final_content_type);
 
 #ifdef DEBUG
-  _cfPDFToPDFProcessingParameters_dump(&param, &doc);
+  _cfPDFToPDFProcessingParameters_dump(param, &doc);
 #endif
 
   // If we are in streaming mode we only apply JCL and do not run the
@@ -884,53 +872,66 @@ cfFilterPDFToPDF(int inputfd,
 
   _cfPDFToPDF_PDFioProcessor proc;
 
-  if ((inputseekable && inputfd > 0) || streaming) 
+  char temp_filename[] = "/tmp/tempfileXXXXXX";
+  int temp_fd = mkstemp(temp_filename);
+  if (temp_fd == -1) 
   {
-    if ((inputfp = fdopen(inputfd, "rb")) == NULL)
-      return 1;
-  } 
-  else 
-  {
-    if ((inputfp = copy_fd_to_temp(inputfd, &doc)) == NULL)
+    if (log) log(ld, CF_LOGLEVEL_ERROR, "tempfilename wasn't created");
+    return 1;
+  }
+
+  // Convert the temp_fd to a FILE* stream
+  inputfp = fdopen(temp_fd, "wb+");
+  if (!inputfp) {
+      if (log) log(ld, CF_LOGLEVEL_ERROR, "Couldn't convert temp_fd to FILE* stream");
+      close(temp_fd);
+      close(inputfd);
+      unlink(temp_filename);
       return 1;
   }
 
-  char temp_filename[] = "/tmp/pdfio_temp_XXXXXX";
-  int temp_fd = mkstemp(temp_filename); // Create a unique temporary file
-  FILE *temp_f = fdopen(temp_fd, "wb");
-  char buffer[8192];
-  size_t bytes_read;
-  while ((bytes_read = fread(buffer, 1, sizeof(buffer), inputfp)) > 0) {
-    fwrite(buffer, 1, bytes_read, temp_f);
-  }
-
-
-
+  if (copy_fd_to_tempfile(inputfd, inputfp, &doc) == -1) {
+        fprintf(stderr, "Failed to copy inputfd to temp file\n");
+        fclose(inputfp);
+        close(inputfd);
+        unlink(temp_filename); // Clean up temporary file
+        return 1;
+    }
+  
+  rewind(inputfp); // Rewind the temp_file for reading
+ 
   if (!streaming) 
   {
     if (is_empty(inputfp)) 
     {
       fclose(inputfp);
-      fclose(temp_f); // This closes temp_fd
+      close(inputfd);
+      unlink(temp_filename); 
       if (log) log(ld, CF_LOGLEVEL_DEBUG, 
 		   "cfFilterPDFToPDF: Input is empty, outputting empty file.");
       return 0;
     }
-
+    
+    //test
     if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-		 "cfFilterPDFToPDF: Processing PDF input with PDFio: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
+		 " cfFilterPDFToPDF: Processing PDF input with PDFio: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
 
     // Load the PDF input data into PDFio
     if (!_cfPDFToPDF_PDFioProcessor_load_filename(&proc, temp_filename, &doc, 1))
     {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG, "cfFilterPDFToPDF: error in _cfPDFToPDF_PDFioProcessor_load_filename");
       fclose(inputfp);
-      fclose(temp_f); // This closes temp_fd
+      close(inputfd);
+      unlink(temp_filename); 
       return 1;
     }
 
     // Process the PDF input data
-    if (!_cfProcessPDFToPDF(&proc, &param, &doc))
+    if (!_cfProcessPDFToPDF(&proc, param, &doc))
+    {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG, "cfFilterPDFToPDF: error in _cfProcessPDFToPDF");
       return 2;
+    }
 
     // Pass information to subsequent filters via PDF comments
     char *output[10];
@@ -938,13 +939,13 @@ cfFilterPDFToPDF(int inputfd,
 
     output[output_len++] = "% This file was generated by pdftopdf";
 
-    if (param.device_copies > 0) 
+    if (param->device_copies > 0) 
     {
       char buf[256];
-      snprintf(buf, sizeof(buf), "%d", param.device_copies);
+      snprintf(buf, sizeof(buf), "%d", param->device_copies);
       output[output_len++] = strdup(buf);
 
-      if (param.device_collate)
+      if (param->device_collate)
         output[output_len++] = "%%PDFTOPDFCollate : true";
       else
         output[output_len++] = "%%PDFTOPDFCollate : false";
@@ -953,13 +954,25 @@ cfFilterPDFToPDF(int inputfd,
     _cfPDFToPDF_PDFioProcessor_set_comments(&proc, output, output_len);
   }
 
-  outputfp = fdopen(outputfd, "w");
-  if (outputfp == NULL)
+  char temp_output_filename[] = "/tmp/outputfilenameXXXXXX";
+
+  int temp_output_fd = mkstemp(temp_output_filename);
+  if (temp_output_fd == -1) {
+    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to create temporary output file");
     return 1;
+  }
+
+  outputfp = fdopen(temp_output_fd, "wb+");
+  if (!outputfp) {
+    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to open temporary output file stream");
+    close(temp_output_fd);
+    unlink(temp_output_filename);
+    return 1;
+  }
 
   if (!streaming) 
   {
-    _cfPDFToPDF_PDFioProcessor_emit_file(&proc, outputfp, &doc, CF_PDFTOPDF_WILL_STAY_ALIVE); 
+    _cfPDFToPDF_PDFioProcessor_emit_filename(&proc, temp_output_filename, &doc); 
   } 
   else 
   {
@@ -969,10 +982,33 @@ cfFilterPDFToPDF(int inputfd,
       if (fwrite(buf, 1, bytes, outputfp) != bytes)
         break;
     fclose(inputfp);
-    fclose(temp_f); // This closes temp_fd
+    close(inputfd);
+    unlink(temp_filename); 
   }
 
+  fflush(outputfp);
+  rewind(outputfp);
+  char buffer[8192];
+  ssize_t bytes_read;
+  while ((bytes_read = read(temp_output_fd, buffer, sizeof(buffer))) > 0) 
+  {
+  if (write(outputfd, buffer, bytes_read) != bytes_read) {
+    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to write to output_fd");
+    fclose(outputfp);
+    close(outputfd);
+    unlink(temp_output_filename);
+    return 1;
+  }
+}
+
+// free Param
+  _cfPDFToPDFProcessingParameters_free(param);
+
+// Clean up the temporary file
+  unlink(temp_output_filename);
   fclose(outputfp);
+  close(inputfd);
+  unlink(temp_filename); 
   return 0;
 }
 // }}}

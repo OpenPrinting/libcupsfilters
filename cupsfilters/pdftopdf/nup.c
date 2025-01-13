@@ -212,8 +212,11 @@ _cfPDFToPDFNupState_convert_order(const _cfPDFToPDFNupState *state,
 
   subx = (state->param.nupX - 1) * (state->param.xstart + 1) / 2 - state->param.xstart * subx;
   suby = (state->param.nupY - 1) * (state->param.ystart + 1) / 2 - state->param.ystart * suby;
-
-  int_pair result = {subx, suby};
+  
+  int_pair result;
+  result.first = subx;
+  result.second = suby;
+  
   return result;
 }
 // }}}
@@ -283,9 +286,11 @@ _cfPDFToPDFNupState_next_page(_cfPDFToPDFNupState *state,
   ret->sub.width = in_width;
   ret->sub.height = in_height;
 
-  int_pair sub = _cfPDFToPDFNupState_convert_order(state, state->subpage);
-  _cfPDFToPDFNupState_calculate_edit(state, sub.first, sub.second, ret);
-
+  int_pair *sub = (int_pair*)malloc(sizeof(int_pair));
+  *sub = _cfPDFToPDFNupState_convert_order(state, state->subpage);
+  _cfPDFToPDFNupState_calculate_edit(state, sub->first, sub->second, ret);
+  
+  free(sub);
   return (state->subpage == 0);
 }
 // }}}

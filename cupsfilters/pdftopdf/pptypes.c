@@ -134,11 +134,11 @@ _cfPDFToPDFPageRect_init(_cfPDFToPDFPageRect *rect) // {{{
 // {{{
 
 void 
-swap_float(float *a, float *b) // {{{
+swap_float(float a, float b) // {{{
 {
-  float temp = *a;
-  *a = *b;
-  *b = temp;
+  float temp = a;
+  a = b;
+  b = temp;
 }
 // }}}
 
@@ -150,8 +150,8 @@ _cfPDFToPDFPageRect_rotate_move(_cfPDFToPDFPageRect *rect,
   #if 1
   if (r >= ROT_180) 
   {
-    swap_float(&rect->top, &rect->bottom);
-    swap_float(&rect->left, &rect->right);
+    swap_float(rect->top, rect->bottom);
+    swap_float(rect->left, rect->right);
   }
    
   if ((r == ROT_90) || (r == ROT_270)) 
@@ -162,8 +162,8 @@ _cfPDFToPDFPageRect_rotate_move(_cfPDFToPDFPageRect *rect,
     rect->top = rect->right;
     rect->right = tmp;
 
-    swap_float(&rect->width, &rect->height);
-    swap_float(&pwidth, &pheight);
+    swap_float(rect->width, rect->height);
+    swap_float(pwidth, pheight);
   }
 
   if ((r == ROT_90) || (r == ROT_180)) 

@@ -185,6 +185,7 @@ _cfPDFToPDFPageHandle_create_newMode(_cfPDFToPDFPageHandle *handle,
 {
   handle->no = 0;
   handle->rotation = ROT_0;
+  handle->xobjs = hashCreate_hash_table();
 
   handle->content = strdup("q\n");  // Allocate and copy content string
 
@@ -207,9 +208,6 @@ _cfPDFToPDFPageHandle_create_newMode(_cfPDFToPDFPageHandle *handle,
   pdfio_stream_t *content_stream = pdfioFileCreatePage(pdf, pageDict);
   pdfioStreamWrite(content_stream, handle->content, strlen(handle->content));
   pdfioStreamClose(content_stream);
-
-  handle->xobjs = NULL;
-  handle->xobjs->count = 0;
 }
 // }}}
 
@@ -539,6 +537,34 @@ _cfPDFToPDFPageHandle_is_landscape(const _cfPDFToPDFPageHandle *handle,
 }
 // }}}
 
+void content_append(char **content, const char *text)
+{
+    if (!content || !text)
+    {
+        fprintf(stderr, "Error: Null pointer passed to content_append.\n");
+        return;
+    }
+
+    // Calculate current size and new size
+    size_t current_length = *content ? strlen(*content) : 0;
+    size_t text_length = strlen(text);
+    size_t new_length = current_length + text_length + 1; // +1 for null terminator
+
+    // Reallocate memory for the new content
+    char *new_content = realloc(*content, new_length);
+    if (!new_content)
+    {
+        fprintf(stderr, "Error: Memory allocation failed in content_append.\n");
+        return;
+    }
+
+    // Append the text to the newly allocated memory
+    strcpy(new_content + current_length, text);
+
+    // Update the content pointer
+    *content = new_content;
+}
+
 void 
 _cfPDFToPDFPageHandle_add_subpage(_cfPDFToPDFPageHandle *handle, 
 				  _cfPDFToPDFPageHandle *sub, 
@@ -546,60 +572,70 @@ _cfPDFToPDFPageHandle_add_subpage(_cfPDFToPDFPageHandle *handle,
 				  float xpos, float ypos, float scale, 
 				  const _cfPDFToPDFPageRect *crop) // {{{
 {
-  char xoname[64];
-  snprintf(xoname, sizeof(xoname), "/X%d", (sub->no != -1) ? sub->no : ++handle->no);
+    _cfPDFToPDFPageHandle *qsub = (_cfPDFToPDFPageHandle *)sub;
 
-  if (crop) 
-  {
-    _cfPDFToPDFPageRect pg = _cfPDFToPDFPageHandle_get_rect(sub);
-    _cfPDFToPDFPageRect tmp = *crop;
-    tmp.width = tmp.right - tmp.left;
-    tmp.height = tmp.top - tmp.bottom;
-    pdftopdf_rotation_e tempRotation = _cfPDFToPDFGetRotate(sub->page);
-    _cfPDFToPDFPageRect_rotate_move(&tmp, pdftopdf_rotation_neg(tempRotation), tmp.width, tmp.height);
+    // Generate xobject name
+    char xoname[32];
+    snprintf(xoname, sizeof(xoname), "/X%d", (qsub->no != -1) ? qsub->no : ++(handle->no));
 
-    if (pg.width < tmp.width)
-      pg.right = pg.left + tmp.width;
-    if (pg.height < tmp.height)
-      pg.top = pg.bottom + tmp.height;
+    // Handle crop if provided
+    if (crop)
+    {
+        _cfPDFToPDFPageRect pg = _cfPDFToPDFPageHandle_get_rect(qsub);
+        _cfPDFToPDFPageRect tmp = *crop;
 
-    _cfPDFToPDFPageRect rect = ungetRect(pg, sub, ROT_0, sub->page); 
+        tmp.width = tmp.right - tmp.left;
+        tmp.height = tmp.top - tmp.bottom;
+	pdftopdf_rotation_e tempRotation = _cfPDFToPDFGetRotate(sub->page);
+        _cfPDFToPDFPageRect_rotate_move(&tmp, pdftopdf_rotation_neg(tempRotation), tmp.width, tmp.height);
+
+        if (pg.width < tmp.width)
+            pg.right = pg.left + tmp.width;
+        if (pg.height < tmp.height)
+            pg.top = pg.bottom + tmp.height;
+
+        _cfPDFToPDFPageRect rect = ungetRect(pg, qsub, ROT_0, qsub->page);
+
+	pdfio_rect_t *trimBox = _cfPDFToPDFMakeBox(rect.left, rect.bottom, rect.right, rect.top);
+
+        pdfio_dict_t *pageDict = pdfioObjGetDict(sub->page);
+        pdfioDictSetRect(pageDict, "TrimBox", trimBox);
+    }
+
+    // Apply transformations
+    _cfPDFToPDFMatrix mtx;
+    _cfPDFToPDFMatrix_init(&mtx);
+    _cfPDFToPDFMatrix_translate(&mtx, xpos, ypos);
+    _cfPDFToPDFMatrix_scale(&mtx, scale, scale);
+    _cfPDFToPDFMatrix_rotate(&mtx, qsub->rotation);
+
+    if (crop)
+    {
+        _cfPDFToPDFMatrix_translate(&mtx, crop->left, crop->bottom);
+    }
+
+    // Add content
+    content_append(&handle->content, "q\n  ");
     
-    pdfio_rect_t *trimBox = _cfPDFToPDFMakeBox(rect.left, rect.bottom, rect.right, rect.top);
+    char mtx_buffer[128]; // Adjust buffer size as needed
+    _cfPDFToPDFMatrix_get_string(&mtx, mtx_buffer, sizeof(mtx_buffer));
+    content_append(&handle->content, mtx_buffer);
+    content_append(&handle->content, " cm\n  ");
 
-    pdfio_dict_t *pageDict = pdfioObjGetDict(sub->page);
-    pdfioDictSetRect(pageDict, "TrimBox", trimBox);
-  }
-  
-  hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, sub->page));
-  
-  _cfPDFToPDFMatrix mtx;
-  _cfPDFToPDFMatrix_init(&mtx);
-  _cfPDFToPDFMatrix_translate(&mtx, xpos, ypos);
-  _cfPDFToPDFMatrix_scale(&mtx, scale, scale);
-  _cfPDFToPDFMatrix_rotate(&mtx, sub->rotation);
+    if (crop)
+    {
+        char crop_cmd[128];
+        snprintf(crop_cmd, sizeof(crop_cmd), "0 0 %f %f re W n\n  ",
+                 crop->right - crop->left, crop->top - crop->bottom);
+        content_append(&handle->content, crop_cmd);
+    }
 
-  if (crop) {
-    _cfPDFToPDFMatrix_translate(&mtx, crop->left, crop->bottom);
-  }
-
-  strcat(handle->content, "q\n  ");
-  char matrix_string[128];
-  _cfPDFToPDFMatrix_get_string(&mtx, matrix_string, 128);
-  strcat(handle->content, matrix_string);
-  strcat(handle->content, " cm\n  ");
-
-  if (crop) {
-    strcat(handle->content, " cm\n  ");
-    char crop_string[128];
-    snprintf(crop_string, sizeof(crop_string), "0 0 %.2f %.2f re W n\n", crop->right - crop->left, crop->top - crop->bottom);
-    strcat(handle->content, crop_string);
-  }
-
-  strcat(handle->content, xoname);
-  strcat(handle->content, " Do\nQ\n");
+    content_append(&handle->content, xoname);
+    content_append(&handle->content, " Do\n");
+    content_append(&handle->content, "Q\n");
 }
 // }}}
+
 
 void
 _cfPDFToPDFPageHandle_mirror(_cfPDFToPDFPageHandle *handle,
@@ -614,7 +650,8 @@ _cfPDFToPDFPageHandle_mirror(_cfPDFToPDFPageHandle *handle,
     pdfio_obj_t *subpage = _cfPDFToPDFPageHandle_get(handle);;
 
     _cfPDFToPDFPageHandle_create_newMode(handle, pdf, orig.width, orig.height); 
-    hashInsert(handle->xobjs, xoname,_cfPDFToPDFMakeXObject(pdf, subpage));
+    hashInsert(handle->xobjs, xoname, _cfPDFToPDFMakeXObject(pdf, subpage));
+
 
     char temp_content[1024];
     snprintf(temp_content, sizeof(temp_content), "%s Do\n", xoname);
@@ -744,6 +781,7 @@ void _cfPDFToPDF_PDFioProcessor_close_file(_cfPDFToPDF_PDFioProcessor *handle)
 {
     if (handle->pdf != NULL)
     {
+	    fprintf(stderr, "maa chudi padi hai\n");
         pdfioFileClose(handle->pdf);
         handle->pdf = NULL;
     }
@@ -808,7 +846,6 @@ bool _cfPDFToPDF_PDFioProcessor_load_filename(_cfPDFToPDF_PDFioProcessor *handle
 					      int flatten_forms)
 {
   _cfPDFToPDF_PDFioProcessor_close_file(handle);
-
   handle->pdf = pdfioFileOpen(name, NULL, NULL, NULL, NULL);
   if (!handle->pdf) 
   {
@@ -819,7 +856,8 @@ bool _cfPDFToPDF_PDFioProcessor_load_filename(_cfPDFToPDF_PDFioProcessor *handle
   }
 
   _cfPDFToPDF_PDFioProcessor_start(handle, flatten_forms);
-  return true;
+
+ return true;
 }
 
 
@@ -876,17 +914,15 @@ _cfPDFToPDF_PDFioProcessor_start(_cfPDFToPDF_PDFioProcessor *proc,
   pdfioDictClear(root, "Outlines");
   pdfioDictClear(root, "OpenAction");
   pdfioDictClear(root, "PageLabels");
-
-  pdfioFileClose(proc->pdf);
 }
 
 _cfPDFToPDFPageHandle**
 _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle, 
-	                             pdftopdf_doc_t *doc, int *out_len) 
+	                             pdftopdf_doc_t *doc, size_t *out_len) 
 {
+
   _cfPDFToPDFPageHandle **ret = NULL;
 
- 
   if (handle->orig_pages_size == 0 || handle->orig_pages == NULL)
   {
     if (doc->logfunc) 
@@ -898,7 +934,7 @@ _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle,
     return ret; 
   }
 
-  int len = handle->orig_pages_size;
+  int len = (int)handle->orig_pages_size;
   *out_len = len;
 
   ret = (_cfPDFToPDFPageHandle **)malloc(len * sizeof(_cfPDFToPDFPageHandle *));
@@ -906,7 +942,6 @@ _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle,
   {
     fprintf(stderr, "Memory allocation failed for pages array\n");
   }
-
   for (int i = 0; i < len; i++) 
   {
     ret[i] = (_cfPDFToPDFPageHandle *)malloc(sizeof(_cfPDFToPDFPageHandle));
@@ -923,7 +958,7 @@ _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle,
     ret[i]->page = handle->orig_pages[i];
     //ret[i]->orig_pages_size = i + 1;
   }
-
+ 
   return ret;
 }
 
@@ -938,7 +973,6 @@ _cfPDFToPDF_PDFioProcessor_new_page(_cfPDFToPDF_PDFioProcessor *handle,
 		                   "cfFilterPDFToPDF: No PDF loaded(_cfPDFToPDF_PDFioProcessor_new_page)"); 
     return NULL;
   }
-
   _cfPDFToPDFPageHandle *page_handle = (_cfPDFToPDFPageHandle *)malloc(sizeof(_cfPDFToPDFPageHandle));
    
   _cfPDFToPDFPageHandle_create_newMode(page_handle, handle->pdf, width, height);
@@ -1019,6 +1053,7 @@ _cfPDFToPDF_PDFioProcessor_add_cm(_cfPDFToPDF_PDFioProcessor *handle,
   if (_cfPDFToPDFHasOutputIntent(handle->pdf))
     return;
 
+  fprintf(stderr, "han, iske andar aaya ");
   pdfio_obj_t *srcicc = _cfPDFToPDFSetDefaultICC(handle->pdf, defaulticc);
   _cfPDFToPDFAddDefaultRGB(handle->pdf, srcicc); 
   _cfPDFToPDFAddOutputIntent(handle->pdf, outputicc);
@@ -1060,10 +1095,37 @@ _cfPDFToPDF_PDFioProcessor_emit_file(_cfPDFToPDF_PDFioProcessor *handle,
 {
 }
 
+
 void 
 _cfPDFToPDF_PDFioProcessor_emit_filename(_cfPDFToPDF_PDFioProcessor *handle,
-				         const char *name, pdftopdf_doc_t *doc) 
+				         const char *output_filename, pdftopdf_doc_t *doc) 
 {
+    pdfio_file_t *output_pdf = pdfioFileCreate(output_filename, NULL, NULL, NULL, NULL, NULL);
+    if (!output_pdf) {
+        fprintf(stderr, "Failed to create output PDF file: %s\n", output_filename);
+    }
+    size_t num_pages = pdfioFileGetNumPages(handle->pdf);
+
+    for (size_t i = 0; i < num_pages; i++)
+    {
+        pdfio_obj_t *input_page = pdfioFileGetPage(handle->pdf, i);
+        if (!input_page)
+        {
+            fprintf(stderr, "Failed to get page %zu from input PDF\n", i);
+            pdfioFileClose(output_pdf);
+        }
+
+        if (!pdfioPageCopy(output_pdf, input_page))
+        {
+            fprintf(stderr, "Failed to copy object %zu to output PDF\n", i);
+            pdfioFileClose(output_pdf);
+        }
+    }
+
+    if (!pdfioFileClose(output_pdf))
+    {
+        fprintf(stderr, "Failed to save output PDF file\n");
+    }
 }
 
 bool 

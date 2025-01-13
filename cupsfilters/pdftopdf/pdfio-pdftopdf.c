@@ -241,5 +241,6 @@ _cfPDFToPDFMatrix_get_string(const _cfPDFToPDFMatrix *matrix,
   snprintf(buffer, bufsize, "%f %f %f %f %f %f", 
 	   matrix->ctm[0], matrix->ctm[1], matrix->ctm[2], 
 	   matrix->ctm[3], matrix->ctm[4], matrix->ctm[5]);
+  buffer[bufsize - 1] = '\0'; // Ensure null-termination
 }
 // }}}

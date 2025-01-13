@@ -144,7 +144,7 @@ bool _cfPDFToPDF_PDFioProcessor_check_print_permissions(_cfPDFToPDF_PDFioProcess
 
 _cfPDFToPDFPageHandle** _cfPDFToPDF_PDFioProcessor_get_pages(_cfPDFToPDF_PDFioProcessor *handle,
 						   	     pdftopdf_doc_t *doc, 
-							     int *out_len);
+							     size_t *out_len);
 
 _cfPDFToPDFPageHandle* _cfPDFToPDF_PDFioProcessor_new_page(_cfPDFToPDF_PDFioProcessor *handle, 
 							   float width, float height, 
@@ -193,12 +193,12 @@ typedef struct {
   bool autofit;     // print-scaling = auto-fit
   bool fidelity;
   bool no_orientation;
-  _cfPDFToPDFPageRect page;  
+  _cfPDFToPDFPageRect *page;  
   pdftopdf_rotation_e orientation, normal_landscape;  // normal_landscape (i.e. default direction) is e.g. needed for number-up=2
   bool paper_is_landscape;
   bool duplex;
   pdftopdf_border_type_e border;
-  _cfPDFToPDFNupParameters nup;
+  _cfPDFToPDFNupParameters *nup;
   bool reverse;
 
   char *page_label;
@@ -233,6 +233,11 @@ typedef struct {
 //C-pdftopdf-processor-private functions
 
 void _cfPDFToPDFProcessingParameters_init(_cfPDFToPDFProcessingParameters *processingParams);
+
+void _cfPDFToPDFProcessingParameters_free(_cfPDFToPDFProcessingParameters *processingParams);
+
+bool _cfPDFToPDFProcessingParameters_even_odd_page(const _cfPDFToPDFProcessingParameters *self,
+						   int outno);
 
 bool _cfPDFToPDFProcessingParameters_with_page(const _cfPDFToPDFProcessingParameters *self,
 	       			               int outno);
