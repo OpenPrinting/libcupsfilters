@@ -699,6 +699,13 @@ gs_spawn (const char *filename,
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "cfFilterGhostscript: Input data feed completed");
 
+  //
+  // Initialize to exit status 'Success' first - any error exit status
+  // from children process will rewrite it, and wait for children...
+  //
+
+  status = 0;
+
   while (gspid > 0 || errpid > 0)
   {
     if ((pid = wait(&wstatus)) < 0)
@@ -744,7 +751,6 @@ gs_spawn (const char *filename,
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterGhostscript: %s (PID %d) exited with no errors.",
 		   (pid == gspid ? "Ghostscript" : "Logging"), pid);
-      status = 0;
     }
     if (pid == gspid)
       gspid = -1;

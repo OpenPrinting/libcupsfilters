@@ -345,6 +345,13 @@ mutool_spawn(const char *filename,
 
   close(errfds[0]);
 
+  //
+  // Initialize to exit status 'Success' first - any error exit status
+  // from children process will rewrite it, and wait for children..
+  //
+
+  status = 0;
+
   while (mutoolpid > 0 || errpid > 0)
   {
     if ((pid = wait(&wstatus)) < 0)
@@ -389,7 +396,6 @@ mutool_spawn(const char *filename,
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterMuPDFToPWG: %s (PID %d) exited with no errors.",
 		   (pid == mutoolpid ? "mutool" : "Logging"), pid);
-      status = 0;
     }
     if (pid == mutoolpid)
       mutoolpid = -1;
