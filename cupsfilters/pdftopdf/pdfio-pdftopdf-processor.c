@@ -781,7 +781,6 @@ void _cfPDFToPDF_PDFioProcessor_close_file(_cfPDFToPDF_PDFioProcessor *handle)
 {
     if (handle->pdf != NULL)
     {
-	    fprintf(stderr, "maa chudi padi hai\n");
         pdfioFileClose(handle->pdf);
         handle->pdf = NULL;
     }
