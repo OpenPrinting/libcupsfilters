@@ -859,8 +859,8 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
 {
   pdftopdf_doc_t     doc;                // Document information
   char               *final_content_type = data->final_content_type;
-  FILE               *inputfp,
-                     *outputfp;
+  FILE               *inputfp = NULL,
+                     *outputfp = NULL;
   const char         *t;
   int                streaming = 0;
   size_t             bytes;
@@ -953,7 +953,10 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
 
       // Process the PDF input data
       if (!_cfProcessPDFToPDF(*proc, param, &doc))
+      {
+	fclose(inputfp);
 	return (2);
+      }
 
       // Pass information to subsequent filters via PDF comments
       std::vector<std::string> output;
@@ -978,7 +981,10 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
 
     outputfp = fdopen(outputfd, "w");
     if (outputfp == NULL)
+    {
+      fclose(inputfp);
       return (1);
+    }
 
     if (!streaming)
     {
@@ -994,9 +1000,9 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
       while ((bytes = fread(buf, 1, sizeof(buf), inputfp)) > 0)
 	if (fwrite(buf, 1, bytes, outputfp) != bytes)
 	  break;
-      fclose(inputfp);
     }
 
+    fclose(inputfp);
     fclose(outputfp);
   }
   catch (std::exception &e)
@@ -1004,12 +1010,20 @@ cfFilterPDFToPDF(int inputfd,            // I - File descriptor input stream
     // TODO? exception type
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterPDFToPDF: Exception: %s", e.what());
+    if (inputfp)
+      fclose(inputfp);
+    if (outputfp)
+      fclose(outputfp);
     return (5);
   }
   catch (...)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "cfFilterPDFToPDF: Unknown exception caught. Exiting.");
+    if (inputfp)
+      fclose(inputfp);
+    if (outputfp)
+      fclose(outputfp);
     return (6);
   }
 

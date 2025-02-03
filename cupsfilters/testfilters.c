@@ -189,6 +189,7 @@ test_wrapper(
 		strerror(errno));
 	fprintf(stderr, "ERROR: Unable to open Write file\n");
       }
+      close(inputfd);
       
       return (1);
     }

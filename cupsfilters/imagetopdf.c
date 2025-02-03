@@ -656,6 +656,7 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
   doc.pageObjects = NULL;
   doc.gammaval = 1.0;
   doc.brightness = 1.0;
+  doc.row = NULL;
 
   //
   // Open the input data stream specified by the inputfd ...
@@ -1871,6 +1872,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
   //
 
   cfImageClose(doc.img);
+  free(doc.row);
+  free(doc.pageObjects);
   fclose(doc.outputfp);
   close(outputfd);
   return (0);
@@ -1881,6 +1884,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	       "cfFilterImageToPDF: Cannot allocate any more memory.");
   free_all_obj(&doc);
   cfImageClose(doc.img);
+  free(doc.row);
+  free(doc.pageObjects);
   fclose(doc.outputfp);
   close(outputfd);
   return (2);

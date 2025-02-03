@@ -604,7 +604,7 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
   int cspace_fallback = 0; // 0: originally requested color space
 			   // 1: sRGB for color, sGray for mono
 			   // 2: sRGB for mono
-  const char *p, *q;
+  const char *p, *q = NULL;
 
   // Range-check
   if (!h || !available || !cspace)

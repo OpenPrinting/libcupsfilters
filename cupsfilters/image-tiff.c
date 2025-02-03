@@ -316,8 +316,21 @@ _cfImageReadTIFF(
     else
       pstep = xdir;
 
-    in  = malloc(img->xsize * 3 + 3);
-    out = malloc(img->xsize * bpp);
+    if ((in  = (cf_ib_t*)calloc(img->xsize * 3 + 3, sizeof(cf_ib_t))) == NULL)
+    {
+      DEBUG_puts("DEBUG: No enough memory.\n");
+      TIFFClose(tif);
+      fclose(fp);
+      return (1);
+    }
+    if ((out = (cf_ib_t*)calloc(img->xsize * bpp, sizeof(cf_ib_t))) == NULL)
+    {
+      DEBUG_puts("DEBUG: No enough memory.\n");
+      free(in);
+      TIFFClose(tif);
+      fclose(fp);
+      return (1);
+    }
   }
   else
   {
@@ -326,8 +339,21 @@ _cfImageReadTIFF(
     else
       pstep = ydir;
 
-    in  = malloc(img->ysize * 3 + 3);
-    out = malloc(img->ysize * bpp);
+    if ((in  = (cf_ib_t*)calloc(img->ysize * 3 + 3, sizeof(cf_ib_t))) == NULL)
+    {
+      DEBUG_puts("DEBUG: No enough memory.\n");
+      TIFFClose(tif);
+      fclose(fp);
+      return (1);
+    }
+    if ((out = (cf_ib_t*)calloc(img->ysize * bpp, sizeof(cf_ib_t))) == NULL)
+    {
+      DEBUG_puts("DEBUG: No enough memory.\n");
+      free(in);
+      TIFFClose(tif);
+      fclose(fp);
+      return (1);
+    }
   }
 
   //

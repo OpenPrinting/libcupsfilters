@@ -1536,6 +1536,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   int			total_attrs;
   char			buf[1024];
   const char		*kw;
+  int			ret = -1;	// Return value
 
 
   (void)inputseekable;
@@ -1602,6 +1603,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
       "cfFilterPWGToPDF: PCLm output: No printer IPP attributes are supplied, PCLm output not possible.");
+    fclose(outputfp);
     return (1);
   }
 
@@ -1703,7 +1705,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterPWGToPDF: PCLm output: Printer IPP attributes do not contain printer resolution information for PCLm.");
-      return (1);
+      ret = 1;
+      goto error;
     }
 
     attr_name = (char *)"pclm-compression-method-preferred";
@@ -1759,7 +1762,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       {
 	if (log) log(ld, CF_LOGLEVEL_ERROR,
 		     "cfFilterPWGToPDF: Unable to create PDF file");
-	return (1);
+	ret = 1;
+	goto error;
       }
     }
 
@@ -1795,7 +1799,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		    "cfFilterPWGToPDF: Unable to start new PDF page");
-      return (1);
+      ret = 1;
+      goto error;
     }
 
     // Write the bit map into the PDF file
@@ -1805,7 +1810,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterPWGToPDF: Failed to convert page bitmap");
-      return (1);
+      ret = 1;
+      goto error;
     }
   }
 
@@ -1813,8 +1819,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   {
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		 "cfFilterPWGToPDF: Input is empty, outputting empty file.");
-    cupsRasterClose(ras);
-    return (0);
+    ret = 0;
+    goto error;
   }
 
   close_pdf_file(&pdf, &doc); // output to outputfp
@@ -1826,4 +1832,10 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   fclose(outputfp);
 
   return (Page == 0);
+
+error:
+  cupsRasterClose(ras);
+  fclose(outputfp);
+
+  return (ret);
 }

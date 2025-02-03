@@ -621,7 +621,9 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
   doc.PageTop = 756.0f;		// Top margin
   doc.PageWidth = 612.0f;	// Total page width
   doc.PageLength = 792.0f;	// Total page length
-  doc.pdf = NULL;
+  doc.pdf = NULL;		// PDF file contents
+  doc.Date = NULL;		// Date string
+  doc.Title = NULL;		// Title string
 
   if (parameters)
     doc.env_vars = *((cf_filter_texttopdf_parameter_t *)parameters);
@@ -1512,6 +1514,15 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     free(doc.Page);
   }
 
+  if (doc.PrettyPrint)
+  {
+    free(doc.Date);
+    free(doc.Title);
+  }
+
+  if (doc.pdf)
+    free(doc.pdf);
+
   return (ret);
 }
 
@@ -1766,6 +1777,7 @@ write_epilogue(texttopdf_doc_t *doc)
   _cfPDFOutFinishPDF(doc->pdf);
 
   _cfPDFOutFree(doc->pdf);
+  doc->pdf = NULL;
 }
 
 
