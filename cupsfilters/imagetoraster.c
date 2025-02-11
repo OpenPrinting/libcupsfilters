@@ -259,7 +259,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
         		customBottom = 0.0,
 			customRight = 0.0,
 			customTop = 0.0;
-  char 			defSize[41];
+  char 			defSize[64];
   cf_filter_out_format_t outformat;
 
   //

@@ -780,7 +780,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 {
   cf_filter_out_format_t outformat;
   char buf[BUFSIZ];
-  char *filename;
+  char *filename = NULL;
   char *icc_profile = NULL;
   char *tmp;
   char tmpstr[1024],

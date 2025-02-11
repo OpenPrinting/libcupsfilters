@@ -229,7 +229,13 @@ _cfFontEmbedOTFSubSet(_cf_fontembed_otf_file_t *otf,
     if (glyphs[b] & c)
     {
       const int len = _cfFontEmbedOTFGetGlyph(otf, iA);
-      DEBUG_assert(len >= 0);
+      if (len < 0)
+      {
+        fprintf(stderr, "Cannot get the glyph.\n");
+        free(new_loca);
+        free(new_glyf);
+        return (-1);
+      }
       memcpy(new_glyf + offset, otf->gly, len);
       offset += len;
     }

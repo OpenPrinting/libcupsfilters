@@ -175,8 +175,26 @@ _cfImageReadJPEG(
 
   cfImageSetMaxTiles(img, 0);
 
-  in  = malloc(img->xsize * cinfo.output_components);
-  out = malloc(img->xsize * cfImageGetDepth(img));
+  if ((in  = (cf_ib_t*)calloc(img->xsize * cinfo.output_components, sizeof(cf_ib_t))) == NULL)
+  {
+    DEBUG_printf("DEBUG: Not enough memory.");
+
+    jpeg_destroy_decompress(&cinfo);
+
+    fclose(fp);
+    return (1);
+  }
+
+  if ((out = (cf_ib_t*)calloc(img->xsize * cfImageGetDepth(img), sizeof(cf_ib_t))) == NULL)
+  {
+    DEBUG_printf("DEBUG: Not enough memory.");
+
+    jpeg_destroy_decompress(&cinfo);
+
+    free(in);
+    fclose(fp);
+    return (1);
+  }
 
   jpeg_start_decompress(&cinfo);
 

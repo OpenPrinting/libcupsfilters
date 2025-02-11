@@ -211,7 +211,7 @@ _cfImageReadPNG(
   }
 
   bpp = cfImageGetDepth(img);
-  out = malloc(img->xsize * bpp);
+  out = (cf_ib_t*)calloc(img->xsize * bpp, sizeof(cf_ib_t));
 
   if (!in || !out)
   {
