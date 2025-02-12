@@ -1011,7 +1011,8 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   banner_free(banner);
   if (options) cupsFreeOptions(num_options, options);
   unlink(tempfile);
-  fclose(inputfp);
+  if (inputfp)
+    fclose(inputfp);
   
   return (ret);
 }
