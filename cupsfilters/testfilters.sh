@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 echo "Test-Suite for Libcupsfilters"
 #Now run the executable file with test case
