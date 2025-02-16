@@ -39,6 +39,22 @@
 #include <signal.h>
 #include <string.h>
 
+//
+// is_jpegxl() - Check if the header bytes indicate a JPEG‑XL file.
+//
+// This function compares the first few bytes against the expected JPEG‑XL signature.
+// (Adjust the signature bytes based on the latest JPEG‑XL specification.)
+//
+static int
+is_jpegxl(const unsigned char *header, size_t len)
+{
+  if (len < 12)
+    return 0;
+  /* Example: JPEG‑XL files may begin with: 00 00 00 0C 4A 58 4C 20 ... */
+  if (!memcmp(header, "\x00\x00\x00\x0C\x4A\x58\x4C\x20", 8))
+    return 1;
+  return 0;
+}
 
 //
 // Types...
@@ -765,7 +781,28 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       header.cupsColorSpace >= CUPS_CSPACE_ICC1)
     img = cfImageOpenFP(fp, primary, secondary, sat, hue, NULL);
   else
-    img = cfImageOpenFP(fp, primary, secondary, sat, hue, lut);
+  {
+    unsigned char header[16];
+    size_t nread = fread(header, 1, sizeof(header), fp);
+    rewind(fp);  /* Reset the file pointer to the beginning */
+	
+    if (is_jpegxl(header, nread)) {
+  #ifdef HAVE_LIBJXL
+      if (data->logfunc)
+	data->logfunc(data->logdata, CF_LOGLEVEL_DEBUG,
+	              "cfFilterImageToRaster: Detected JPEG‑XL input.");
+      img = cfImageOpenJPEGXL(fp, primary, secondary, sat, hue, lut);
+  #else
+      if (data->logfunc)
+	data->logfunc(data->logdata, CF_LOGLEVEL_ERROR,
+	              "cfFilterImageToRaster: JPEG‑XL support not compiled in.");
+      img = NULL;
+  #endif
+    } else {
+	img = cfImageOpenFP(fp, primary, secondary, sat, hue, lut);
+    }
+  }
+
 
   if (img != NULL)
   {
