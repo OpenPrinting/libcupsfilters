@@ -28,6 +28,10 @@
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
+#ifdef HAVE_LIBJXL
+#include <jxl/decode.h>
+#endif
+
 
 #define N_OBJECT_ALLOC 100
 #define LINEBUFSIZE 1024
