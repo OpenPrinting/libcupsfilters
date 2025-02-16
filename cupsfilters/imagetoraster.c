@@ -38,6 +38,9 @@
 #include <math.h>
 #include <signal.h>
 #include <string.h>
+#ifdef HAVE_LIBJXL
+#include <jxl/decode.h>
+#endif
 
 //
 // is_jpegxl() - Check if the header bytes indicate a JPEG‑XL file.
