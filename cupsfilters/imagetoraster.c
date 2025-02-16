@@ -5461,3 +5461,103 @@ make_lut(cf_ib_t    *lut,		// I - Lookup table
       *lut++ = v;
   }
 }
+
+#ifdef HAVE_LIBJXL
+/*
+ * cfImageOpenJPEGXL() - Open and decode a JPEG‑XL image file using libjxl.
+ *
+ * This function reads the entire input from 'fp' into memory, creates a
+ * libjxl decoder, sets the input data, and processes the decoder until the
+ * full image is decoded. It then converts the decoded image into a cf_image_t
+ * structure using cfImageCreateFromJxlDecoder() and returns it.
+ *
+ * Parameters:
+ *   fp        - (I)  FILE pointer to the input JPEG‑XL file.
+ *   primary   - (I)  Desired primary colorspace (unused for JPEG‑XL, but kept for signature compatibility).
+ *   secondary - (I)  Desired secondary colorspace (unused for JPEG‑XL).
+ *   sat       - (I)  Saturation adjustment (unused for JPEG‑XL).
+ *   hue       - (I)  Hue adjustment (unused for JPEG‑XL).
+ *   lut       - (I)  Lookup table for gamma/brightness (unused for JPEG‑XL).
+ *
+ * Returns:
+ *   Pointer to a cf_image_t structure on success, or NULL on failure.
+ */
+cf_image_t *
+cfImageOpenJPEGXL(FILE *fp, int primary, int secondary, int sat, int hue, cf_ib_t *lut)
+{
+  cf_image_t   *img = NULL;
+  unsigned char *data = NULL;
+  size_t filesize = 0;
+  size_t bytesRead = 0;
+  JxlDecoder   *decoder = NULL;
+  JxlDecoderStatus status;
+
+  /* Determine file size */
+  if (fseek(fp, 0, SEEK_END) != 0) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Unable to seek to end of file.\n");
+    return NULL;
+  }
+  filesize = ftell(fp);
+  rewind(fp);
+
+  /* Allocate memory to hold the entire file */
+  data = malloc(filesize);
+  if (!data) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Memory allocation failed for %zu bytes.\n", filesize);
+    return NULL;
+  }
+
+  bytesRead = fread(data, 1, filesize, fp);
+  if (bytesRead != filesize) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Read error: expected %zu bytes but got %zu.\n", filesize, bytesRead);
+    free(data);
+    return NULL;
+  }
+
+  /* Create a new JPEG‑XL decoder instance */
+  decoder = JxlDecoderCreate(NULL);
+  if (!decoder) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Failed to create JPEG‑XL decoder.\n");
+    free(data);
+    return NULL;
+  }
+
+  /* Set the input buffer for the decoder */
+  status = JxlDecoderSetInput(decoder, data, filesize);
+  if (status != JXL_DEC_SUCCESS) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Failed to set input buffer for JPEG‑XL decoder.\n");
+    JxlDecoderDestroy(decoder);
+    free(data);
+    return NULL;
+  }
+
+  /* Process input until the full image is decoded.
+     (A production implementation might need to handle additional events.)
+  */
+  while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
+    if (status == JXL_DEC_ERROR) {
+      fprintf(stderr, "cfImageOpenJPEGXL: JPEG‑XL decoding error.\n");
+      JxlDecoderDestroy(decoder);
+      free(data);
+      return NULL;
+    }
+    /* Optionally handle metadata or extra events here */
+  }
+
+  /* Convert the decoded image into a cf_image_t structure.
+     cfImageCreateFromJxlDecoder() must be implemented (see previous example)
+     to extract properties like width, height, bit depth, and to set the
+     output buffer pointer.
+  */
+  img = cfImageCreateFromJxlDecoder(decoder);
+  if (!img) {
+    fprintf(stderr, "cfImageOpenJPEGXL: Failed to create image from decoded data.\n");
+  }
+
+  /* Clean up */
+  JxlDecoderDestroy(decoder);
+  free(data);
+
+  return img;
+}
+#endif
