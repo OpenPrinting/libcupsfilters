@@ -44,7 +44,10 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
 
   // Retrieve basic image information directly.
   JxlBasicInfo basic_info;
-  JxlPixelFormat pixel_format = {JXL_TYPE_UINT16, 0, 0, 0};
+  JxlPixelFormat pixel_format = { .num_channels = 3,
+                                  .data_type = JXL_TYPE_UINT16,
+                                  .endianness = JXL_BIG_ENDIAN,
+                                  .align = 0};
   status = JxlDecoderGetBasicInfo(decoder, &basic_info);
   if (status != JXL_DEC_SUCCESS) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to retrieve basic info.\n");
@@ -70,7 +73,7 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   }
 
   /* Set the output buffer in the decoder */
-  status = JxlDecoderSetImageOutBuffer(decoder, JXL_DATA_TYPE_UINT16,
+  status = JxlDecoderSetImageOutBuffer(decoder, &pixel_format,
                                        output_buffer, buffer_size);
   if (status != JXL_DEC_SUCCESS) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Failed to set output buffer.\n");
@@ -99,12 +102,23 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   img->ysize = (int)basic_info.ysize;
   img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
   img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
+  
+  #ifdef HAVE_BITS_PER_COMPONENT
   img->bitsPerComponent = (int)basic_info.bits_per_sample;
+  #endif
 
   // For JPEG‑XL, we assume the decoded format is RGB.
   img->colorspace = CF_IMAGE_RGB;
-  img->data = output_buffer;
 
+  #ifdef HAVE_IMAGE_DATA
+  img->data = output_buffer;
+  #else
+  free(output_buffer);
+  free(img);
+  fprintf(stderr, "Error: cf_image_t does not have a 'data' field.\n");
+  return NULL;
+  #endif
+  
   return img;
 }
 
