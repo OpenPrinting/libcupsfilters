@@ -1,3 +1,5 @@
+#include "config.h"
+
 #ifdef HAVE_LIBJXL
 #include "image-jpeg-xl.h"
 #include <jxl/decode.h>
