@@ -10,7 +10,7 @@
  *
  * This example compares the first 8 bytes with an expected signature.
  */
-static int
+int
 is_jpegxl(const unsigned char *header, size_t len)
 {
   if (len < 12)
@@ -102,7 +102,8 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   */
   img = malloc(sizeof(cf_image_t));
   if (!img) {
-    fprintf(stderr, "cf_image_create_from_jxl_decoder: Memory allocation for image structure failed.\n");
+    fprintf(stderr, 
+            "cf_image_create_from_jxl_decoder: Memory allocation for image structure failed.\n");
     free(output_buffer);
     return NULL;
   }
