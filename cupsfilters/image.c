@@ -360,8 +360,7 @@ cfImageOpenFP(
 
   fseek(fp, 2048, SEEK_SET);
   memset(header2, 0, sizeof(header2));
-  if (fread(header2, 1, sizeof(header2), fp) == 0 && ferror(fp))
-    DEBUG_printf(("Error reading file!"));
+  fread(header2, 1, sizeof(header2), fp);
   fseek(fp, 0, SEEK_SET);
 
   //
