@@ -1,4 +1,3 @@
-
 //
 // Image file to PDF filter function for libcupsfilters.
 // Originally developped by BBR Inc. 2006-2007
@@ -22,38 +21,14 @@
 #include <cupsfilters/image.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/raster.h>
-#include <cupsfilters/ipp.h>
 #include <cupsfilters/image-private.h>
 #include <cupsfilters/libcups2-private.h>
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
-#ifdef HAVE_LIBJXL
-#include <jxl/decode.h>
-#endif
-
 
 #define N_OBJECT_ALLOC 100
 #define LINEBUFSIZE 1024
-
-
-//
-// is_jpegxl() - Check if the given header bytes indicate a JPEG‑XL file.
-//
-// This function examines the first few bytes of the file and returns 1 if
-// the header matches the expected JPEG‑XL signature, otherwise 0.
-//
-
-static int
-is_jpegxl(const unsigned char *header, size_t len)
-{
-  if (len < 12)
-    return (0);
-  /* Example signature: 00 00 00 0C 4A 58 4C 20 ... */
-  if (!memcmp(header, "\x00\x00\x00\x0C\x4A\x58\x4C\x20", 8))
-    return (1);
-  return (0);
-}
 
 
 //
@@ -122,21 +97,6 @@ typedef struct imagetopdf_doc_s         // **** Document information ****
 //
 // Local functions...
 //
-
-#ifdef HAVE_LIBJXL
- //
- // cfImageOpenJPEGXL() - Open and decode a JPEG‑XL image file using libjxl.
- //
- // Returns a pointer to a cf_image_t on success, or NULL on failure.
- //
- // 'fp'         - (I) Input file pointer.
- // 'colorspace' - (I) Desired output color space.
- // 'sat'        - (I) Saturation adjustment.
- // 'hue'        - (I) Hue adjustment.
- // 'params'     - (I) Additional parameters (unused here).
- 
-cf_image_t *cfImageOpenJPEGXL(FILE *fp, int colorspace, int sat, int hue, void *params);
-#endif
 
 #ifdef OUT_AS_HEX
 static void	out_hex(imagetopdf_doc_t *doc, cf_ib_t *, int, int);
@@ -957,29 +917,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 
   doc.colorspace = doc.Color ? CF_IMAGE_RGB_CMYK : CF_IMAGE_WHITE;
 
-  {
-    unsigned char header[16];
-    size_t nread = fread(header, 1, sizeof(header), fp);
-    rewind(fp);  
-
-    if (is_jpegxl(header, nread))
-    {
-#ifdef HAVE_LIBJXL
-      if (log) log(ld, CF_LOGLEVEL_DEBUG,
-                   "cfFilterImageToPDF: Detected JPEG‑XL input.");
-      doc.img = cfImageOpenJPEGXL(fp, doc.colorspace, sat, hue, NULL);
-#else
-      if (log) log(ld, CF_LOGLEVEL_ERROR,
-                   "cfFilterImageToPDF: JPEG‑XL support not compiled in.");
-      doc.img = NULL;
-#endif
-    }
-    else
-    {
-      doc.img = cfImageOpenFP(fp, doc.colorspace, CF_IMAGE_WHITE, sat, hue, NULL);
-    }
-  }
-
+  doc.img = cfImageOpenFP(fp, doc.colorspace, CF_IMAGE_WHITE, sat, hue,
+			  NULL);
   if (doc.img != NULL)
   {
     int margin_defined = 0;
@@ -2101,138 +2040,4 @@ out_bin(imagetopdf_doc_t *doc,
   }
 }
 #endif
-#endif
-
-//
-// Functions to handle JPEGXL files
-// 
-
-#ifdef HAVE_LIBJXL
-cf_image_t *
-cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
-{
-  cf_image_t *img = NULL;
-  JxlFrameHeader frame_header;
-  size_t buffer_size = 0;
-  void *output_buffer = NULL;
-  JxlDecoderStatus status;
-
-  /* Initialize the frame header structure */
-  memset(&frame_header, 0, sizeof(frame_header));
-  status = JxlDecoderGetFrameHeader(decoder, &frame_header);
-  if (status != JXL_DEC_SUCCESS)
-  {
-    fprintf(stderr, "Error: Unable to retrieve JPEG‑XL frame header.\n");
-    return (NULL);
-  }
-
-  status = JxlDecoderGetImageOutBufferSize(decoder, &frame_header,
-                                             JXL_DATA_TYPE_UINT16,
-                                             &buffer_size);
-  if (status != JXL_DEC_SUCCESS || buffer_size == 0)
-  {
-    fprintf(stderr, "Error: Unable to determine output buffer size for JPEG‑XL image.\n");
-    return (NULL);
-  }
-
-  output_buffer = malloc(buffer_size);
-  if (!output_buffer)
-  {
-    fprintf(stderr, "Error: Memory allocation failed for JPEG‑XL image data.\n");
-    return (NULL);
-  }
-
-  status = JxlDecoderSetImageOutBuffer(decoder, JXL_DATA_TYPE_UINT16,
-                                       output_buffer, buffer_size);
-  if (status != JXL_DEC_SUCCESS)
-  {
-    fprintf(stderr, "Error: Unable to set output buffer for JPEG‑XL decoder.\n");
-    free(output_buffer);
-    return (NULL);
-  }
-
-  while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE)
-  {
-    if (status == JXL_DEC_ERROR)
-    {
-      fprintf(stderr, "Error: JPEG‑XL decoding failed.\n");
-      free(output_buffer);
-      return (NULL);
-    }
-  }
-
-  img = malloc(sizeof(cf_image_t));
-  if (!img)
-  {
-    fprintf(stderr, "Error: Memory allocation failed for cf_image_t structure.\n");
-    free(output_buffer);
-    return (NULL);
-  }
-
-  img->width  = (int)frame_header.xsize;
-  img->height = (int)frame_header.ysize;
-  img->xppi   = (frame_header.xdensity > 0) ? (int)frame_header.xdensity : 300;
-  img->yppi   = (frame_header.ydensity > 0) ? (int)frame_header.ydensity : 300;
-  img->bitsPerComponent = (int)frame_header.bit_depth;
-  img->colorspace = CF_IMAGE_RGB;
-  img->data = output_buffer;
-
-  return (img);
-}
-
-cfImageOpenJPEGXL(FILE *fp, int colorspace, int sat, int hue, void *params)
-{
-  cf_image_t *img = NULL;
-  unsigned char *data = NULL;
-  size_t filesize, bytesRead;
-  JxlDecoder *decoder = NULL;
-  JxlDecoderStatus status;
-
-  fseek(fp, 0, SEEK_END);
-  filesize = ftell(fp);
-  rewind(fp);
-
-  data = malloc(filesize);
-  if (!data)
-    return (NULL);
-
-  bytesRead = fread(data, 1, filesize, fp);
-  if (bytesRead != filesize)
-  {
-    free(data);
-    return (NULL);
-  }
-
-  decoder = JxlDecoderCreate(NULL);
-  if (!decoder)
-  {
-    free(data);
-    return (NULL);
-  }
-
-  status = JxlDecoderSetInput(decoder, data, filesize);
-  if (status != JXL_DEC_SUCCESS)
-  {
-    JxlDecoderDestroy(decoder);
-    free(data);
-    return (NULL);
-  }
-
-  while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE)
-  {
-    if (status == JXL_DEC_ERROR)
-    {
-      JxlDecoderDestroy(decoder);
-      free(data);
-      return (NULL);
-    }
-  }
-
-  img = cfImageCreateFromJxlDecoder(decoder);
-
-  JxlDecoderDestroy(decoder);
-  free(data);
-
-  return (img);
-}
 #endif
