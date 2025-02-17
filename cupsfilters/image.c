@@ -402,6 +402,13 @@ cfImageOpenFP(
 			      lut);
   else
 #endif // HAVE_LIBTIFF
+#ifdef HAVE_LIBJXL
+  if (is_jpegxl(header, sizeof(header)))
+    status = _cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, 
+	    			lut);
+  else
+#endif // HAVE_LIBJXL
+	  
   {
     fclose(fp);
     status = -1;
