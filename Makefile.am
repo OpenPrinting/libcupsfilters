@@ -169,6 +169,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/image-png.c \
 	cupsfilters/image-private.h \
 	cupsfilters/image-tiff.c \
+	cupsfilters/image-jpeg-xl.c \
 	cupsfilters/image-zoom.c \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
