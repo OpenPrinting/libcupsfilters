@@ -10,7 +10,7 @@
  *
  * This example compares the first 8 bytes with an expected signature.
  */
-int
+static int
 is_jpegxl(const unsigned char *header, size_t len)
 {
   if (len < 12)
@@ -32,8 +32,8 @@ is_jpegxl(const unsigned char *header, size_t len)
  *
  * Returns: Pointer to a cf_image_t on success, or NULL on failure.
  */
-cf_image_t *
-cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
+static cf_image_t *
+cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
 {
   cf_image_t *img = NULL;
   JxlFrameHeader frame_header;
@@ -45,7 +45,7 @@ cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
   memset(&frame_header, 0, sizeof(frame_header));
   status = JxlDecoderGetFrameHeader(decoder, &frame_header);
   if (status != JXL_DEC_SUCCESS) {
-    fprintf(stderr, "cfImageCreateFromJxlDecoder: Unable to retrieve frame header.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to retrieve frame header.\n");
     return NULL;
   }
 
@@ -55,14 +55,14 @@ cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
                                            JXL_DATA_TYPE_UINT16,
                                            &buffer_size);
   if (status != JXL_DEC_SUCCESS || buffer_size == 0) {
-    fprintf(stderr, "cfImageCreateFromJxlDecoder: Unable to determine output buffer size.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to determine output buffer size.\n");
     return NULL;
   }
 
   /* Allocate memory for the decoded pixel data */
   output_buffer = malloc(buffer_size);
   if (!output_buffer) {
-    fprintf(stderr, "cfImageCreateFromJxlDecoder: Memory allocation for output buffer failed.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Memory allocation for output buffer failed.\n");
     return NULL;
   }
 
@@ -70,7 +70,7 @@ cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
   status = JxlDecoderSetImageOutBuffer(decoder, JXL_DATA_TYPE_UINT16,
                                        output_buffer, buffer_size);
   if (status != JXL_DEC_SUCCESS) {
-    fprintf(stderr, "cfImageCreateFromJxlDecoder: Failed to set output buffer.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Failed to set output buffer.\n");
     free(output_buffer);
     return NULL;
   }
@@ -78,7 +78,7 @@ cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
   // Process decoder events until the full image is decoded.
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
     if (status == JXL_DEC_ERROR) {
-      fprintf(stderr, "cfImageCreateFromJxlDecoder: JPEG‑XL decoding error.\n");
+      fprintf(stderr, "cf_image_create_from_jxl_decoder: JPEG‑XL decoding error.\n");
       free(output_buffer);
       return NULL;
     }
@@ -102,7 +102,7 @@ cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
   */
   img = malloc(sizeof(cf_image_t));
   if (!img) {
-    fprintf(stderr, "cfImageCreateFromJxlDecoder: Memory allocation for image structure failed.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Memory allocation for image structure failed.\n");
     free(output_buffer);
     return NULL;
   }
@@ -138,7 +138,6 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   size_t filesize = 0, bytesRead = 0;
   JxlDecoder *decoder = NULL;
   JxlDecoderStatus status;
-  cf_image_t *temp = img;  /* For brevity */
   
   /* Determine file size */
   if (fseek(fp, 0, SEEK_END) != 0) {
@@ -186,26 +185,42 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
     }
   }
 
-  /* Convert the decoded output into a cf_image_t.
-     Here we call a helper function (e.g., cfImageCreateFromJxlDecoder())
-     that extracts image properties (width, height, bit depth, etc.) and sets
-     the output pixel buffer.
-  */
-  temp = cfImageCreateFromJxlDecoder(decoder);
-  if (!temp) {
+  cf_image_t *new_img = cf_image_create_from_jxl_decoder(decoder);
+  if (!new_img) {
     fprintf(stderr, "JPEG‑XL: Failed to create image from decoder data.\n");
     JxlDecoderDestroy(decoder);
     free(data);
     return -1;
   }
   
-  /* Copy properties from the temporary image into the provided img structure */
-  memcpy(img, temp, sizeof(cf_image_t));
+  /* Copy the new image into the provided structure */
+  memcpy(img, new_img, sizeof(cf_image_t));
+  free(new_img);
 
-  free(temp); /* If cfImageCreateFromJxlDecoder() allocated the cf_image_t separately */
   JxlDecoderDestroy(decoder);
   free(data);
-
   return 0;
+}
+/*
+ * _cfImageOpenJPEGXL() - Open a JPEG‑XL image from a FILE pointer.
+ *
+ * This function is provided for internal use and is called by cfImageOpenFP()
+ * in image.c when a JPEG‑XL file is detected.
+ *
+ * Returns a pointer to a cf_image_t on success, or NULL on failure.
+ */
+cf_image_t *
+_cfImageOpenJPEGXL(FILE *fp, cf_icspace_t primary, cf_icspace_t secondary,
+                   int saturation, int hue, const cf_ib_t *lut)
+{
+  cf_image_t *img = calloc(1, sizeof(cf_image_t));
+  if (img == NULL)
+    return NULL;
+
+  if (_cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, lut)) {
+    cfImageClose(img);
+    return NULL;
+  }
+  return img;
 }
 #endif
