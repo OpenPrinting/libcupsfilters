@@ -270,11 +270,13 @@ testimage_LDADD = \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
 	libcupsfilters.la \
-	-lm
+	-lm \
+	-ljxl
 testimage_CFLAGS = \
 	$(LIBJPEG_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
-	$(TIFF_CFLAGS)
+	$(TIFF_CFLAGS) \
+	-I/usr/local/include
 
 testrgb_SOURCES = \
 	cupsfilters/testrgb.c \
