@@ -1,5 +1,8 @@
 ACLOCAL_AMFLAGS = -I m4
 
+LIBS += $(shell pkg-config --libs libjxl)
+CFLAGS += $(shell pkg-config --cflags libjxl)
+
 pkgconfdir = $(libdir)/pkgconfig
 pkgconf_DATA = \
 	libcupsfilters.pc
