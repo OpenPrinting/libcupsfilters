@@ -39,6 +39,9 @@
 
 #include "image-private.h"
 
+#ifdef HAVE_LIBJXL
+#include "image-jpeg-xl.h"  /* Declarations for _cfImageReadJPEGXL() and is_jpegxl() */
+#endif
 
 //
 // Local functions...
