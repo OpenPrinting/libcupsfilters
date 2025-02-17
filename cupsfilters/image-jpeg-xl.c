@@ -53,8 +53,8 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
 
   /* Determine the size needed for the output buffer.
      We request output as 16-bit unsigned integers to preserve high color depth. */
-  status = JxlDecoderGetImageOutBufferSize(decoder, &frame_header,
-                                           JXL_DATA_TYPE_UINT16,
+  status = JxlDecoderImageOutBufferSize(decoder, &frame_header,
+                                           JXL_TYPE_UINT16,
                                            &buffer_size);
   if (status != JXL_DEC_SUCCESS || buffer_size == 0) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to determine output buffer size.\n");
@@ -110,11 +110,15 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
     return NULL;
   }
 
-  img->width  = (int)frame_header.xsize;
-  img->height = (int)frame_header.ysize;
-  img->xppi   = (frame_header.xdensity > 0) ? (int)frame_header.xdensity : 300;
-  img->yppi   = (frame_header.ydensity > 0) ? (int)frame_header.ydensity : 300;
-  img->bitsPerComponent = (int)frame_header.bit_depth;
+  JxlBasicInfo basic_info;
+  JxlDecoderGetBasicInfo(decoder, &basic_info);
+
+  img->width  = (int)basic_info.xsize;
+  img->height = (int)basic_info.ysize;
+  img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
+  img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
+  img->bitsPerComponent = (int)basic_info.bits_per_sample;
+
   // For JPEG‑XL, we assume the decoded format is RGB.
   img->colorspace = CF_IMAGE_RGB;
   img->xsize = img->width;
