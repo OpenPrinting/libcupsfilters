@@ -21,6 +21,107 @@ is_jpegxl(const unsigned char *header, size_t len)
 }
 
 /*
+ * cfImageCreateFromJxlDecoder() - Create a cf_image_t from a libjxl decoder.
+ *
+ * This function retrieves the frame header from the decoder to determine
+ * image dimensions, bit depth, and resolution. It then queries the output buffer
+ * size required for 16-bit per channel output, allocates that buffer, and sets it
+ * in the decoder. The decoder is then run until the full image is decoded.
+ * Finally, a new cf_image_t structure is allocated and populated with the
+ * decoded image data and properties.
+ *
+ * Returns: Pointer to a cf_image_t on success, or NULL on failure.
+ */
+cf_image_t *
+cfImageCreateFromJxlDecoder(JxlDecoder *decoder)
+{
+  cf_image_t *img = NULL;
+  JxlFrameHeader frame_header;
+  size_t buffer_size = 0;
+  void *output_buffer = NULL;
+  JxlDecoderStatus status;
+
+  /* Initialize and retrieve the frame header */
+  memset(&frame_header, 0, sizeof(frame_header));
+  status = JxlDecoderGetFrameHeader(decoder, &frame_header);
+  if (status != JXL_DEC_SUCCESS) {
+    fprintf(stderr, "cfImageCreateFromJxlDecoder: Unable to retrieve frame header.\n");
+    return NULL;
+  }
+
+  /* Determine the size needed for the output buffer.
+     We request output as 16-bit unsigned integers to preserve high color depth. */
+  status = JxlDecoderGetImageOutBufferSize(decoder, &frame_header,
+                                           JXL_DATA_TYPE_UINT16,
+                                           &buffer_size);
+  if (status != JXL_DEC_SUCCESS || buffer_size == 0) {
+    fprintf(stderr, "cfImageCreateFromJxlDecoder: Unable to determine output buffer size.\n");
+    return NULL;
+  }
+
+  /* Allocate memory for the decoded pixel data */
+  output_buffer = malloc(buffer_size);
+  if (!output_buffer) {
+    fprintf(stderr, "cfImageCreateFromJxlDecoder: Memory allocation for output buffer failed.\n");
+    return NULL;
+  }
+
+  /* Set the output buffer in the decoder */
+  status = JxlDecoderSetImageOutBuffer(decoder, JXL_DATA_TYPE_UINT16,
+                                       output_buffer, buffer_size);
+  if (status != JXL_DEC_SUCCESS) {
+    fprintf(stderr, "cfImageCreateFromJxlDecoder: Failed to set output buffer.\n");
+    free(output_buffer);
+    return NULL;
+  }
+
+  // Process decoder events until the full image is decoded.
+  while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
+    if (status == JXL_DEC_ERROR) {
+      fprintf(stderr, "cfImageCreateFromJxlDecoder: JPEG‑XL decoding error.\n");
+      free(output_buffer);
+      return NULL;
+    }
+  }
+
+  /* Allocate and populate the cf_image_t structure.
+     The structure below is assumed to be similar to:
+     
+       typedef struct cf_image_s {
+         int   width;              // Image width in pixels
+         int   height;             // Image height in pixels
+         int   xppi;               // Horizontal resolution (dpi)
+         int   yppi;               // Vertical resolution (dpi)
+         int   bitsPerComponent;   // Bit depth per channel
+         int   colorspace;         // e.g., CF_IMAGE_RGB
+         int   xsize;              // Pixel width (often same as width)
+         int   ysize;              // Pixel height (often same as height)
+         void  *data;              // Pointer to pixel data
+       } cf_image_t;
+     
+  */
+  img = malloc(sizeof(cf_image_t));
+  if (!img) {
+    fprintf(stderr, "cfImageCreateFromJxlDecoder: Memory allocation for image structure failed.\n");
+    free(output_buffer);
+    return NULL;
+  }
+
+  img->width  = (int)frame_header.xsize;
+  img->height = (int)frame_header.ysize;
+  img->xppi   = (frame_header.xdensity > 0) ? (int)frame_header.xdensity : 300;
+  img->yppi   = (frame_header.ydensity > 0) ? (int)frame_header.ydensity : 300;
+  img->bitsPerComponent = (int)frame_header.bit_depth;
+  // For JPEG‑XL, we assume the decoded format is RGB.
+  img->colorspace = CF_IMAGE_RGB;
+  img->xsize = img->width;
+  img->ysize = img->height;
+  img->data = output_buffer;
+
+  return img;
+}
+
+/*
  * _cfImageReadJPEGXL() - Read a JPEG‑XL image using libjxl.
  *
  * This function reads the entire file from the current file pointer,
