@@ -1,4 +1,39 @@
-# CHANGES - OpenPrinting libcupsfilters v2.1.0 - 2024-10-17
+# CHANGES - OpenPrinting libcupsfilters v2.1.1 - 2025-02-18
+
+## CHANGES IN V2.1.1 (18th February 2025)
+
+- Correct adding blank page when printing even/odd pages for manual duplex
+  The "page-set" option with choices "even" and "odd" is designed for
+  doing manual duplex, by printing the odd pages first, turning the
+  printed pages over and put them back into the input tray and then
+  print the even pages. If the total number of pages is odd, a blank
+  page needs to get added. This chnage does corrections to make this
+  work correctly (cups-filters issue #541).
+
+- Do not default to input page size Letter when job format defines page sizes
+  For input formats which define the absolute size dimensions for each
+  page (PostScript, PDF, CUPS/PWG/Apple Raster) we do not default to
+  US Letter if no input page size is given (Issue #68, pull request
+  #69).
+
+- Fix transferring error exit status from children in filter functions
+  The Ghostcript and MuPDF filter functions did not transfer error
+  exit codes from the called command line utilities and returned the
+  successful exit code from another called utility instead (Issue #76,
+  pull request #77).
+
+- bannertopdf.c: Fix segfault when printing banners/test page
+  (Pull request #80)
+
+- Fix issues reported by OpenScanHub
+  Open source static analyzer OpenScanHub found several issues
+  regarding resource leaks, security, buffer overflows etc. which are
+  fixed now. libcupsfilters passes sanity testing with the changes
+  (Pull request #79).
+
+- Update testfilters.c to resolve issues with different build directories
+  (Issue #66, pull request #74)
+
 
 ## CHANGES IN V2.1.0 (17th October 2024)
 
@@ -10,6 +45,7 @@
 - Include `cupsfilters/testfilters.sh` in release tarball
   `check_SCRIPTS` is not automatically included, has to be added to
   EXTRA_DIST.
+
 
 ## CHANGES IN V2.1b1 (14th August 2024)
 
