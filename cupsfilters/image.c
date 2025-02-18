@@ -316,7 +316,7 @@ cfImageOpen(
 		filename ? filename : "(null)", primary, secondary,
 		saturation, hue, lut));
 
-  if ((fp = fopen(filename, "r")) == NULL)
+  if ((fp = fopen(filename, "rb")) == NULL)
     return (NULL);
 
   return (cfImageOpenFP(fp, primary, secondary, saturation, hue, lut));
