@@ -1,8 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
 
-LIBS += $(shell pkg-config --libs libjxl)
-CFLAGS += $(shell pkg-config --cflags libjxl)
-
 pkgconfdir = $(libdir)/pkgconfig
 pkgconf_DATA = \
 	libcupsfilters.pc
@@ -173,7 +170,6 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/image-private.h \
 	cupsfilters/image-tiff.c \
 	cupsfilters/image-jpeg-xl.c \
-	cupsfilters/image-jpeg-xl.h \
 	cupsfilters/image-zoom.c \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
@@ -224,6 +220,7 @@ libcupsfilters_la_LIBADD = \
 	$(LCMS_LIBS) \
 	$(LIBQPDF_LIBS) \
 	$(LIBJPEG_LIBS) \
+	$(LIBJXL_LIBS) \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
@@ -239,6 +236,7 @@ libcupsfilters_la_CFLAGS = \
 	$(LCMS_CFLAGS) \
 	$(LIBQPDF_CFLAGS) \
 	$(LIBJPEG_CFLAGS) \
+	$(LIBJXL_CFLAGS) \
 	$(EXIF_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
 	$(TIFF_CFLAGS)
@@ -273,13 +271,11 @@ testimage_LDADD = \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
 	libcupsfilters.la \
-	-lm \
-	-ljxl
+	-lm
 testimage_CFLAGS = \
 	$(LIBJPEG_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
-	$(TIFF_CFLAGS) \
-	-I/usr/local/include
+	$(TIFF_CFLAGS)
 
 testrgb_SOURCES = \
 	cupsfilters/testrgb.c \
