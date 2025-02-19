@@ -19,6 +19,8 @@ is_jpegxl(const unsigned char *header, size_t len)
     return 0;
   if (!memcmp(header, "\x00\x00\x00\x0C\x4A\x58\x4C\x20", 8))
     return 1;
+  if (!memcmp(header, "\xFF\x0A", 2))
+    return 1;
   return 0;
 }
 
