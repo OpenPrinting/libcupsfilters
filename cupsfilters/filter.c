@@ -663,9 +663,11 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
       cupsArrayRemove(filter_chain, filter);
     }
     else
+    {
       if (log) log(ld, CF_LOGLEVEL_INFO,
 		   "cfFilterChain: Running filter: %s",
 		   filter->name ? filter->name : "Unspecified");
+    }
   }
 
   //
@@ -782,6 +784,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_INFO,
 		   "cfFilterChain: %s (PID %d) started.",
 		   filter->name ? filter->name : "Unspecified filter", pid);
+
 
       pid_entry = malloc(sizeof(filter_function_pid_t));
       pid_entry->pid = pid;

@@ -199,7 +199,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdftopdf/pdfio-pdftopdf-private.h \
 	cupsfilters/pdftopdf/pdfio-cm.c \
 	cupsfilters/pdftopdf/pdfio-cm-private.h \
-	cupsfilters/pdftoraster.cxx \
+	cupsfilters/pdftoraster.c \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
 	cupsfilters/pwgtopdf.c \

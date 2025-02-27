@@ -1130,6 +1130,8 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
   else
     outformat = CF_FILTER_OUT_FORMAT_PWG_RASTER;
 
+  fprintf(stderr, "going well");
+
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "cfFilterPCLmToRaster: Output format: %s",
 	       (outformat == CF_FILTER_OUT_FORMAT_CUPS_RASTER ? "CUPS Raster" :

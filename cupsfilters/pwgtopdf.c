@@ -115,116 +115,102 @@ typedef struct pwgtopdf_doc_s                  // **** Document information ****
 					       // function, can be NULL
 } pwgtopdf_doc_t;
 
-struct pdf_info 
-{
-  // PDFio-specific members
-  pdfio_file_t *pdf;  // PDFio file handle
-  pdfio_obj_t *page; // PDFio page handle
-   
-  unsigned pagecount;
-  unsigned width;
-  unsigned height;
-  unsigned line_bytes;
-  unsigned bpp;
-  unsigned bpc;
-  unsigned 		pclm_num_strips;
-  unsigned 		pclm_strip_height_preferred;
-  unsigned 		*pclm_strip_height;  // Dynamically allocated array in C
-  unsigned 		*pclm_strip_height_supported;  // Dynamically allocated array 
-  compression_method_t 	*pclm_compression_method_preferred;
-  size_t 		num_compression_methods; 
-  char 			**pclm_source_resolution_supported;  // Array of dynamically allocated strings
-  char 			*pclm_source_resolution_default;     // Pointer to dynamically allocated string
-  char 			*pclm_raster_back_side;              // Pointer to dynamically allocated string
-  unsigned char 	**pclm_strip_data;  // Array of pointers to raw data (buffers)
-  char 			*render_intent;                      // Pointer to dynamically allocated string
-  cups_cspace_t 	color_space;
-  unsigned char 	*page_data;  // Pointer to raw page data
-  double 		page_width, page_height;
-  cf_filter_out_format_t outformat;
+
+struct pdf_info{
+    pdfio_file_t *pdf;
+    pdfio_dict_t *page_dict;
+    pdfio_obj_t *page;
+    pdfio_stream_t *page_stream;
+    char *temp_filename;
+
+    unsigned pagecount;
+    unsigned width;
+    unsigned height;
+    unsigned line_bytes;
+    unsigned bpp;
+    unsigned bpc;
+
+    unsigned 		pclm_num_strips;
+    unsigned 		pclm_strip_height_preferred;
+    
+    unsigned 		*pclm_strip_height;
+    size_t 		pclm_strip_height_size;
+
+    unsigned 		*pclm_strip_height_supported;
+    size_t 		pclm_strip_height_supported_size;
+
+    compression_method_t *pclm_compression_method_preferred;
+    size_t 		 pclm_compression_method_preferred_size;
+
+    char 		**pclm_source_resolution_supported;
+    size_t 		pclm_source_resolution_supported_size;
+
+    char 		*pclm_source_resolution_default;
+    char 		*pclm_raster_back_side;
+
+    char 		**pclm_strip_data;
+    size_t 		*pclm_strip_data_size;
+
+    char 		*render_intent;
+    cups_cspace_t 	color_space;
+
+    char 		*page_data;
+    size_t 		page_data_size;
+    double page_width;
+    double page_height;
+    cf_filter_out_format_t outformat;
 };
 
-// PDF color conversion function
-typedef void (*pdf_convert_function)(struct pdf_info *info,
-				     pwgtopdf_doc_t *doc);
-
-
 void 
-init_pdf_info(struct pdf_info *info, 
-	      size_t num_methods, 
-	      size_t num_strips_supported)
+init_pdf_info(struct pdf_info *info) 
 {
-  // Initialize primitive types
+  info->pdf = NULL;
+
   info->pagecount = 0;
   info->width = 0;
   info->height = 0;
   info->line_bytes = 0;
   info->bpp = 0;
   info->bpc = 0;
+
   info->pclm_num_strips = 0;
-  info->pclm_strip_height_preferred = 16;  // Default strip height
-  info->page_width = 0;
-  info->page_height = 0;
+  info->pclm_strip_height_preferred = 16;
+
+  info->pclm_strip_height = (unsigned*) malloc(2000 * sizeof(unsigned));
+  info->pclm_strip_height_size = 0;
+
+  info->pclm_strip_height_supported = (unsigned*) malloc(2000 * sizeof(unsigned));
+  info->pclm_strip_height_supported[0] = 1;
+  info->pclm_strip_height_supported[1] = 16;
+  info->pclm_strip_height_supported_size = 2;
+
+  info->pclm_compression_method_preferred = (compression_method_t*) malloc(2000 * sizeof(compression_method_t));
+  info->pclm_compression_method_preferred[0] = 0;
+  info->pclm_compression_method_preferred_size = 1;
+ 
+  info->pclm_source_resolution_supported = NULL;
+  info->pclm_source_resolution_supported_size = 0;
+
+  info->pclm_source_resolution_default = strdup("");
+  info->pclm_raster_back_side = strdup("");
+  info->render_intent = strdup("");
+  
+  info->pclm_strip_data = (char**) malloc(2000 * sizeof(char*));
+  info->pclm_strip_data_size = (size_t *) malloc(2000 * sizeof(size_t));
+
+  info->page_dict = NULL;
+  info->page = NULL;
+  info->page_data = strdup("");
+  info->page_data_size = 0;
+  info->color_space = CUPS_CSPACE_K;
+  info->page_width = 0.0;
+  info->page_height = 0.0;
   info->outformat = CF_FILTER_OUT_FORMAT_PDF;
-
-  // Allocate memory for pclm_strip_height (for strip height handling)
-  info->pclm_strip_height = (unsigned *)malloc(num_strips_supported * sizeof(unsigned));
-  if (info->pclm_strip_height)
-  {
-    for (size_t i = 0; i < num_strips_supported; ++i)
-    {
-      info->pclm_strip_height[i] = 0;  // Initialize to 0 or a specific value as needed
-    }
-  }
-
-  // Allocate memory for pclm_strip_height_supported
-  info->pclm_strip_height_supported = (unsigned *)malloc(num_strips_supported * sizeof(unsigned));
-  if (info->pclm_strip_height_supported)
-  {
-    for (size_t i = 0; i < num_strips_supported; ++i)
-    {
-      info->pclm_strip_height_supported[i] = 16;  // Initialize to default value
-    }
-  }
-
-  // Allocate memory for multiple compression methods
-  info->num_compression_methods = num_methods;
-  info->pclm_compression_method_preferred = (compression_method_t *)malloc(num_methods * sizeof(compression_method_t));
-  if (info->pclm_compression_method_preferred)
-  {
-    for (size_t i = 0; i < num_methods; ++i)
-    {
-      info->pclm_compression_method_preferred[i] = 0;  // Initialize to default or specific compression method
-    }
-  }
-
-  info->pclm_source_resolution_default = (char *)malloc(64 * sizeof(char));
-  if (info->pclm_source_resolution_default)
-  {
-    strcpy(info->pclm_source_resolution_default, "");  // Initialize to empty string
-  }
-
-  info->pclm_raster_back_side = (char *)malloc(64 * sizeof(char));
-  if (info->pclm_raster_back_side)
-  {
-    strcpy(info->pclm_raster_back_side, "");  // Initialize to empty string
-  }
-
-  info->render_intent = (char *)malloc(64 * sizeof(char));
-  if (info->render_intent)
-  {
-    strcpy(info->render_intent, "");  // Initialize to empty string
-  }
-
-  info->pclm_source_resolution_supported = NULL; 
-  info->pclm_strip_data = NULL;  // Assuming this will be dynamically allocated elsewhere
-
-  info->color_space = CUPS_CSPACE_K;  // Default color space
-  info->page_data = NULL;  // Will be allocated when needed
-
-  info->pdf = NULL;  // Initialize to NULL, will be set when opening a file
-  info->page = NULL;  // Initialize to NULL, will be set when reading a page
 }
+
+// PDF color conversion function
+typedef void (*pdf_convert_function)(struct pdf_info *info,
+				     pwgtopdf_doc_t *doc);
 
 // Freeing the dynamically allocated memory
 void free_pdf_info(struct pdf_info *info)
@@ -266,12 +252,6 @@ void free_pdf_info(struct pdf_info *info)
     info->render_intent = NULL;
   }
 
-  // Free any other dynamically allocated memory as necessary
-  if (info->pclm_strip_data)
-  {
-    free(info->pclm_strip_data);  // Assuming this array will be dynamically allocated elsewhere
-    info->pclm_strip_data = NULL;
-  }
 
   if (info->page_data)
   {
@@ -283,6 +263,7 @@ void free_pdf_info(struct pdf_info *info)
 //
 // Bit conversion functions
 //
+
 static unsigned char *
 invert_bits(unsigned char *src,
 	    unsigned char *dst,
@@ -297,6 +278,7 @@ invert_bits(unsigned char *src,
   return (dst);
 }	
 
+
 static unsigned char *
 no_bit_conversion(unsigned char *src,
 		  unsigned char *dst,
@@ -304,6 +286,7 @@ no_bit_conversion(unsigned char *src,
 {
   return (src);
 }
+
 
 //
 // Color conversion functions
@@ -385,65 +368,72 @@ no_color_conversion(unsigned char *src,
 // I - input string to be split
 // I - string containing delimiters
 //
-// Function to split strings by delimiters
 
-char**
+char** 
 split_strings(const char *str, 
 	      const char *delimiters, 
-	      int *size) 
+	      size_t *count) 
 {
-  if (delimiters == NULL || strlen(delimiters) == 0) 
-    delimiters = ",";
-    
+  *count = 0;
+  if (!str || *str == '\0') 
+    return NULL;
 
-  int capacity = 10;
-  char **result = malloc(capacity * sizeof(char *));
+  // Use comma as default delimiter if not specified
+  if (!delimiters || *delimiters == '\0') delimiters = ",";
 
-  char *value = malloc(strlen(str) + 1);
-    
-  int token_count = 0;
-  int index = 0;
-  bool push_flag = false;
+  char **result = NULL;
+  char *current = NULL;
+  size_t current_len = 0;
+  size_t max_tokens = 0;
+  bool in_token = false;
 
-  for (size_t i = 0; i < strlen(str); i++) 
+  while (*str) 
   {
-    if (strchr(delimiters, str[i]) != NULL) 
-    { 
-      if (push_flag && index > 0) 
+    if (strchr(delimiters, *str)) 
+    {
+      if (in_token) 
       {
-        value[index] = '\0';
-        result[token_count] = malloc(strlen(value) + 1);
-        strcpy(result[token_count], value);
-        token_count++;
-
-        if (token_count >= capacity) 
-	{
-          capacity *= 2;
-	  result = realloc(result, capacity * sizeof(char *));
-       	}
+        current = realloc(current, current_len + 1);
+       	current[current_len] = '\0';
       
-	index = 0;
-       	push_flag = false;
+        if (*count >= max_tokens) 
+	{
+      	  max_tokens = (*count == 0) ? 4 : max_tokens * 2;
+	  result = realloc(result, max_tokens * sizeof(char *));
+       	}
+       	result[(*count)++] = current;
+ 
+        current = NULL;
+        current_len = 0;
+        in_token = false;
       }
     } 
     else 
     {
-      value[index++] = str[i];
-      push_flag = true;
+      if (!in_token) 
+	in_token = true;
+      current = realloc(current, current_len + 1);
+      current[current_len++] = *str;
     }
+    str++;
   }
 
-  if (push_flag && index > 0) 
+  if (in_token) 
   {
-    value[index] = '\0';
-    result[token_count] = malloc(strlen(value) + 1);
-    strcpy(result[token_count], value);
-    token_count++;
+    current = realloc(current, current_len + 1);
+    current[current_len] = '\0';
+    if (*count >= max_tokens) 
+    {
+      result = realloc(result, (*count + 1) * sizeof(char *));
+    }
+    result[(*count)++] = current;
+  } 
+  else 
+  {
+    free(current);
   }
 
-  *size = token_count;
-
-  free(value);
+  result = realloc(result, *count * sizeof(char *));
   return result;
 }
 
@@ -468,6 +458,7 @@ num_digits(int n)
   return (digits);
 }
 
+
 //
 // 'int_to_fwstring()' - Convert a number to fixed width string by padding
 //                       with zeroes
@@ -477,51 +468,80 @@ num_digits(int n)
 //
 
 char*
-int_to_fwstring(int n, int width) 
+int_to_fwstring(int n, 
+		int width) 
 {
   int num_zeroes = width - num_digits(n);
-  if (num_zeroes < 0) 
+  if (num_zeroes < 0)
     num_zeroes = 0;
 
-  int result_length = num_zeroes + num_digits(n) + 1; 
-  char *result = malloc(result_length * sizeof(char));
-   
-  for (int i = 0; i < num_zeroes; i++) 
-    result[i] = '0';
+  int str_size = num_zeroes + num_digits(n) + 1;
+  char *result = (char *)malloc(str_size * sizeof(char));
+  if (!result) {
+    return NULL; // Handle memory allocation failure
+  }
 
-  sprintf(result + num_zeroes, "%d", n);
+  memset(result, '0', num_zeroes);
+  snprintf(result + num_zeroes, str_size - num_zeroes, "%d", n);
   return result;
 }
 
-static int 
-create_pdf_file(struct pdf_info *info, 
-		const cf_filter_out_format_t outformat)
+static int
+create_pdf_file(struct pdf_info *info,
+                cf_filter_out_format_t outformat,
+		FILE *outputfp)
 {
-  if (!info || !info->pdf) 
-    return 1;  // Error handling
-  
-  pdfio_file_t *temp = pdfioFileCreate(pdfioFileGetName(info->pdf), NULL, NULL, NULL, NULL, NULL);
+  char tmp_filename[] = "/tmp/tmpfileXXXXXX";
 
-  info->pdf = temp;  
+  int tmp_fd = mkstemp(tmp_filename);
+  close(tmp_fd);
+
+  info->pdf = NULL;
+  if (outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  {
+    info->pdf = pdfioFileCreate(tmp_filename, "PCLm-1.0", NULL, NULL, NULL, NULL);
+  }
+  else
+  {
+    info->pdf = pdfioFileCreate(tmp_filename, NULL, NULL, NULL, NULL, NULL);
+  }
+
+  if (!info->pdf)
+    return 1; 
+
+  info->temp_filename = strdup(tmp_filename);
   info->outformat = outformat;
-
-  return 0; 
+  return 0;
 }
 
-static pdfio_rect_t
+static pdfio_rect_t*
 make_real_box(double x1,
 	      double y1,
 	      double x2,
 	      double y2)
 {
-  pdfio_rect_t ret;
+  pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
+  rect->x1 = x1;
+  rect->y1 = y1;
+  rect->x2 = x2;
+  rect->y2 = y2;
+ 
+  return rect; 
+}
 
-  ret.x1 = x1;
-  ret.y1 = y1;
-  ret.x2 = x2;
-  ret.y2 = y2;
-
-  return (ret);
+static pdfio_rect_t*
+make_integer_box(int x1,
+	      int y1,
+	      int x2,
+	      int y2)
+{
+  pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
+  rect->x1 = x1;
+  rect->y1 = y1;
+  rect->x2 = x2;
+  rect->y2 = y2;
+ 
+  return rect; 
 }
 
 //
@@ -548,6 +568,7 @@ modify_pdf_color(struct pdf_info *info,
   info->bpc = bpc;
   doc->conversion_function = fn; 
 }
+
 
 static void
 convert_pdf_no_conversion(struct pdf_info *info,
@@ -624,82 +645,85 @@ convert_pdf_invert_colors(struct pdf_info *info,
 // Create an '/ICCBased' array and embed a previously 
 // set ICC Profile in the PDF
 //
-// TODO: HOW IS THIS cmsHPROFILE CALLED
-pdfio_obj_t *
+
+static pdfio_obj_t*
 embed_icc_profile(pdfio_file_t *pdf, pwgtopdf_doc_t *doc)
 {
-  pdfio_dict_t *streamdict;
-  pdfio_obj_t *icc_stream;
-  char *n_value = NULL;
-  char *alternate_cs = NULL;
-  unsigned char *buff;
-  cmsColorSpaceSignature css;
+  if (!doc->colorProfile)
+    return NULL;
+
+  pdfio_array_t *array = pdfioArrayCreate(pdf);
+  pdfio_dict_t *stream_dict = pdfioDictCreate(pdf);
+  const char *n_value = NULL;
+  const char *alternate_cs = NULL;
+  unsigned char *buff = NULL;
+  pdfio_stream_t *stream = NULL;
 
 #ifdef USE_LCMS1
   size_t profile_size;
 #else
   unsigned int profile_size;
 #endif
-
-   // Determine color space signature
-  css = cmsGetColorSpace(doc->colorProfile);
-
-  // Determine color component number for /ICCBased array
-  switch (css)
+    
+  // Get color space information
+  cmsColorSpaceSignature css = cmsGetColorSpace(doc->colorProfile);
+  switch (css) 
   {
     case cmsSigGrayData:
       n_value = "1";
-      alternate_cs = "/DeviceGray";
+      alternate_cs = "DeviceGray";
       break;
     case cmsSigRgbData:
       n_value = "3";
-      alternate_cs = "/DeviceRGB";
+      alternate_cs = "DeviceRGB";
       break;
     case cmsSigCmykData:
       n_value = "4";
-      alternate_cs = "/DeviceCMYK";
-      break; 
+      alternate_cs = "DeviceCMYK";
+      break;
     default:
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-                                     "cfFilterPWGToPDF: Failed to embed ICC Profile.");
-      return NULL;
-  }
-
-  cmsSaveProfileToMem(doc->colorProfile, NULL, &profile_size);
-  buff = (unsigned char *)calloc(profile_size, sizeof(unsigned char));
-  cmsSaveProfileToMem(doc->colorProfile, buff, &profile_size);
-
-  streamdict = pdfioDictCreate(pdf);
-  pdfioDictSetName(streamdict, "Alternate", alternate_cs);
-  pdfioDictSetName(streamdict, "N", n_value);
-
-  icc_stream = pdfioFileCreateObj(pdf, streamdict);
-
-  if (!icc_stream)
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-                         	   "cfFilterPWGToPDF: Failed to create ICC profile stream.");
-    free(buff);
+                        "Failed to embed ICC Profile: Unsupported colorspace");
     return NULL;
-  }
+ }
+
+  // Create stream dictionary
+  pdfioDictSetName(stream_dict, "Alternate", alternate_cs);
+  pdfioDictSetName(stream_dict, "N", n_value);
+
+  // Get profile data
+  cmsSaveProfileToMem(doc->colorProfile, NULL, &profile_size); 
+
+  buff = (unsigned char*) calloc(profile_size, sizeof(unsigned char));
+  cmsSaveProfileToMem(doc->colorProfile, buff, &profile_size);
+  
+  pdfio_obj_t *stream_obj = pdfioFileCreateObj(pdf, stream_dict);
+  stream = pdfioObjCreateStream(stream_obj, PDFIO_FILTER_FLATE);
+
+  pdfioStreamWrite(stream, buff, profile_size);
+  pdfioStreamClose(stream);
+
+  array = pdfioArrayCreateColorFromICCObj(pdf, stream_obj);
+
+  if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+		    "ICC Profile embedded in PDF");
 
   free(buff);
-  if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-                      		 "cfFilterPWGToPDF: ICC Profile embedded in PDF.");
-
-  return icc_stream;
+  return pdfioArrayGetObj(array, 0);
 }
 
-pdfio_obj_t*
+static pdfio_obj_t*
 embed_srgb_profile(pdfio_file_t *pdf,
 		   pwgtopdf_doc_t *doc)
 {
   pdfio_obj_t *iccbased_reference;
 
+  // Create an sRGB profile from lcms
   doc->colorProfile = cmsCreate_sRGBProfile();
+  // Embed it into the profile
   iccbased_reference = embed_icc_profile(pdf, doc);
 
-  return iccbased_reference;
+  return(iccbased_reference);
 }
 
 //
@@ -713,89 +737,104 @@ embed_srgb_profile(pdfio_file_t *pdf,
 //         /Matrix ['matrix[0]'...'matrix[n*n]']
 //      >>
 //   ]
+//
 
-pdfio_array_t*
+static pdfio_array_t*
 get_calibration_array(pdfio_file_t *pdf,
-                      const char *color_space,
+		      const char *color_space,
                       double wp[],
                       double gamma[],
                       double matrix[],
                       double bp[])
-{
-  if ((!strcmp("/CalGray", color_space) && matrix != NULL) || wp == NULL) 
+{ 
+  if ((!strcmp("/CalGray", color_space) && matrix != NULL) || 
+      wp == NULL)
     return NULL;
-    
-  pdfio_array_t *calibration_array = pdfioArrayCreate(pdf);
-  if (!calibration_array) 
-    return NULL;
-    
-  pdfioArrayAppendName(calibration_array, color_space);
 
-  pdfio_dict_t *calibration_dict = pdfioDictCreate(pdf);
+  pdfio_array_t *calArray = pdfioArrayCreate(pdf);
+  pdfio_dict_t *calDict = pdfioDictCreate(pdf);
+  pdfioArrayAppendName(calArray, color_space);
 
-  if (wp != NULL) 
+  // WhitePoint
+  pdfio_array_t *whitepoint_array = pdfioArrayCreate(pdf);
+  pdfioArrayAppendNumber(whitepoint_array, wp[0]);
+  pdfioArrayAppendNumber(whitepoint_array, wp[1]);
+  pdfioArrayAppendNumber(whitepoint_array, wp[2]);
+  pdfioDictSetArray(calDict, "WhitePoint", whitepoint_array);
+
+  fprintf(stderr, "the value of color_space is %s", color_space);
+  // Gamma 
+  if (!strcmp("CalGray", color_space) && gamma != NULL)
   {
-    pdfio_array_t *white_point_array = pdfioArrayCreate(pdf);
-    pdfioArrayAppendNumber(white_point_array, wp[0]);
-    pdfioArrayAppendNumber(white_point_array, wp[1]);
-    pdfioArrayAppendNumber(white_point_array, wp[2]);
-    pdfioDictSetArray(calibration_dict, "WhitePoint", white_point_array);
+    fprintf(stderr, "Goes in this Gamma1");
+    pdfioDictSetNumber(calDict, "Gamma", gamma[0]);
   }
-
-  if (!strcmp("/CalGray", color_space) && gamma != NULL) 
-    pdfioDictSetNumber(calibration_dict, "Gamma", gamma[0]);
-    
-  else if (!strcmp("/CalRGB", color_space) && gamma != NULL) 
+  else if (!strcmp("CalRGB", color_space) && gamma != NULL) 
   {
+    fprintf(stderr, "Goes in this Gamma2");
     pdfio_array_t *gamma_array = pdfioArrayCreate(pdf);
-    pdfioArrayAppendNumber(gamma_array, gamma[0]);
-    pdfioArrayAppendNumber(gamma_array, gamma[1]);
-    pdfioArrayAppendNumber(gamma_array, gamma[2]);
-    pdfioDictSetArray(calibration_dict, "Gamma", gamma_array);
+    if (gamma_array)
+    {
+      pdfioArrayAppendNumber(gamma_array, gamma[0]);
+      pdfioArrayAppendNumber(gamma_array, gamma[1]);
+      pdfioArrayAppendNumber(gamma_array, gamma[2]);
+      pdfioDictSetArray(calDict, "Gamma", gamma_array);
+    }
   }
 
-  if (bp != NULL) 
+  // BlackPoint
+
+  if (bp != NULL)
   {
-    pdfio_array_t *black_point_array = pdfioArrayCreate(pdf);
-    pdfioArrayAppendNumber(black_point_array, bp[0]);
-    pdfioArrayAppendNumber(black_point_array, bp[1]);
-    pdfioArrayAppendNumber(black_point_array, bp[2]);
-    pdfioDictSetArray(calibration_dict, "BlackPoint", black_point_array);
+    fprintf(stderr, "Goes in this BlackPoint1");
+    pdfio_array_t *bp_array = pdfioArrayCreate(pdf);
+    if (bp_array)
+    {
+      pdfioArrayAppendNumber(bp_array, bp[0]);
+      pdfioArrayAppendNumber(bp_array, bp[1]);
+      pdfioArrayAppendNumber(bp_array, bp[2]);
+      pdfioDictSetArray(calDict, "BlackPoint", bp_array);
+    }
   }
 
-  if (!strcmp("CalRGB", color_space) && matrix != NULL) 
+  // Matrix
+  if (strcmp(color_space, "CalRGB") == 0 && matrix != NULL)
   {
+    fprintf(stderr, "Goes in this Matrix1");
     pdfio_array_t *matrix_array = pdfioArrayCreate(pdf);
-    for (int i = 0; i < 9; i++) 
-      pdfioArrayAppendNumber(matrix_array, matrix[i]);
-    pdfioDictSetArray(calibration_dict, "Matrix", matrix_array);
-  } 
+    if (matrix_array)
+    {
+      for (int i = 0; i < 9; i++)
+      {
+        pdfioArrayAppendNumber(matrix_array, matrix[i]);
+      }
+      pdfioDictSetArray(calDict, "Matrix", matrix_array);
+    }
+  }
 
-  pdfioArrayAppendDict(calibration_array, calibration_dict);
-  return calibration_array;
+  pdfioArrayAppendDict(calArray, calDict);
+  return calArray;
 }
 
-
-pdfio_array_t*
+static pdfio_array_t*
 get_cal_rgb_array(pdfio_file_t *pdf,
 		  double wp[3],
 		  double gamma[3],
 		  double matrix[9],
 		  double bp[3])
 {
-  pdfio_array_t *ret = get_calibration_array(pdf, "CalRGB", wp, gamma, matrix,
-				             bp);
-  return (ret);
+  pdfio_array_t *ret = get_calibration_array(pdf, "CalRGB", wp, gamma, matrix, bp);
+  return ret;
 }
 
-pdfio_array_t*
+static pdfio_array_t*
 get_cal_gray_array(pdfio_file_t *pdf,
 		   double wp[3],
 		   double gamma[1],
 		   double bp[3])
 {
   pdfio_array_t *ret = get_calibration_array(pdf, "CalGray", wp, gamma, 0, bp);
-  return (ret);
+  return ret;
 }
 
 //
@@ -813,122 +852,154 @@ get_cal_gray_array(pdfio_file_t *pdf,
 // I - bits per component
 // I - document information
 //
-
-pdfio_stream_t**
-make_pclm_strips(pdfio_file_t *pdf, 
-		 unsigned num_strips, 
-		 unsigned char **strip_data, 
-		 compression_method_t *compression_methods, 
-		 unsigned width, unsigned *strip_height, 
-		 cups_cspace_t cs, 
+static pdfio_obj_t**
+make_pclm_strips(pdfio_file_t *pdf,
+		 unsigned num_strips,
+		 char **strip_data,
+		 size_t *strip_data_size,
+		 compression_method_t *compression_methods,
+		 unsigned width, unsigned *strip_height,
+		 cups_cspace_t cs,
 		 unsigned bpc,
 		 pwgtopdf_doc_t *doc)
 {
-  pdfio_stream_t **ret = (pdfio_stream_t **)malloc(num_strips * sizeof(pdfio_stream_t *));
-  pdfio_dict_t *dict;
-  const char *color_space_name;
-  unsigned components = 0;
+  pdfio_obj_t **strips = (pdfio_obj_t **)malloc(num_strips * sizeof(pdfio_obj_t *));
 
-  switch (cs)
+  // Determine color space
+  const char *color_space;
+  unsigned components;
+  switch (cs) 
   {
     case CUPS_CSPACE_K:
     case CUPS_CSPACE_SW:
-      color_space_name = "DeviceGray";
+      color_space = "DeviceGray";
       components = 1;
       break;
     case CUPS_CSPACE_RGB:
     case CUPS_CSPACE_SRGB:
     case CUPS_CSPACE_ADOBERGB:
-      color_space_name = "DeviceRGB";
+      color_space = "DeviceRGB";
       components = 3;
       break;
     default:
-      if (doc->logfunc)  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		       		      "cfFilterPWGToPDF: Color space not supported.");
-      return NULL;
+      if (doc->logfunc) doc->logfunc(doc->logdata, 1, 
+		     		     "Unsupported color space");
+      free(strips);
+     return NULL;
+  }
+
+  //
+  // We deliver already compressed content (instead of letting QPDFWriter
+  // do it) to avoid using excessive memory. For that we first get preferred
+  // compression method to pre-compress content for strip streams.
+  //
+  // Use the compression method with highest priority of the available methods
+  // __________________
+  // Priority | Method
+  // ------------------
+  // 0        | DCT
+  // 1        | FLATE
+  // 2        | RLE
+  // ------------------
+  //
+
+  compression_method_t compression = compression_methods[0];
+  for (unsigned i = 1; i < num_strips; i++) {
+        if (compression_methods[i] > compression) {
+            compression = compression_methods[i];
+        }
     }
-    
-  for (size_t i = 0; i < num_strips; i++)
+
+
+  for (size_t i = 0; i < num_strips; i ++)
   {
-    dict = pdfioDictCreate(pdf);
-    
+    pdfio_dict_t *dict = pdfioDictCreate(pdf);
     pdfioDictSetName(dict, "Type", "XObject");
     pdfioDictSetName(dict, "Subtype", "Image");
     pdfioDictSetNumber(dict, "Width", width);
-    pdfioDictSetNumber(dict, "BitsPerComponent", bpc); 
-    pdfioDictSetName(dict, "ColorSpace", color_space_name);
     pdfioDictSetNumber(dict, "Height", strip_height[i]);
-        
-    pdfio_obj_t *streamObj = pdfioFileCreateObj(pdf, dict); 
-    ret[i] = pdfioObjCreateStream(streamObj, PDFIO_FILTER_NONE);
-
-    compression_method_t compression = compression_methods[0];
-    for (unsigned j = 0; j < num_strips; j++)
-      compression = compression > compression_methods[j] ? compression : compression_methods[j];
-
-       
+    pdfioDictSetName(dict, "ColorSpace", color_space);
+    pdfioDictSetNumber(dict, "BitsPerComponent", bpc);
+    
+    pdfio_obj_t *ret;
     if (compression == FLATE_DECODE)
     {
-      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
       pdfioDictSetName(dict, "Filter", "FlateDecode");
+      ret =  pdfioFileCreateObj(pdf, dict);
+      pdfio_stream_t *stream = pdfioObjCreateStream(ret, PDFIO_FILTER_FLATE);
+      pdfioStreamWrite(stream, strip_data[i], strip_data_size[i]);
+      pdfioStreamClose(stream);
     }
     else if (compression == RLE_DECODE)
     {
-      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
       pdfioDictSetName(dict, "Filter", "RunLengthDecode");
+      ret =  pdfioFileCreateObj(pdf, dict);
+      pdfio_stream_t *stream = pdfioObjCreateStream(ret, PDFIO_FILTER_FLATE);
+      pdfioStreamWrite(stream, strip_data[i], strip_data_size[i]);
+      pdfioStreamClose(stream);
     }
     else if (compression == DCT_DECODE)
     {
-      pdfioStreamWrite(ret[i], strip_data[i], strip_height[i] * width * components);
       pdfioDictSetName(dict, "Filter", "DCTDecode");
+      ret =  pdfioFileCreateObj(pdf, dict);
+      pdfio_stream_t *stream = pdfioObjCreateStream(ret, PDFIO_FILTER_DCT);
+      pdfioStreamWrite(stream, strip_data[i], strip_data_size[i]);
+      pdfioStreamClose(stream);
     }
+    strips[i] = ret;
   }
-  return ret;
+  return strips;
 }
 
-pdfio_obj_t*
+
+static pdfio_obj_t* 
 make_image(pdfio_file_t *pdf,
-           unsigned char *page_data,
-           int data_size,
-           unsigned width,
-           unsigned height,
-           const char *render_intent,
-           cups_cspace_t cs,
-           unsigned bpc,
-           pwgtopdf_doc_t *doc)
+	   char *page_data,
+	   size_t page_data_size,
+	   unsigned width,
+	   unsigned height,
+	   char *render_intent,
+	   cups_cspace_t cs,
+	   unsigned bpc,
+	   pwgtopdf_doc_t *doc)
 {
-  pdfio_dict_t *dict = pdfioDictCreate(pdf);
-  pdfio_obj_t *image_obj;
   pdfio_obj_t *icc_ref;
+  pdfio_dict_t *image_dict = pdfioDictCreate(pdf);
+  pdfioDictSetName(image_dict, "Type", "XObject");
+  pdfioDictSetName(image_dict, "Subtype", "Image");
+  pdfioDictSetNumber(image_dict, "Width", width);
+  pdfioDictSetNumber(image_dict, "Height", height);
+  pdfioDictSetNumber(image_dict, "BitsPerComponent", bpc);
   int use_blackpoint = 0;
 
-  pdfioDictSetName(dict, "Type", "XObject");
-  pdfioDictSetName(dict, "Subtype", "Image");
-  pdfioDictSetNumber(dict, "Width", width);
-  pdfioDictSetNumber(dict, "Height", height);
-  pdfioDictSetNumber(dict, "BitsPerComponent", bpc);
-
-  if (!doc->cm_disabled && render_intent)
+  if (!doc->cm_disabled)
   {
+    // Write rendering intent into the PDF based on raster settings
     if (strcmp(render_intent, "Perceptual") == 0)
-      pdfioDictSetName(dict, "Intent", "Perceptual");
+      pdfioDictSetName(image_dict, "Intent", "Perceptual");
     else if (strcmp(render_intent, "Absolute") == 0)
-      pdfioDictSetName(dict, "Intent", "AbsoluteColorimetric");
+      pdfioDictSetName(image_dict, "Intent", "AbsoluteColorimetric");
     else if (strcmp(render_intent, "Relative") == 0)
-      pdfioDictSetName(dict, "Intent", "RelativeColorimetric");
+      pdfioDictSetName(image_dict, "Intent", "RelativeColorimetric");
     else if (strcmp(render_intent, "Saturation") == 0)
-      pdfioDictSetName(dict, "Intent", "Saturation");
+      pdfioDictSetName(image_dict, "Intent", "Saturation");
     else if (strcmp(render_intent, "RelativeBpc") == 0)
     {
-      pdfioDictSetName(dict, "Intent", "RelativeColorimetric");
+      // Enable blackpoint compensation
+      pdfioDictSetName(image_dict, "Intent", "RelativeColorimetric");
       use_blackpoint = 1;
     }
   }
 
+  // Write "/ColorSpace" dictionary based on raster input
   if (doc->colorProfile != NULL && !doc->cm_disabled)
   {
-      icc_ref = embed_icc_profile(pdf, doc);
-      pdfioDictSetObj(dict, "ColorSpace", icc_ref);
+    icc_ref = embed_icc_profile(pdf, doc);
+
+    if (icc_ref != NULL)
+    {
+      pdfioDictSetObj(image_dict, "ColorSpace", icc_ref);
+    }
   }
   else if (!doc->cm_disabled)
   {
@@ -941,7 +1012,7 @@ make_image(pdfio_file_t *pdf,
       case CUPS_CSPACE_DEVICE5:
       case CUPS_CSPACE_DEVICE6:
       case CUPS_CSPACE_DEVICE7:
-      case CUPS_CSPACE_DEVICE8: 
+      case CUPS_CSPACE_DEVICE8:
       case CUPS_CSPACE_DEVICE9:
       case CUPS_CSPACE_DEVICEA:
       case CUPS_CSPACE_DEVICEB:
@@ -949,50 +1020,60 @@ make_image(pdfio_file_t *pdf,
       case CUPS_CSPACE_DEVICED:
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
-	pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");
-       	break;
+	  // For right now, DeviceN will use /DeviceCMYK in the PDF
+          pdfioDictSetName(image_dict, "ColorSpace", "DeviceCMYK");	
+	  break;
       case CUPS_CSPACE_K:
-       	pdfioDictSetName(dict, "ColorSpace", "DeviceGray");
-       	break;
+	  pdfioDictSetName(image_dict, "ColorSpace", "DeviceGray");
+	  break;
       case CUPS_CSPACE_SW:
-	if (use_blackpoint)
-       	  pdfioDictSetArray(dict, "ColorSpace", get_cal_gray_array(pdf, cfCmWhitePointSGray(),
-								        cfCmGammaSGray(),
-								       	cfCmBlackPointDefault()));
-	
-	else
-       	  pdfioDictSetArray(dict, "ColorSpace", get_cal_gray_array(pdf, cfCmWhitePointSGray(),
-								        cfCmGammaSGray(), 0));
-       	break;
+	  if (use_blackpoint)
+	  {
+	    pdfio_array_t *gray_array = get_cal_gray_array(pdf, 
+			    			           cfCmWhitePointSGray(), 
+							   cfCmGammaSGray(), 
+							   cfCmBlackPointDefault());
+	    pdfioDictSetArray(image_dict, "ColorSpace",  gray_array);
+	  }
+	  else
+	  {
+            pdfio_array_t *gray_array = get_cal_gray_array(pdf,
+			   			 	   cfCmWhitePointSGray(),
+							   cfCmGammaSGray(), 0);
+	    pdfioDictSetArray(image_dict, "ColorSpace", gray_array); 
+	  }
+	  break;
       case CUPS_CSPACE_CMYK:
-       	pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");
-       	break;
+	  pdfioDictSetName(image_dict, "ColorSpace", "DeviceCMYK");
+	  break;
       case CUPS_CSPACE_RGB:
-       	pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");
-       	break;
+	  pdfioDictSetName(image_dict, "ColorSpace", "DeviceRGB");
+	  break;
       case CUPS_CSPACE_SRGB:
-       	icc_ref = embed_srgb_profile(pdf, doc);
-	if(icc_ref != NULL)
-       	  pdfioDictSetObj(dict, "ColorSpace", icc_ref);
-        else
-	  pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");	
-	break;
+	  icc_ref = embed_srgb_profile(pdf, doc);
+	  if(icc_ref!=NULL)
+	    pdfioDictSetObj(image_dict, "ColorSpace", icc_ref);
+	  else
+	    pdfioDictSetName(image_dict, "ColorSpace", "DeviceRGB");
+	  break;
       case CUPS_CSPACE_ADOBERGB:
-	if (use_blackpoint)
-	  pdfioDictSetArray(dict, "ColorSpace", get_cal_rgb_array(pdf, cfCmWhitePointAdobeRGB(),
-				  				       cfCmGammaAdobeRGB(),
-								       cfCmMatrixAdobeRGB(),
-								       cfCmBlackPointDefault()));
-        else	
-	  pdfioDictSetArray(dict, "ColorSpace", get_cal_rgb_array(pdf, cfCmWhitePointAdobeRGB(),
-				  				       cfCmGammaAdobeRGB(),
-								       cfCmMatrixAdobeRGB(), 0));
-        break;
-        default:
+          if(use_blackpoint)
+	    pdfioDictSetArray(image_dict, "ColorSpace", get_cal_rgb_array(pdf, 
+				             				cfCmWhitePointAdobeRGB(),
+								       	cfCmGammaAdobeRGB(), 
+									cfCmMatrixAdobeRGB(),
+								       	cfCmBlackPointDefault()));
+	  else
+	    pdfioDictSetArray(image_dict, "ColorSpace", get_cal_rgb_array(pdf,
+				    					cfCmWhitePointAdobeRGB(),
+				   				        cfCmGammaAdobeRGB(),
+									cfCmMatrixAdobeRGB(), 0));
+	 break;
+      default:
           if (doc->logfunc)
-	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
+	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
 			 "cfFilterPWGToPDF: Color space not supported.");
-          return NULL;
+	  return NULL;
     }
   }
   else if(doc->cm_disabled)
@@ -1001,12 +1082,12 @@ make_image(pdfio_file_t *pdf,
     {
       case CUPS_CSPACE_K:
       case CUPS_CSPACE_SW:
-	  pdfioDictSetName(dict, "ColorSpace", "DeviceGray");	
+          pdfioDictSetName(image_dict, "ColorSpace", "DeviceGray");
 	  break;
       case CUPS_CSPACE_RGB:
       case CUPS_CSPACE_SRGB:
       case CUPS_CSPACE_ADOBERGB:
-	  pdfioDictSetName(dict, "ColorSpace", "DeviceRGB");	
+          pdfioDictSetName(image_dict, "ColorSpace", "DeviceRGB");
 	  break;
       case CUPS_CSPACE_DEVICE1:
       case CUPS_CSPACE_DEVICE2:
@@ -1024,128 +1105,165 @@ make_image(pdfio_file_t *pdf,
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
       case CUPS_CSPACE_CMYK:
-	  pdfioDictSetName(dict, "ColorSpace", "DeviceCMYK");	
+          pdfioDictSetName(image_dict, "ColorSpace", "DeviceCMYK");
 	  break;
       default:
 	  if (doc->logfunc)
 	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
 			 "cfFilterPWGToPDF: Color space not supported.");
-	  return NULL;
+          return NULL;
     }
   }
   else
     return NULL;
-
-  image_obj = pdfioFileCreateObj(pdf, dict);
+	
 
 #ifdef PRE_COMPRESS
-    uLongf compressed_size = compressBound(data_size);
-    unsigned char *compressed_data = (unsigned char *)malloc(compressed_size);
-    if (compress(compressed_data, &compressed_size, page_data, data_size) != Z_OK)
-    {
-        if (doc->logfunc)
-            doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-                         "cfFilterPWGToPDF: Compression failed.");
-        free(compressed_data);
-        return NULL;
-    }
+  // we deliver already compressed content (instead of letting QPDFWriter
+  // do it), to avoid using excessive memory
+  pdfioDictSetName(image_dict, "Filter", "FlateDecode");
+  pdfio_obj_t *ret =  pdfioFileCreateObj(pdf, image_dict);
+  pdfio_stream_t *stream = pdfioObjCreateStream(ret, PDFIO_FILTER_FLATE);
+  pdfioStreamWrite(stream, page_data, page_data_size);  
+  pdfioStreamClose(stream);
 
-    pdfio_stream_t *stream = pdfioObjCreateStream(image_obj, PDFIO_FILTER_NONE);
-    pdfioStreamWrite(stream, compressed_data, compressed_size);
-    pdfioStreamClose(stream);
-
-    free(compressed_data);
 #else
-    pdfio_stream_t *stream = pdfioStreamCreate(pdf, image_obj);
-    pdfioStreamWrite(stream, page_data, page_data_size);
-    pdfioStreamClose(stream);
+  pdfio_obj_t *ret =  pdfioFileCreateObj(pdf, image_dict);
+  pdfio_stream_t *stream = pdfioObjCreateStream(ret, PDFIO_FILTER_NONE);
+  pdfioStreamWrite(stream, page_data, page_data_size);
+  pdfioStreamClose(stream);
 #endif
-    return image_obj;
+
+  return ret;
 }
+	    
 
-static int 
-finish_page(struct pdf_info *info, 
-     	    pwgtopdf_doc_t *doc)
+static int
+finish_page(struct pdf_info *info,
+	    pwgtopdf_doc_t *doc)
 {
-  pdfio_obj_t *image_obj;
-  char content[1024];
-  size_t content_length = 0;
-
   if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
+    // Finish PDF page
     if (!info->page_data)
       return 0;
 
-    image_obj = make_image(info->pdf, info->page_data, strlen(content), info->width, info->height,
-                           info->render_intent, info->color_space, info->bpc, doc);
-    if (!image_obj)
+    pdfio_obj_t *image = make_image(info->pdf, info->page_data, info->page_data_size,
+		    		    info->width, info->height,
+				    info->render_intent,
+				    info->color_space, info->bpc, doc);
+    if (!image)
     {
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-                             	     "cfFilterPWGToPDF: Unable to load image data");
+                            "cfFilterPWGToPDF: Unable to load image data");
       return 1;
     }
 
-    pdfio_dict_t *resources = pdfioDictCreate(info->pdf);
-    pdfioDictSetObj(resources, "XObject", image_obj);
+    pdfioPageDictAddImage(info->page_dict, "I", image);
+    info->page_stream = pdfioFileCreatePage(info->pdf, info->page_dict);  
   }
   else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
+    // Finish previous PCLm page
     if (info->pclm_num_strips == 0)
-      return 0;
-
-    for (size_t i = 0; i < info->pclm_num_strips; i++)
+      return (0);
+ 
+    for (unsigned i = 0; i < info->pclm_strip_data_size[i]; i ++)
     {
-      if (!info->pclm_strip_data[i])
-        return 0;
+      if(info->pclm_strip_data[i])
+        return 0; 
     }
+
+    pdfio_obj_t **strips = 
+      make_pclm_strips(info->pdf, info->pclm_num_strips, info->pclm_strip_data, 
+		       info->pclm_strip_data_size, 
+		       info->pclm_compression_method_preferred, info->width,
+		       info->pclm_strip_height, info->color_space, info->bpc,
+		       doc);
+
+    for (unsigned i = 0; i < info->pclm_num_strips; i ++)
+    {
+      if (!strips[i])
+      {
+	if (doc->logfunc)
+	  doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+		       "cfFilterPWGToPDF: Unable to load strip data");
+	return (1);
+      }
+    }
+
+    //Add it
+    for (size_t i = 0; i < info->pclm_num_strips; i ++)
+      pdfioPageDictAddImage(info->page_dict, "I", strips[i]);
   }
 
-  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
+  // Draw it
+  char *content;
+  int content_size;
+  content_size = 768;  // Enough for 2 doubles and commands
+  content = (char*)malloc(content_size);
+    
+  if(info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
-    content_length += snprintf(content + content_length, sizeof(content) - content_length,
-                               "%.2f 0 0 %.2f 0 0 cm\n", info->page_width, info->page_height);
-    content_length += snprintf(content + content_length, sizeof(content) - content_length, "/I Do\n");
+    snprintf(content, 256, 
+             "q\n%.2f 0 0 %.2f 0 0 cm\n/I Do\niQ\n",
+              info->page_width, info->page_height);
   }
-  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  else if(info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
-    double d = DEFAULT_PDF_UNIT / atoi(info->pclm_source_resolution_default);
-    content_length += snprintf(content + content_length, sizeof(content) - content_length,
-                               "%.2f 0 0 %.2f 0 0 cm\n", d, d);
+    char *endptr;
+    long resolution_integer = strtol(info->pclm_source_resolution_default, &endptr, 10);
+    
+    double d = 72.0 / (double)resolution_integer;  // 72 points per inch
+    
+    char scale_cmd[256];
+    snprintf(scale_cmd, sizeof(scale_cmd), "%.2f 0 0 %.2f 0 0 cm\n", d, d);
+    strcat(content, scale_cmd);
 
+    unsigned yAnchor = info->height;
+    char strip_cmd[512];
+    
     for (unsigned i = 0; i < info->pclm_num_strips; i++)
     {
-      unsigned yAnchor = info->height - info->pclm_strip_height[i];
-      content_length += snprintf(content + content_length, sizeof(content) - content_length,
-                                 "/P <</MCID 0>> BDC q\n%.2f 0 0 %.2f 0 %u cm\n/Image%d Do Q\n",
-                                 (double)info->width, (double)info->pclm_strip_height[i], yAnchor, i);
-   }
+      yAnchor -= info->pclm_strip_height[i];
+        
+      snprintf(strip_cmd, sizeof(strip_cmd),
+               "/P <</MCID 0>> BDC q\n"
+	       "%u 0 0 %u 0 %u cm\n"
+	       "/Image%0*d Do Q\n",
+	       info->width,
+	       info->pclm_strip_height[i],
+	       yAnchor,
+	       num_digits(info->pclm_num_strips - 1),  // Number of padding digits
+	       i);
+            
+       strcat(content, strip_cmd);
+    }
+
   }
 
-  pdfio_stream_t *page_content = pdfioObjCreateStream(image_obj, PDFIO_FILTER_NONE);
-  pdfioStreamWrite(page_content, content, content_length);
-  pdfioStreamClose(page_content);
+  pdfioStreamWrite(info->page_stream, (unsigned char *)content, strlen(content));
+  pdfioStreamClose(info->page_stream);
 
-  info->page_data = NULL;
-  memset(info->pclm_strip_data, 0, sizeof(info->pclm_strip_data));
-
-  return 0;
+  free(content);
+  return 0; 
 }
-
+ 
 //
 // Perform modifications to PDF if color space conversions are needed
 //
 
-int prepare_pdf_page(struct pdf_info *info,
-                     unsigned width,
-                     unsigned height,
-                     unsigned bpl,
-                     unsigned bpp,
-                     unsigned bpc,
-                     const char *render_intent,
-                     cups_cspace_t color_space,
-                     pwgtopdf_doc_t *doc)
+static int
+prepare_pdf_page(struct pdf_info *info,
+		 unsigned width,
+		 unsigned height,
+		 unsigned bpl,
+		 unsigned bpp,
+		 unsigned bpc,
+		 char *render_intent,
+		 cups_cspace_t color_space,
+		 pwgtopdf_doc_t *doc)
 {
-
 #define IMAGE_CMYK_8   (bpp == 32 && bpc == 8)
 #define IMAGE_CMYK_16  (bpp == 64 && bpc == 16)
 #define IMAGE_RGB_8    (bpp == 24 && bpc == 8)
@@ -1164,30 +1282,31 @@ int prepare_pdf_page(struct pdf_info *info,
   info->line_bytes = bpl;
   info->bpp = bpp;
   info->bpc = bpc;
-  info->render_intent = strdup(render_intent); 
+  info->render_intent = render_intent;
   info->color_space = color_space;
-
   if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
     info->pclm_num_strips =
       (height / info->pclm_strip_height_preferred) +
       (height % info->pclm_strip_height_preferred ? 1 : 0);
 
-    info->pclm_strip_height = (unsigned *)malloc(info->pclm_num_strips * sizeof(unsigned));
-    info->pclm_strip_data = (unsigned char **)malloc(info->pclm_num_strips * sizeof(unsigned char *));
-
-    for (size_t i = 0; i < info->pclm_num_strips; i++)
+    info->pclm_strip_height = (unsigned *)realloc(info->pclm_strip_height,
+		    			  info->pclm_num_strips * sizeof(unsigned));
+    info->pclm_strip_data = (char **)realloc(info->pclm_strip_data,
+		    			  info->pclm_num_strips * sizeof(char *));
+    for (size_t i = 0; i < info->pclm_num_strips; i ++)
     {
       info->pclm_strip_height[i] =
-        info->pclm_strip_height_preferred < height ?
-        info->pclm_strip_height_preferred : height;
-       height -= info->pclm_strip_height[i];
+	info->pclm_strip_height_preferred < height ?
+	info->pclm_strip_height_preferred : height;
+      height -= info->pclm_strip_height[i];
     }
   }
 
+  // Invert grayscale by default
   if (color_space == CUPS_CSPACE_K)
     fn = convert_pdf_invert_colors;
-    
+
   if (doc->colorProfile != NULL)
   {
     css = cmsGetColorSpace(doc->colorProfile);
@@ -1199,43 +1318,43 @@ int prepare_pdf_page(struct pdf_info *info,
       // Convert PDF to Grayscale when using a gray profile
       case cmsSigGrayData:
           if (color_space == CUPS_CSPACE_CMYK)
-            fn = convert_pdf_cmyk_8_to_white_8; 
+	    fn = convert_pdf_cmyk_8_to_white_8;
 	  else if (color_space == CUPS_CSPACE_RGB) 
-   	    fn = convert_pdf_rgb_8_to_white_8;
- 	  else		
+	    fn = convert_pdf_rgb_8_to_white_8;
+	  else              
 	    fn = convert_pdf_invert_colors;
-          info->color_space = CUPS_CSPACE_K;
-          break;
-
+	  info->color_space = CUPS_CSPACE_K;
+	  break;
       // Convert PDF to RGB when using an RGB profile
       case cmsSigRgbData:
-        if (color_space == CUPS_CSPACE_CMYK) 
-          fn = convert_pdf_cmyk_8_to_rgb_8; 
-	else if (color_space == CUPS_CSPACE_K) 
-          fn = convert_pdf_white_8_to_rgb_8;
-        info->color_space = CUPS_CSPACE_RGB;
-        break;
-
-      // Convert PDF to RGB when using an RGB profile
+          if (color_space == CUPS_CSPACE_CMYK) 
+	    fn = convert_pdf_cmyk_8_to_rgb_8;
+	  else if (color_space == CUPS_CSPACE_K) 
+	   fn = convert_pdf_white_8_to_rgb_8;
+	  info->color_space = CUPS_CSPACE_RGB;
+	  break;
+      // Convert PDF to CMYK when using an RGB profile
       case cmsSigCmykData:
           if (color_space == CUPS_CSPACE_RGB)
             fn = convert_pdf_rgb_8_to_cmyk_8;
-	  else if (color_space == CUPS_CSPACE_K) 
+          else if (color_space == CUPS_CSPACE_K) 
             fn = convert_pdf_white_8_to_cmyk_8;
           info->color_space = CUPS_CSPACE_CMYK;
           break;
-
       default:
-          if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-			  		 "cfFilterPWGToPDF: Unable to convert PDF from profile.");
+	  if (doc->logfunc)
+	    doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+			 "cfFilterPWGToPDF: Unable to convert PDF from profile.");
           doc->colorProfile = NULL;
           error = 1;
     }
   }
   else if (!doc->cm_disabled)
   {
+    // Perform conversion of an image color space 
     switch (color_space)
     {
+      // Convert image to CMYK
       case CUPS_CSPACE_CMYK:
           if (IMAGE_RGB_8)
 	    fn = convert_pdf_rgb_8_to_cmyk_8;  
@@ -1286,6 +1405,7 @@ int prepare_pdf_page(struct pdf_info *info,
       case CUPS_CSPACE_DEVICED:
       case CUPS_CSPACE_DEVICEE:
       case CUPS_CSPACE_DEVICEF:
+          // No conversion for right now
 	  fn = convert_pdf_no_conversion;
 	  break;
       default:
@@ -1297,178 +1417,188 @@ int prepare_pdf_page(struct pdf_info *info,
     }
   }
 
-    if (!error)
-        fn(info, doc);
+  if (!error)
+    fn(info, doc);
 
-    return error;
+  return (error);
 }
 
 
-static int 
+static int
 add_pdf_page(struct pdf_info *info,
-             int pagen,
+	     int pagen,
 	     unsigned width,
 	     unsigned height,
 	     int bpp,
 	     int bpc,
 	     int bpl,
-	     const char *render_intent,
+	     char *render_intent,
 	     cups_cspace_t color_space,
-	     unsigned xdpi, 
+	     unsigned xdpi,
 	     unsigned ydpi,
 	     pwgtopdf_doc_t *doc)
 {
-  if (finish_page(info, doc)) 
-    return 1;
+  prepare_pdf_page(info, width, height, bpl, bpp,
+		   bpc, render_intent, color_space, doc);  
 
-  prepare_pdf_page(info, width, height, bpl, bpp, bpc, render_intent, color_space, doc);
-
-  if (info->height > (UINT_MAX / info->line_bytes))
-  {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-                         "cfFilterPWGToPDF: Page too big");
-        return 1;
-  }
-
-  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
-    info->page_data = malloc(info->line_bytes * info->height);
-    
-  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
-  {
-    for (size_t i = 0; i < info->pclm_num_strips; i++)
-    {
-      info->pclm_strip_data[i] = malloc(info->line_bytes * info->pclm_strip_height[i]);
-    }
-  }
-    
-  pdfio_dict_t *page_dict = pdfioDictCreate(info->pdf);
-
-  pdfioDictSetName(page_dict, "Type", "Page");
-  pdfioDictSetDict(page_dict, "Resources", pdfioDictCreate(info->pdf));
-  pdfioDictSetNull(page_dict, "MediaBox");
-  pdfioDictSetNull(page_dict, "Contents");
-
-
+  pdfio_dict_t *page_dict = pdfioDictCreate(info->pdf); 
   info->page_width = ((double)info->width / xdpi) * DEFAULT_PDF_UNIT;
   info->page_height = ((double)info->height / ydpi) * DEFAULT_PDF_UNIT;
-
   if (info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
-    pdfio_obj_t *null_obj = pdfioFileCreateObj(info->pdf, pdfioDictCreate(info->pdf));
-    pdfioDictSetObj(page_dict, "Contents", null_obj);
-    pdfio_rect_t media_rect = make_real_box(0, 0, info->page_width, info->page_height);
-    pdfioDictSetRect(page_dict, "MediaBox", &media_rect);
+    pdfio_dict_t *content_dict = pdfioDictCreate(info->pdf);
+    pdfioDictSetObj(page_dict, "Contents", pdfioFileCreateObj(info->pdf, content_dict));
+    pdfioDictSetRect(page_dict, "MediaBox", make_real_box(0, 0, info->page_width,
+			    				     info->page_height));
+    pdfioDictSetRect(page_dict, "CropBox", make_real_box(0, 0, info->page_width,
+			    				     info->page_height));
   }
-
-  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  else if(info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
-    pdfio_obj_t *null_obj = pdfioFileCreateObj(info->pdf, pdfioDictCreate(info->pdf));
-    pdfioDictSetObj(page_dict, "Contents", null_obj);
-
-    pdfio_rect_t media_rect = make_real_box(0, 0, info->page_width + 0.5, info->page_height + 0.5);
-    pdfioDictSetRect(page_dict, "MediaBox", &media_rect);
+    pdfio_dict_t *content_dict = pdfioDictCreate(info->pdf);
+    pdfioDictSetObj(page_dict, "Contents", pdfioFileCreateObj(info->pdf, content_dict));
+    pdfioDictSetRect(page_dict, "MediaBox", make_integer_box(0, 0, info->page_width + 0.5,
+			    				     info->page_height + 0.5));
+    pdfioDictSetRect(page_dict, "CropBox", make_integer_box(0, 0, info->page_width + 0.5,
+			    				     info->page_height + 0.5));
+  }
+  
+  info->page_dict = page_dict;
+ 
+  if(info->height > UINT_MAX / info->line_bytes)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+		     "cfFilterPWGToPDF: Page too big");
+    return (1);
+  }
+  
+  if (info->outformat == CF_FILTER_OUT_FORMAT_PDF) 
+  {
+    info->page_data_size = info->line_bytes * info->height;
+    info->page_data = malloc(info->page_data_size);
+    memset(info->page_data, 0, info->page_data_size);
+  } 
+  else if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM) 
+  {
+      // reserve space for PCLm strips
+    for (size_t i = 0; i < info->pclm_num_strips; i ++)
+    {
+      info->pclm_strip_data_size[i] = (size_t)(info->line_bytes * info->pclm_strip_height[i]);
+      info->pclm_strip_data[i] = (char *)malloc(info->pclm_strip_data_size[i] * sizeof(char));
+      memset(info->pclm_strip_data[i], 0, info->pclm_strip_data_size[i]);
+    }
   }
 
-  pdfio_obj_t *page = pdfioFileCreateObj(info->pdf, page_dict);
-
-  info->page = page; // we want to keep a
-                       // reference
   return 0;
 }
 
-static int
+static int 
 close_pdf_file(struct pdf_info *info,
 	       pwgtopdf_doc_t *doc)
 {
-  if (finish_page(info, doc))
+  if (!pdfioFileClose(info->pdf))
+  {
+    if (doc->logfunc)
+      doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                   "Failed to finalize PDF file");
     return 1;
-  
-  pdfioFileClose(info->pdf);
+  }
 
   return 0;
+
 }
 
 static void
-pdf_set_line(struct pdf_info * info,
-	     unsigned line_n,
-	     unsigned char *line,
-	     pwgtopdf_doc_t *doc)
+pdf_set_line(struct pdf_info *info,
+             unsigned line_n,
+             unsigned char *line,
+             pwgtopdf_doc_t *doc)
 {
-  if (line_n > info->height)
+  if (line_n > info->height) 
   {
-    if (doc->logfunc)
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Bad line %d", line_n);
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+                    "cfFilterPWGToPDF: Bad line %d", line_n);
     return;
   }
 
-  if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
+  if (info->outformat == CF_FILTER_OUT_FORMAT_PCLM) 
   {
     // copy line data into appropriate pclm strip
     size_t strip_num = line_n / info->pclm_strip_height_preferred;
-    unsigned line_strip = line_n -
-      strip_num * info->pclm_strip_height_preferred;
-    memcpy(((info->pclm_strip_data[strip_num]) +
-	    (line_strip*info->line_bytes)), line, info->line_bytes);
+    unsigned line_strip = line_n - strip_num * info->pclm_strip_height_preferred;
+    memcpy(info->pclm_strip_data[strip_num] + (line_strip * info->line_bytes), line,
+           info->line_bytes);
+    info->pclm_strip_data_size[strip_num] = info->line_bytes;
+ 
+  } 
+  else 
+  {
+    if (info->page_data) 
+    {
+      unsigned char *page_ptr = (unsigned char*)info->page_data + (line_n * info->line_bytes);
+      memcpy(page_ptr, line, info->line_bytes);
+    }
   }
-  else
-    memcpy((info->page_data + (line_n * info->line_bytes)),
-	   line, info->line_bytes);
 }
 
 static int
 convert_raster(cups_raster_t *ras,
-	       unsigned width,
-	       unsigned height,
-	       int bpp,
-	       int bpl,
-	       struct pdf_info *info,
-	       pwgtopdf_doc_t *doc)
+               unsigned width,
+               unsigned height,
+               int bpp,
+               int bpl,
+               struct pdf_info *info,
+               pwgtopdf_doc_t *doc)
 {
-  // We should be at raster start
   int i;
   unsigned cur_line = 0;
   unsigned char *PixelBuffer, *ptr = NULL, *buff;
 
+  if (!ras || !info || bpl <= 0) 
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
+		    "Invalid raster conversion parameters");
+    return 1;
+  }
+
   PixelBuffer = (unsigned char *)malloc(bpl);
   buff = (unsigned char *)malloc(info->line_bytes);
-
-  do
+  
+  while (cur_line < height) 
   {
     // Read raster data...
     cupsRasterReadPixels(ras, PixelBuffer, bpl);
 
 #if !ARCH_IS_BIG_ENDIAN
-    if (info->bpc == 16)
+    if (info->bpc == 16) 
     {
       // Swap byte pairs for endianess (cupsRasterReadPixels() switches
       // from Big Endian back to the system's Endian)
-      for (i = bpl, ptr = PixelBuffer; i > 0; i -= 2, ptr += 2)
+      for (i = bpl, ptr = PixelBuffer; i > 0; i -= 2, ptr += 2) 
       {
-	unsigned char swap = *ptr;
+        unsigned char swap = *ptr;
 	*ptr = *(ptr + 1);
 	*(ptr + 1) = swap;
       }
     }
-#endif // !ARCH_IS_BIG_ENDIAN
+#endif
 
     // perform bit operations if necessary
-    doc->bit_function(PixelBuffer, ptr,  bpl);
+    doc->bit_function(PixelBuffer, buff, width);
 
     // write lines and color convert when necessary
-    pdf_set_line(info, cur_line, doc->conversion_function(PixelBuffer,
-							  buff, width),
+    pdf_set_line(info, cur_line, doc->conversion_function(PixelBuffer, 
+			     				  buff, width),
 		 doc);
     ++cur_line;
   }
-  while (cur_line < height);
-
+  
   free(buff);
   free(PixelBuffer);
-
-  return (0);
+ 
+  return 0;
 }
-
+   
 static int
 set_profile(const char *path,
 	    pwgtopdf_doc_t *doc)
@@ -1478,20 +1608,15 @@ set_profile(const char *path,
 
   if (doc->colorProfile != NULL)
   {
-    if (doc->logfunc)
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToPDF: Load profile successful.");
     return (0);
   }
-  else
-  {
-    if (doc->logfunc)
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Unable to load profile.");
-    return (1);
-  }
-}
 
+  if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+		   "cfFilterPWGToPDF: Unable to load profile.");
+  return (1);
+}
 
 int                            // O - Error status
 cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
@@ -1522,6 +1647,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   int			total_attrs;
   char			buf[1024];
   const char		*kw;
+
+  init_pdf_info(&pdf);
 
   (void)inputseekable;
 
@@ -1620,7 +1747,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       }
       log(ld, CF_LOGLEVEL_DEBUG, "  %d attributes", total_attrs);
     }
-
+    
+    //setting up of pclm-strip-height-preferred
     char *attr_name = (char *)"pclm-strip-height-preferred";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
@@ -1633,6 +1761,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     else
       pdf.pclm_strip_height_preferred = 16; // default strip height
 
+    //setting up of pclm-strip-height-supported
     attr_name = (char *)"pclm-strip-height-supported";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
@@ -1640,12 +1769,27 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\"",
 		   attr_name);
+      
+      free(pdf.pclm_strip_height_supported);   // remove default value = 16
       pdf.pclm_strip_height_supported = NULL;  // remove default value = 16
-      for (i = 0; i < ippGetCount(ipp_attr); i ++)
-        pdf.pclm_strip_height_supported[i] = ippGetInteger(ipp_attr, i);
+      pdf.pclm_strip_height_supported_size = 0; // remove default value = 16
+
+      int count = ippGetCount(ipp_attr);
+      if (count > 0)
+      {
+        pdf.pclm_strip_height_supported = (unsigned *)realloc(
+          pdf.pclm_strip_height_supported, count * sizeof(unsigned));
+
+
+        for (int i = 0; i < count; i++)
+        {
+          pdf.pclm_strip_height_supported[i] = ippGetInteger(ipp_attr, i);
+        }
+        pdf.pclm_strip_height_supported_size = count;
+      }
     }
 
-
+    //setting up of pclm-raster-back-side
     attr_name = (char *)"pclm-raster-back-side";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
@@ -1655,62 +1799,101 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 		   attr_name, ippGetString(ipp_attr, 0, NULL));
       pdf.pclm_raster_back_side = ippGetString(ipp_attr, 0, NULL);
     }
-
-    attr_name = (char *)"pclm-source-resolution-supported";
+    
+    //setting up of pclm-source-resolution-supported
+    attr_name = (char *) "pclm-source-resolution-supported";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
     {
       ippAttributeString(ipp_attr, buf, sizeof(buf));
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
-		   attr_name, buf);
-      int size = (int)sizeof(buf);
-
-      pdf.pclm_source_resolution_supported = split_strings(buf, ",", &size);
+                   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
+                   attr_name, buf);
+      size_t num_resolutions = 0;
+      if (pdf.pclm_source_resolution_supported)
+      {
+        for (size_t i = 0; i < pdf.pclm_source_resolution_supported_size; i++)
+          free(pdf.pclm_source_resolution_supported[i]);
+        free(pdf.pclm_source_resolution_supported);
+      }
+      pdf.pclm_source_resolution_supported = split_strings(buf, ",", &num_resolutions);
+      pdf.pclm_source_resolution_supported_size = num_resolutions;
     }
 
+    //setting up of pclm-source-resolution-default
     attr_name = (char *)"pclm-source-resolution-default";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
     {
       ippAttributeString(ipp_attr, buf, sizeof(buf));
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
-		   attr_name, buf);
-      pdf.pclm_source_resolution_default = buf;
+                "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
+                attr_name, buf);
+      free(pdf.pclm_source_resolution_default);
+      pdf.pclm_source_resolution_default = strdup(buf);
     }
-    else if (sizeof(pdf.pclm_source_resolution_supported) > 0)
+    else if (pdf.pclm_source_resolution_supported_size > 0)
     {
-      pdf.pclm_source_resolution_default =
-	pdf.pclm_source_resolution_supported[0];
+      free(pdf.pclm_source_resolution_default);
+      pdf.pclm_source_resolution_default = strdup(pdf.pclm_source_resolution_supported[0]);
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" missing, taking first item of \"pclm-source-resolution-supported\" as default resolution",
-		   attr_name);
+                "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" missing, taking first item of \"pclm-source-resolution-supported\" as default resolution",
+                attr_name);
     }
     else
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
-		   "cfFilterPWGToPDF: PCLm output: Printer IPP attributes do not contain printer resolution information for PCLm.");
-      return (1);
+                   "cfFilterPWGToPDF: PCLm output: Printer IPP attributes do not contain printer resolution information for PCLm.");
+      return 1;
     }
 
+    //setting up of pclm-compression-method-preferred
     attr_name = (char *)"pclm-compression-method-preferred";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
 				     IPP_TAG_ZERO)) != NULL)
     {
       ippAttributeString(ipp_attr, buf, sizeof(buf));
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
-		   attr_name, buf);
-
+                   "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value \"%s\"",
+                   attr_name, buf);
+      size_t num_methods = 0;
+      char **methods = split_strings(buf, ",", &num_methods);
+      pdf.pclm_compression_method_preferred_size = 0;
+      for (size_t i = 0; i < num_methods; i++)
+      {
+        char *method = methods[i];
+        // Convert to lowercase
+        for (char *p = method; *p; p++)
+          *p = tolower(*p);
+        if (strcmp(method, "flate") == 0)
+        {
+          if (pdf.pclm_compression_method_preferred_size < 2000)
+            pdf.pclm_compression_method_preferred[pdf.pclm_compression_method_preferred_size++] = FLATE_DECODE;
+        }
+        else if (strcmp(method, "rle") == 0)
+        {
+          if (pdf.pclm_compression_method_preferred_size < 2000)
+            pdf.pclm_compression_method_preferred[pdf.pclm_compression_method_preferred_size++] = RLE_DECODE;
+        }
+        else if (strcmp(method, "jpeg") == 0)
+        {
+          if (pdf.pclm_compression_method_preferred_size < 2000)
+            pdf.pclm_compression_method_preferred[pdf.pclm_compression_method_preferred_size++] = DCT_DECODE;
+        }
+        free(methods[i]);
+      }
+      free(methods);
     }
+      
     // If the compression methods is none of the above or is erreneous
     // use FLATE as compression method and show a warning.
-    if (pdf.pclm_compression_method_preferred == NULL)
+    if (pdf.pclm_compression_method_preferred_size == 0)
     {
       if (log) log(ld, CF_LOGLEVEL_WARN,
-		   "(pwgtopclm) Unable parse Printer attribute \"%s\". "
-		   "Using FLATE for encoding image streams.", attr_name);
+                   "(pwgtopclm) Unable to parse Printer attribute \"%s\". Using FLATE for encoding image streams.",
+                   attr_name);
+      pdf.pclm_compression_method_preferred[0] = FLATE_DECODE;
+      pdf.pclm_compression_method_preferred_size = 1;
     }
   }
 
@@ -1726,8 +1909,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     if (empty)
     {
       empty = 0;
-      // We have a valid input page, so create PDF file
-      if (create_pdf_file(&pdf, outformat) != 0)
+      if (create_pdf_file(&pdf, outformat, outputfp) != 0)
       {
 	if (log) log(ld, CF_LOGLEVEL_ERROR,
 		     "cfFilterPWGToPDF: Unable to create PDF file");
@@ -1779,8 +1961,12 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 		   "cfFilterPWGToPDF: Failed to convert page bitmap");
       return (1);
     }
-  }
 
+    if(finish_page(&pdf, &doc) != 0)
+    {
+      return 1;
+    }
+  }
   if (empty)
   {
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
@@ -1790,6 +1976,23 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   }
 
   close_pdf_file(&pdf, &doc); // output to outputfp
+			      //
+
+  int tmp_fd_read = open(pdf.temp_filename, O_RDONLY);
+
+  char buffer[1024];
+  ssize_t bytes_read;
+  while ((bytes_read = read(tmp_fd_read, buffer, sizeof(buffer))) > 0) 
+  {
+    if (write(outputfd, buffer, bytes_read) != bytes_read) 
+    {
+      fprintf(stderr, "write to outputfd failed");
+      break;
+    }
+  }
+  close(tmp_fd_read);
+  unlink(pdf.temp_filename);
+
 
   if (doc.colorProfile != NULL)
     cmsCloseProfile(doc.colorProfile);
@@ -1799,3 +2002,7 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
 
   return (Page == 0);
 }
+
+
+
+

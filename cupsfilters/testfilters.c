@@ -350,8 +350,8 @@ test_wrapper(
 	cf_filter_filter_in_chain_t *filter;
         while ((filter = cupsArrayFirst(filter_chain)) != NULL) {  
             free(filter->parameters);
-            free(filter);
             cupsArrayRemove(filter_chain, filter);
+            free(filter);
         }
         cupsArrayDelete(filter_chain);
     } else {
