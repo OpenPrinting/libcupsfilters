@@ -224,6 +224,7 @@ libcupsfilters_la_LIBADD = \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
+	$(shell pkg-config --libs libjxl) \
 	-lm
 if ENABLE_POPPLER
 libcupsfilters_la_LIBADD += \
@@ -239,6 +240,7 @@ libcupsfilters_la_CFLAGS = \
 	$(LIBJXL_CFLAGS) \
 	$(EXIF_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
+	$(shell pkg-config --cflags libjxl) \
 	$(TIFF_CFLAGS)
 libcupsfilters_la_LDFLAGS = \
 	-no-undefined \
