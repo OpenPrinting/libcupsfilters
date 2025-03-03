@@ -10,7 +10,9 @@
 /*
  * is_jpegxl() - Check if the header bytes indicate a JPEG‑XL file.
  *
- * This example compares the first 8 bytes with an expected signature.
+ * This function checks for two possible signatures:
+ *  - The standard signature: 00 00 00 0C 4A 58 4C 20
+ *  - The JPEG‑XL stream signature: FF 0A
  */
 int
 is_jpegxl(const unsigned char *header, size_t len)
@@ -25,14 +27,13 @@ is_jpegxl(const unsigned char *header, size_t len)
 }
 
 /*
- * cfImageCreateFromJxlDecoder() - Create a cf_image_t from a libjxl decoder.
+ * cf_image_create_from_jxl_decoder() - Create a cf_image_t from a libjxl decoder.
  *
- * This function retrieves the basic information from the decoder to determine
- * image dimensions, bit depth, and resolution. It then queries the output buffer
- * size required for 16-bit per channel output, allocates that buffer, and sets it
- * in the decoder. The decoder is then run until the full image is decoded.
- * Finally, a new cf_image_t structure is allocated and populated with the
- * decoded image data and properties.
+ * This function retrieves the basic information from the decoder, then
+ * sets up a JxlPixelFormat structure for 16-bit unsigned RGB output, queries
+ * the output buffer size, allocates the buffer, and sets it in the decoder.
+ * It then processes the decoder until the full image is decoded.
+ * Finally, it allocates a new cf_image_t and populates its fields.
  *
  * Returns: Pointer to a cf_image_t on success, or NULL on failure.
  */
@@ -44,24 +45,25 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   void *output_buffer = NULL;
   JxlDecoderStatus status;
 
-  // Retrieve basic image information directly.
+  /* Retrieve basic image information */
   JxlBasicInfo basic_info;
-  JxlPixelFormat pixel_format = { .num_channels = 3,
-                                  .data_type = JXL_TYPE_UINT16,
-                                  .endianness = JXL_BIG_ENDIAN,
-                                  .align = 0};
   status = JxlDecoderGetBasicInfo(decoder, &basic_info);
   if (status != JXL_DEC_SUCCESS) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to retrieve basic info.\n");
     return NULL;
   }
 
-  /* Determine the size needed for the output buffer.
-     We request output as 16-bit unsigned integers to preserve high color depth. */
-  status = JxlDecoderImageOutBufferSize(decoder, 
-                                        &pixel_format, 
-                                        &buffer_size);
+  /* Set up the pixel format structure for 16-bit unsigned RGB output.
+     Here we request 3 channels; endianness is set to JXL_BIG_ENDIAN. */
+  JxlPixelFormat pixel_format = {
+    .num_channels = 3,
+    .data_type = JXL_TYPE_UINT16,
+    .endianness = JXL_BIG_ENDIAN,
+    .align = 0
+  };
 
+  /* Determine the required output buffer size */
+  status = JxlDecoderImageOutBufferSize(decoder, &pixel_format, &buffer_size);
   if (status != JXL_DEC_SUCCESS || buffer_size == 0) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to determine output buffer size.\n");
     return NULL;
@@ -75,15 +77,14 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   }
 
   /* Set the output buffer in the decoder */
-  status = JxlDecoderSetImageOutBuffer(decoder, &pixel_format,
-                                       output_buffer, buffer_size);
+  status = JxlDecoderSetImageOutBuffer(decoder, JXL_TYPE_UINT16, output_buffer, buffer_size);
   if (status != JXL_DEC_SUCCESS) {
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Failed to set output buffer.\n");
     free(output_buffer);
     return NULL;
   }
 
-  // Process decoder events until the full image is decoded.
+  /* Process decoder events until the full image is decoded */
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
     if (status == JXL_DEC_ERROR) {
       fprintf(stderr, "cf_image_create_from_jxl_decoder: JPEG‑XL decoding error.\n");
@@ -101,34 +102,31 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   }
 
   img->xsize  = (int)basic_info.xsize;
-  img->ysize = (int)basic_info.ysize;
-  img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
-  img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
-  
-  #ifdef HAVE_BITS_PER_COMPONENT
+  img->ysize  = (int)basic_info.ysize;
+  img->xppi   = (basic_info.xdensity > 0) ? (int)basic_info.xdensity : 300;
+  img->yppi   = (basic_info.ydensity > 0) ? (int)basic_info.ydensity : 300;
+#ifdef HAVE_BITS_PER_COMPONENT
   img->bitsPerComponent = (int)basic_info.bits_per_sample;
-  #endif
-
-  // For JPEG‑XL, we assume the decoded format is RGB.
+#endif
   img->colorspace = CF_IMAGE_RGB;
 
-  #ifdef HAVE_IMAGE_DATA
+#ifdef HAVE_IMAGE_DATA
   img->data = output_buffer;
-  #else
+#else
   free(output_buffer);
   free(img);
   fprintf(stderr, "Error: cf_image_t does not have a 'data' field.\n");
   return NULL;
-  #endif
-  
+#endif
+
   return img;
 }
 
 /*
  * _cfImageReadJPEGXL() - Read a JPEG‑XL image using libjxl.
  *
- * This function reads the entire file from the current file pointer,
- * decodes it using libjxl, and fills the provided cf_image_t structure.
+ * Reads the entire file from the current file pointer, decodes it using libjxl,
+ * and fills the provided cf_image_t structure.
  *
  * Returns 0 on success, nonzero on failure.
  */
@@ -177,8 +175,8 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
     free(data);
     return -1;
   }
-
-  // Process input until full image is decoded.
+  
+  /* Process input until full image is decoded */
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
     if (status == JXL_DEC_ERROR) {
       fprintf(stderr, "JPEG‑XL: Decoding error.\n");
@@ -187,7 +185,7 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
       return -1;
     }
   }
-
+  
   cf_image_t *new_img = cf_image_create_from_jxl_decoder(decoder);
   if (!new_img) {
     fprintf(stderr, "JPEG‑XL: Failed to create image from decoder data.\n");
