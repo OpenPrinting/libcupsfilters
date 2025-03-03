@@ -1,4 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
+AM_CPPFLAGS += $(shell pkg-config --cflags libjxl)
+
 
 pkgconfdir = $(libdir)/pkgconfig
 pkgconf_DATA = \
@@ -224,7 +226,8 @@ libcupsfilters_la_LIBADD = \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
-	-lm $(shell pkg-config --libs libjxl)
+	-lm \
+	$(shell pkg-config --libs libjxl)
 if ENABLE_POPPLER
 libcupsfilters_la_LIBADD += \
 	$(POPPLER_LIBS)
