@@ -262,7 +262,7 @@ AC_ARG_WITH([jpegxl],
     [with_jpegxl=yes]
 )
 AS_IF([test x"$with_jpegxl" != "xno"], [
-    PKG_CHECK_MODULES([LIBJXL], [libjxl >= 0.3.0],
+    PKG_CHECK_MODULES([LIBJXL], [libjxl >= 0.7.0],
         [
             AC_DEFINE([HAVE_LIBJXL], [1], [Define if libjxl is available for JPEG‑XL support])
             AC_SUBST(LIBJXL_CFLAGS)
