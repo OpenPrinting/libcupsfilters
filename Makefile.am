@@ -224,7 +224,7 @@ libcupsfilters_la_LIBADD = \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
-	-lm
+	-lm $(shell pkg-config --libs libjxl)
 if ENABLE_POPPLER
 libcupsfilters_la_LIBADD += \
 	$(POPPLER_LIBS)
