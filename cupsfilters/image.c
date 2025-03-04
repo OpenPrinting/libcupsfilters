@@ -419,8 +419,8 @@ cfImageOpenFP(
   else
 #endif // HAVE_LIBTIFF
 #ifdef HAVE_LIBJXL
-  if (is_jpegxl(header, sizeof(header)))
-    status = _cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, 
+  if (_cf_is_jpegxl(header, sizeof(header)))
+    status = _cf_image_read_jpegxl(img, fp, primary, secondary, saturation, hue, 
 	    			lut);
   else
 #endif // HAVE_LIBJXL
