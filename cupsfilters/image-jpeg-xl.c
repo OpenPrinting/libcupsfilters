@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>  /* For PRIu64 */
+#include "log.h"       /* Use the internal logging functions */
 
 
 /*
@@ -33,12 +34,9 @@ _cfIsJPEGXL(const unsigned char *header,
 /*
  * cfImageCreateFromJxlDecoder() - Create a cf_image_t from a libjxl decoder.
  *
- * This function retrieves the basic information from the decoder to determine
- * image dimensions, bit depth, and resolution. It then queries the output buffer
- * size required for 16-bit per channel output, allocates that buffer, and sets it
- * in the decoder. The decoder is then run until the full image is decoded.
- * Finally, a new cf_image_t structure is allocated and populated with the
- * decoded image data and properties.
+ * This function retrieves basic image information, allocates the output buffer,
+ * sets it in the decoder, processes the input until the full image is decoded,
+ * and then allocates and populates a new cf_image_t structure.
  *
  * Returns: Pointer to a cf_image_t on success, or NULL on failure.
  */
@@ -68,9 +66,7 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   }
 
   DEBUG_printf(("DEBUG: Basic info: xsize=%" PRIu64 ", ysize=%" PRIu64
-                ", bits_per_sample=%d, uses_original_profile=%d\n",
-                basic_info.xsize, basic_info.ysize,
-                basic_info.bits_per_sample, basic_info.uses_original_profile));
+                basic_info.xsize, basic_info.ysize));
 
   
   /* Determine the size needed for the output buffer.
@@ -126,12 +122,6 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   img->ysize  = (int)basic_info.ysize;
   img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; /* Adjust if necessary */
   img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; /* Adjust if necessary */
-
-#ifdef HAVE_BITS_PER_COMPONENT
-  img->bitsPerComponent = (int)basic_info.bits_per_sample;
-#else
-  img->bitsPerComponent = 16; /* default */
-#endif
 
   /* For JPEG‑XL, we assume the decoded format is RGB. */
   img->colorspace = CF_IMAGE_RGB;
@@ -217,7 +207,7 @@ _cf_image_read_jpegxl(cf_image_t *img, FILE *fp,
     DEBUG_printf(("DEBUG: _cf_image_read_jpegxl: Processing input. Current status: %d\n", status));
   }
 
-  cf_image_t *new_img = cfImageFromJxlDecoder(decoder);
+  cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder);
   if (!new_img) {
     DEBUG_printf(("DEBUG: _cf_image_read_jpegxl: Failed to create image from decoder data.\n"));
     JxlDecoderDestroy(decoder);
