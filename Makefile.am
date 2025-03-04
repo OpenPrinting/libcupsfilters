@@ -226,7 +226,7 @@ libcupsfilters_la_LIBADD = \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
-	-lm 
+	-lm
 if ENABLE_POPPLER
 libcupsfilters_la_LIBADD += \
 	$(POPPLER_LIBS)
@@ -241,12 +241,11 @@ libcupsfilters_la_CFLAGS = \
 	$(LIBJXL_CFLAGS) \
 	$(EXIF_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
-	$(shell pkg-config --cflags libjxl) \
 	$(TIFF_CFLAGS)
 libcupsfilters_la_LDFLAGS = \
 	-no-undefined \
 	-version-info 2 \
-	$(shell pkg-config --libs libjxl)
+	$(LIBJXL_LIBS)
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
 libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11
