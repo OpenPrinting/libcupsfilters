@@ -38,11 +38,16 @@
 
 
 #include "image-private.h"
+
+
 #include "config.h"
+
+
 #ifdef HAVE_LIBJXL
 #include <jxl/decode.h>
-#include "image-jpeg-xl.h"  /* Declarations for _cfImageReadJPEGXL() and is_jpegxl() */
+#include "image-jpeg-xl.h"  /* Declarations for _cfImageReadJPEGXL() and _cfIsJPEGXL() */
 #endif
+
 
 //
 // Local functions...
@@ -52,6 +57,7 @@ static int	flush_tile(cf_image_t *img);
 static cf_ib_t	*get_tile(cf_image_t *img, int x, int y);
 static void trim_spaces(char *buf);
 static unsigned char *find_bytes(FILE *fp, long int *size);
+
 
 //
 // 'cfImageClose()' - Close an image file.
@@ -76,6 +82,7 @@ cfImageClose(cf_image_t *img)		// I - Image to close
     unlink(img->cachename);
   }
 
+	
   //
   // Free the image cache...
   //
@@ -90,6 +97,7 @@ cfImageClose(cf_image_t *img)		// I - Image to close
     free(current);
   }
 
+	
   //
   // Free the rest of memory...
   //
@@ -253,6 +261,7 @@ cfImageGetRow(cf_image_t   *img,	// I - Image
     count = CF_TILE_SIZE - (x & (CF_TILE_SIZE - 1));
     if (count > width)
       count = width;
+
     memcpy(pixels, ib, count * bpp);
     pixels += count * bpp;
     x      += count;
@@ -346,6 +355,7 @@ cfImageOpenFP(
   DEBUG_printf(("cfImageOpen2(%p, %d, %d, %d, %d, %p)\n",
         	fp, primary, secondary, saturation, hue, lut));
 
+	
   //
   // Figure out the file type...
   //
@@ -365,6 +375,7 @@ cfImageOpenFP(
     DEBUG_printf(("Error reading file!"));
   fseek(fp, 0, SEEK_SET);
 
+	
   //
   // Allocate memory...
   //
@@ -377,6 +388,7 @@ cfImageOpenFP(
     return (NULL);
   }
 
+	
   //
   // Load the image as appropriate...
   //
