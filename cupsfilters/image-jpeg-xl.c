@@ -8,15 +8,14 @@
 #include <stdio.h>
 #include <inttypes.h>  /* For PRIu64 */
 
-  
 /*
- * is_jpegxl() - Check if the header bytes indicate a JPEG‑XL file.
+ * _cfIsJPEGXL() - Check if the header bytes indicate a JPEG‑XL file.
  *
  * This function checks for both the JPEG‑XL container signature and the
  * JPEG‑XL stream signature.
  */
 int
-is_jpegxl(const unsigned char *header, size_t len)
+_cfIsJPEGXL(const unsigned char *header, size_t len)
 {
   if (len < 12)
     return 0;
@@ -28,12 +27,14 @@ is_jpegxl(const unsigned char *header, size_t len)
 }
 
 /*
- * cf_image_create_from_jxl_decoder() - Create a cf_image_t from a libjxl decoder.
+ * cfImageCreateFromJxlDecoder() - Create a cf_image_t from a libjxl decoder.
  *
- * This function retrieves the basic image information (dimensions, bit depth, etc.)
- * and then queries the size needed for the output buffer. It sets up the output buffer,
- * processes the decoder until the full image is decoded, and finally populates a new
- * cf_image_t structure.
+ * This function retrieves the basic information from the decoder to determine
+ * image dimensions, bit depth, and resolution. It then queries the output buffer
+ * size required for 16-bit per channel output, allocates that buffer, and sets it
+ * in the decoder. The decoder is then run until the full image is decoded.
+ * Finally, a new cf_image_t structure is allocated and populated with the
+ * decoded image data and properties.
  *
  * Returns: Pointer to a cf_image_t on success, or NULL on failure.
  */
@@ -45,32 +46,33 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   void *output_buffer = NULL;
   JxlDecoderStatus status;
 
-  /* Retrieve basic image information */
+  /* Retrieve basic image information directly. */
   JxlBasicInfo basic_info;
   JxlPixelFormat pixel_format = {
-    .num_channels = 3,
-    .data_type = JXL_TYPE_UINT16,
-    .endianness = JXL_BIG_ENDIAN,
-    .align = 0
+      .num_channels = 3,
+      .data_type = JXL_TYPE_UINT16,
+      .endianness = JXL_BIG_ENDIAN,
+      .align = 0
   };
 
   status = JxlDecoderGetBasicInfo(decoder, &basic_info);
-  fprintf(stderr, "DEBUG: JxlDecoderGetBasicInfo returned %d\n", status);
   if (status != JXL_DEC_SUCCESS) {
-    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to retrieve basic info.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to retrieve basic info (status=%d).\n", status);
     return NULL;
   }
-  fprintf(stderr, "DEBUG: Basic info: xsize=%" PRIu64 ", ysize=%" PRIu64 
-          ", bits_per_sample=%d, uses_original_profile=%d\n",
+  fprintf(stderr, "DEBUG: Basic info: xsize=%" PRIu64 ", ysize=%" PRIu64 ", bits_per_sample=%u, uses_original_profile=%d\n",
           basic_info.xsize, basic_info.ysize, basic_info.bits_per_sample, basic_info.uses_original_profile);
 
-  /* Determine the size needed for the output buffer */
-  status = JxlDecoderImageOutBufferSize(decoder, &pixel_format, &buffer_size);
-  fprintf(stderr, "DEBUG: JxlDecoderImageOutBufferSize returned %d, buffer_size=%zu\n", status, buffer_size);
+  /* Determine the size needed for the output buffer.
+     We request output as 16-bit unsigned integers to preserve high color depth. */
+  status = JxlDecoderImageOutBufferSize(decoder, 
+                                        &pixel_format, 
+                                        &buffer_size);
   if (status != JXL_DEC_SUCCESS || buffer_size == 0) {
-    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to determine output buffer size.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Unable to determine output buffer size (status=%d, size=%zu).\n", status, buffer_size);
     return NULL;
   }
+  fprintf(stderr, "DEBUG: Output buffer size: %zu bytes\n", buffer_size);
 
   /* Allocate memory for the decoded pixel data */
   output_buffer = malloc(buffer_size);
@@ -78,27 +80,25 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
     fprintf(stderr, "cf_image_create_from_jxl_decoder: Memory allocation for output buffer failed.\n");
     return NULL;
   }
-  fprintf(stderr, "DEBUG: Allocated output buffer of size %zu\n", buffer_size);
 
   /* Set the output buffer in the decoder */
-  status = JxlDecoderSetImageOutBuffer(decoder, &pixel_format, output_buffer, buffer_size);
-  fprintf(stderr, "DEBUG: JxlDecoderSetImageOutBuffer returned %d\n", status);
+  status = JxlDecoderSetImageOutBuffer(decoder, &pixel_format,
+                                       output_buffer, buffer_size);
   if (status != JXL_DEC_SUCCESS) {
-    fprintf(stderr, "cf_image_create_from_jxl_decoder: Failed to set output buffer.\n");
+    fprintf(stderr, "cf_image_create_from_jxl_decoder: Failed to set output buffer (status=%d).\n", status);
     free(output_buffer);
     return NULL;
   }
 
-  /* Process decoder events until the full image is decoded */
+  /* Process decoder events until the full image is decoded. */
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
-    fprintf(stderr, "DEBUG: JxlDecoderProcessInput returned %d\n", status);
     if (status == JXL_DEC_ERROR) {
-      fprintf(stderr, "cf_image_create_from_jxl_decoder: JPEG‑XL decoding error.\n");
+      fprintf(stderr, "cf_image_create_from_jxl_decoder: JPEG‑XL decoding error (status=%d).\n", status);
       free(output_buffer);
       return NULL;
     }
+    /* Optionally, log intermediate statuses here */
   }
-  fprintf(stderr, "DEBUG: JxlDecoderProcessInput reached JXL_DEC_FULL_IMAGE\n");
 
   /* Allocate and populate the cf_image_t structure */
   img = malloc(sizeof(cf_image_t));
@@ -110,26 +110,39 @@ cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
 
   img->xsize  = (int)basic_info.xsize;
   img->ysize  = (int)basic_info.ysize;
-  img->xppi   = (basic_info.uses_original_profile) ? 300 : 72;
-  img->yppi   = (basic_info.uses_original_profile) ? 300 : 72;
+  img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; /* Adjust as needed */
+  img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; /* Adjust as needed */
+
+  /* If your cf_image_t structure has a bitsPerComponent field, set it.
+     Otherwise, you may need to remove or adapt this part based on your structure. */
 #ifdef HAVE_BITS_PER_COMPONENT
   img->bitsPerComponent = (int)basic_info.bits_per_sample;
 #else
-  img->bitsPerComponent = 16; /* default */
+  /* For now, set a default value if the field exists.
+     If cf_image_t doesn't support this field, then remove this line. */
+  /* img->bitsPerComponent = (int)basic_info.bits_per_sample; */
 #endif
-  /* For JPEG‑XL, assume the decoded format is RGB */
+
+  /* For JPEG‑XL, we assume the decoded format is RGB. */
   img->colorspace = CF_IMAGE_RGB;
+
 #ifdef HAVE_IMAGE_DATA
   img->data = output_buffer;
+  fprintf(stderr, "DEBUG: Image created: %dx%d, xppi=%d, yppi=%d, bitsPerComponent=%d\n",
+          img->xsize, img->ysize, img->xppi, img->yppi,
+#ifdef HAVE_BITS_PER_COMPONENT
+          img->bitsPerComponent
 #else
+          -1
+#endif
+         );
+#else
+  fprintf(stderr, "Error: cf_image_t does not have a 'data' field.\n");
   free(output_buffer);
   free(img);
-  fprintf(stderr, "Error: cf_image_t does not have a 'data' field.\n");
   return NULL;
 #endif
 
-  fprintf(stderr, "DEBUG: cf_image_t created: xsize=%d, ysize=%d, xppi=%d, yppi=%d, bitsPerComponent=%d\n",
-          img->xsize, img->ysize, img->xppi, img->yppi, img->bitsPerComponent);
   return img;
 }
 
@@ -157,8 +170,8 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
     return -1;
   }
   filesize = ftell(fp);
-  fprintf(stderr, "DEBUG: File size: %zu bytes\n", filesize);
   rewind(fp);
+  fprintf(stderr, "DEBUG: File size: %zu bytes\n", filesize);
 
   data = malloc(filesize);
   if (!data) {
@@ -166,9 +179,8 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
     return -1;
   }
   bytesRead = fread(data, 1, filesize, fp);
-  fprintf(stderr, "DEBUG: Bytes read: %zu\n", bytesRead);
   if (bytesRead != filesize) {
-    fprintf(stderr, "JPEG‑XL: File read error.\n");
+    fprintf(stderr, "JPEG‑XL: File read error (read %zu of %zu bytes).\n", bytesRead, filesize);
     free(data);
     return -1;
   }
@@ -182,25 +194,25 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   }
   
   status = JxlDecoderSetInput(decoder, data, filesize);
-  fprintf(stderr, "DEBUG: JxlDecoderSetInput returned %d\n", status);
   if (status != JXL_DEC_SUCCESS) {
-    fprintf(stderr, "JPEG‑XL: Failed to set input buffer.\n");
+    fprintf(stderr, "JPEG‑XL: Failed to set input buffer (status=%d).\n", status);
     JxlDecoderDestroy(decoder);
     free(data);
     return -1;
   }
+  fprintf(stderr, "DEBUG: Input buffer set successfully.\n");
 
-  /* Process input until full image is decoded */
+  // Process input until full image is decoded.
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
-    fprintf(stderr, "DEBUG: JxlDecoderProcessInput returned %d\n", status);
     if (status == JXL_DEC_ERROR) {
-      fprintf(stderr, "JPEG‑XL: Decoding error.\n");
+      fprintf(stderr, "JPEG‑XL: Decoding error (status=%d).\n", status);
       JxlDecoderDestroy(decoder);
       free(data);
       return -1;
     }
+    /* Optionally log intermediate statuses here */
   }
-  fprintf(stderr, "DEBUG: JxlDecoderProcessInput reached JXL_DEC_FULL_IMAGE\n");
+  fprintf(stderr, "DEBUG: Decoder reached JXL_DEC_FULL_IMAGE.\n");
 
   cf_image_t *new_img = cf_image_create_from_jxl_decoder(decoder);
   if (!new_img) {
