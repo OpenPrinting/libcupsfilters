@@ -1,8 +1,7 @@
 //
 // JPEG‑XL image routines for libcupsfilters.
 //
-// Copyright 2007-2011 by Apple Inc.
-// Copyright 1993-2005 by Easy Software Products.
+// Copyright 2025 by Titiksha Bansal.
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
