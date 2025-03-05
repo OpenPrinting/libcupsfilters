@@ -1,6 +1,4 @@
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = $(shell pkg-config --cflags libjxl)
-
 
 pkgconfdir = $(libdir)/pkgconfig
 pkgconf_DATA = \
