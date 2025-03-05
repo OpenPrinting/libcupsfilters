@@ -13,8 +13,8 @@
  * This function checks for both the JPEG‑XL container signature and the
  * JPEG‑XL stream signature.
  */
-static int
-_cf_is_jpegxl(const unsigned char *header, size_t len)
+int
+_cfIsJPEGXL(const unsigned char *header, size_t len)
 {
   if (len < 12)
     return 0;
@@ -104,9 +104,6 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   img->ysize  = (int)basic_info.ysize;
   img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
   img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
-#ifdef HAVE_BITS_PER_COMPONENT
-  img->bitsPerComponent = (int)basic_info.bits_per_sample;
-#endif
 
   /* For JPEG‑XL, we assume the decoded format is RGB. */
   img->colorspace = CF_IMAGE_RGB;
@@ -132,7 +129,7 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
  * Returns 0 on success, nonzero on failure.
  */
 int
-_cf_image_read_jpegxl(cf_image_t *img, FILE *fp,
+_cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
                       cf_icspace_t primary, cf_icspace_t secondary,
                       int saturation, int hue, const cf_ib_t *lut)
 {
@@ -190,7 +187,7 @@ _cf_image_read_jpegxl(cf_image_t *img, FILE *fp,
   }
 
   /* Create an image from the decoder output */
-  cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder);
+  cf_image_t *new_img = _cfImageReadJPEGXL(decoder);
   if (!new_img) {
     DEBUG_printf("DEBUG: JPEG‑XL: Failed to create image from decoder data.\n");
     JxlDecoderDestroy(decoder);
@@ -216,14 +213,14 @@ _cf_image_read_jpegxl(cf_image_t *img, FILE *fp,
  * Returns a pointer to a cf_image_t on success, or NULL on failure.
  */
 cf_image_t *
-_cf_image_open_jpegxl(FILE *fp, cf_icspace_t primary, cf_icspace_t secondary,
+_cfImageOpenJPEGXL(FILE *fp, cf_icspace_t primary, cf_icspace_t secondary,
                       int saturation, int hue, const cf_ib_t *lut)
 {
   cf_image_t *img = calloc(1, sizeof(cf_image_t));
   if (img == NULL)
     return NULL;
 
-  if (_cf_image_read_jpegxl(img, fp, primary, secondary, saturation, hue, lut)) {
+  if (_cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, lut)) {
     cfImageClose(img);
     return NULL;
   }
