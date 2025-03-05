@@ -38,8 +38,6 @@
 
 
 #include "image-private.h"
-
-
 #include "config.h"
 
 
@@ -57,7 +55,6 @@ static int	flush_tile(cf_image_t *img);
 static cf_ib_t	*get_tile(cf_image_t *img, int x, int y);
 static void trim_spaces(char *buf);
 static unsigned char *find_bytes(FILE *fp, long int *size);
-
 
 //
 // 'cfImageClose()' - Close an image file.
@@ -81,7 +78,6 @@ cfImageClose(cf_image_t *img)		// I - Image to close
     close(img->cachefile);
     unlink(img->cachename);
   }
-
 	
   //
   // Free the image cache...
@@ -96,7 +92,6 @@ cfImageClose(cf_image_t *img)		// I - Image to close
     next = current->next;
     free(current);
   }
-
 	
   //
   // Free the rest of memory...
@@ -354,7 +349,6 @@ cfImageOpenFP(
 
   DEBUG_printf(("cfImageOpen2(%p, %d, %d, %d, %d, %p)\n",
         	fp, primary, secondary, saturation, hue, lut));
-
 	
   //
   // Figure out the file type...
@@ -374,7 +368,6 @@ cfImageOpenFP(
   if (fread(header2, 1, sizeof(header2), fp) == 0 && ferror(fp))
     DEBUG_printf(("Error reading file!"));
   fseek(fp, 0, SEEK_SET);
-
 	
   //
   // Allocate memory...
@@ -387,7 +380,6 @@ cfImageOpenFP(
     fclose(fp);
     return (NULL);
   }
-
 	
   //
   // Load the image as appropriate...
