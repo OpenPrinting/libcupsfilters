@@ -90,7 +90,7 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   /* Process decoder events until the full image is decoded. */
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
     if (status == JXL_DEC_ERROR) {
-      DEBUG_printf("DEBUG: _cf_image_create_from_jxl_decoder: JPEG‑XL decoding error. Status: %d\n", status);
+      DEBUG_printf("DEBUG: _cf_image_create_from_jxl_decoder: JPEG‑XL decoding error.\n");
       free(output_buffer);
       return NULL;
     }
@@ -141,7 +141,6 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   }
   filesize = ftell(fp);
   rewind(fp);
-  DEBUG_printf("DEBUG: JPEG‑XL: File size: %zu bytes\n", filesize);
 
   data = malloc(filesize);
   if (!data) {
@@ -166,7 +165,7 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   
   status = JxlDecoderSetInput(decoder, data, filesize);
   if (status != JXL_DEC_SUCCESS) {
-    DEBUG_printf("DEBUG: JPEG‑XL: Failed to set input buffer. Status: %d\n", status);
+    DEBUG_printf("DEBUG: JPEG‑XL: Failed to set input buffer.\n");
     JxlDecoderDestroy(decoder);
     free(data);
     return -1;
@@ -175,7 +174,7 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   /* Process input until full image is decoded. */
   while ((status = JxlDecoderProcessInput(decoder)) != JXL_DEC_FULL_IMAGE) {
     if (status == JXL_DEC_ERROR) {
-      DEBUG_printf("DEBUG: JPEG‑XL: Decoding error. Status: %d\n", status);
+      DEBUG_printf("DEBUG: JPEG‑XL: Decoding error.\n");
       JxlDecoderDestroy(decoder);
       free(data);
       return -1;
