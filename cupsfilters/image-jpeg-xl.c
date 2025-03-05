@@ -62,6 +62,18 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
                   basic_info.xsize, basic_info.ysize,
                   basic_info.bits_per_sample, basic_info.uses_original_profile));
 
+  /* Allocate the cf_image_t structure and set dimensions */
+  img = malloc(sizeof(cf_image_t));
+  if (!img) {
+      DEBUG_printf(("DEBUG: _cf_image_create_from_jxl_decoder: Memory allocation for image structure failed.\n"));
+      return NULL;
+  }
+  img->xsize = (int) basic_info.xsize;
+  img->ysize = (int) basic_info.ysize;
+  img->xppi  = (basic_info.uses_original_profile) ? 300 : 72;
+  img->yppi  = (basic_info.uses_original_profile) ? 300 : 72;
+  img->colorspace = CF_IMAGE_RGB;
+  
   /* Determine the size needed for the output buffer.
      We request output as 16-bit unsigned integers to preserve high color depth. */
   status = JxlDecoderImageOutBufferSize(decoder, &pixel_format, &buffer_size);
@@ -84,6 +96,7 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
   if (status != JXL_DEC_SUCCESS) {
     DEBUG_printf("DEBUG: _cf_image_create_from_jxl_decoder: Failed to set output buffer.\n");
     free(output_buffer);
+    free(img);
     return NULL;
   }
 
@@ -92,27 +105,28 @@ _cf_image_create_from_jxl_decoder(JxlDecoder *decoder)
     if (status == JXL_DEC_ERROR) {
       DEBUG_printf("DEBUG: _cf_image_create_from_jxl_decoder: JPEG‑XL decoding error.\n");
       free(output_buffer);
+      free(img);
       return NULL;
     }
   }
 
-  /* Allocate and populate the cf_image_t structure */
-  img = malloc(sizeof(cf_image_t));
-  if (!img) {
-    DEBUG_printf("DEBUG: _cf_image_create_from_jxl_decoder: Memory allocation for image structure failed.\n");
-    free(output_buffer);
-    return NULL;
+DEBUG_printf(("DEBUG: _cf_image_create_from_jxl_decoder: Decoding complete.\n"));
+
+  /* Initialize tile cache for the image */
+  cfImageSetMaxTiles(img, 0);
+
+  /* Copy decoded data row by row into the image tile cache */
+  {
+      int row;
+      int bytes_per_pixel = pixel_format.num_channels * 1; /* 1 byte per channel */
+      int row_stride = img->xsize * bytes_per_pixel;
+      for (row = 0; row < img->ysize; row++) {
+          unsigned char *row_data = ((unsigned char *) output_buffer) + row * row_stride;
+          _cfImagePutRow(img, 0, row, img->xsize, row_data);
+      }
   }
 
-  img->xsize  = (int)basic_info.xsize;
-  img->ysize  = (int)basic_info.ysize;
-  img->xppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
-  img->yppi   = (basic_info.uses_original_profile) ? 300 : 72; // Adjust if necessary
-
-  /* For JPEG‑XL, we assume the decoded format is RGB. */
-  img->colorspace = CF_IMAGE_RGB;
-  img->data = output_buffer;
-  
+  free(output_buffer);
   return img;
 }
 
@@ -182,17 +196,17 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   }
 
   /* Create an image from the decoder output */
-  cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder);
-  if (!new_img) {
-    DEBUG_printf("DEBUG: JPEG‑XL: Failed to create image from decoder data.\n");
-    JxlDecoderDestroy(decoder);
-    free(data);
-    return -1;
+  {
+      cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder, fp, primary, secondary, saturation, hue, lut);
+      if (!new_img) {
+          DEBUG_printf(("DEBUG: _cfImageReadJPEGXL: Failed to create image from decoder data.\n"));
+          JxlDecoderDestroy(decoder);
+          free(data);
+          return -1;
+      }
+      memcpy(img, new_img, sizeof(cf_image_t));
+      free(new_img);
   }
-  
-  /* Copy the new image into the provided structure */
-  memcpy(img, new_img, sizeof(cf_image_t));
-  free(new_img);
 
   JxlDecoderDestroy(decoder);
   free(data);
