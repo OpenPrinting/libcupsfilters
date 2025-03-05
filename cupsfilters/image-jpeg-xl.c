@@ -1,3 +1,27 @@
+//
+// JPEG‑XL image routines for libcupsfilters.
+//
+// Copyright 2007-2011 by Apple Inc.
+// Copyright 1993-2005 by Easy Software Products.
+//
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
+//
+// Contents:
+//
+//   _cfIsJPEGXL()                          - Check if the file header indicates JPEG‑XL format.
+//   _cf_image_create_from_jxl_decoder()    - Create a cf_image_t from a libjxl decoder.
+//   _cfImageReadJPEGXL()                   - Read a JPEG‑XL image file using libjxl and fill a 
+//                                            cf_image_t structure.
+//   _cfOpenJPEGXL()                        - Open a JPEG‑XL image file and read it into memory.
+//
+
+
+//
+// Include necessary headers
+//
+
+
 #include "config.h"
 
 #ifdef HAVE_LIBJXL
