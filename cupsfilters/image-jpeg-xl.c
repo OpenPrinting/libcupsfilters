@@ -196,17 +196,15 @@ _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
   }
 
   /* Create an image from the decoder output */
-  {
-      cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder, fp, primary, secondary, saturation, hue, lut);
-      if (!new_img) {
-          DEBUG_printf(("DEBUG: _cfImageReadJPEGXL: Failed to create image from decoder data.\n"));
-          JxlDecoderDestroy(decoder);
-          free(data);
-          return -1;
-      }
-      memcpy(img, new_img, sizeof(cf_image_t));
-      free(new_img);
+  cf_image_t *new_img = _cf_image_create_from_jxl_decoder(decoder);
+  if (!new_img) {
+    DEBUG_printf(("DEBUG: _cfImageReadJPEGXL: Failed to create image from decoder data.\n"));
+    JxlDecoderDestroy(decoder);
+    free(data);
+    return -1;
   }
+  memcpy(img, new_img, sizeof(cf_image_t));
+  free(new_img);
 
   JxlDecoderDestroy(decoder);
   free(data);
