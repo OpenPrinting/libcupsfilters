@@ -19,7 +19,8 @@
 
 #ifdef HAVE_LIBJXL
 #include <stdio.h>
-#include "image-private.h"  
+#include "image-private.h"
+#include <jxl/decode.h>
 
 int _cfIsJPEGXL(const unsigned char *header, size_t len);
 
