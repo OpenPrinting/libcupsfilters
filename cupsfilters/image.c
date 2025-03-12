@@ -41,12 +41,6 @@
 #include "config.h"
 
 
-#ifdef HAVE_LIBJXL
-#include <jxl/decode.h>
-#include "image-jpeg-xl.h"  /* Declarations for _cfImageReadJPEGXL() and _cfIsJPEGXL() */
-#endif
-
-
 //
 // Local functions...
 //
