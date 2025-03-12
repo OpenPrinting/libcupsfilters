@@ -56,7 +56,7 @@ _cfIsJPEGXL(const unsigned char *header,
 //
 
 int
-_cfImageReadJXL( cf_image_t      *img,
+_cfImageReadJPEGXL( cf_image_t      *img,
                 FILE            *fp,
                 cf_icspace_t    primary,
                 cf_icspace_t    secondary,
