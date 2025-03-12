@@ -14,9 +14,6 @@
 //
 
 
-#ifndef IMAGE_JPEG_XL_H
-#define IMAGE_JPEG_XL_H
-
 #ifdef HAVE_LIBJXL
 #include <stdio.h>
 #include "image-private.h"
@@ -33,4 +30,3 @@ cf_image_t *_cfImageOpenJPEGXL(FILE *fp, cf_icspace_t primary,
                                int hue, const cf_ib_t *lut);
 
 #endif // HAVE_LIBJXL
-#endif // IMAGE_JPEG_XL_H
