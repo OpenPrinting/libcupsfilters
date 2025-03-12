@@ -42,7 +42,7 @@ _cfIsJPEGXL(const unsigned char *header,
   if (len < 12)
     return 0;
   
-  JxlSignature sig = JxlSignatureCheck((const uint8_t *)header, bytes_read);
+  JxlSignature sig = JxlSignatureCheck((const uint8_t *)header, len);
   
   return (sig == JXL_SIG_CODESTREAM || sig == JXL_SIG_CONTAINER);
   return 0;
@@ -54,10 +54,6 @@ _cfIsJPEGXL(const unsigned char *header,
 // Reads the entire file from the given FILE pointer, decodes it using libjxl,
 // and fills the provided cf_image_t structure. Returns 0 on success, nonzero on failure.
 //
-
-#ifdef HAVE_LIBJXL
-#include <jxl/decode.h>
-#include <jxl/types.h>
 
 int
 _cfImageReadJXL( cf_image_t      *img,
