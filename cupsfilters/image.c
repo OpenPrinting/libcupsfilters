@@ -404,7 +404,8 @@ cfImageOpenFP(
   else
 #endif // HAVE_LIBTIFF
 #ifdef HAVE_LIBJXL
-  if (_cfIsJPEGXL(header, sizeof(header)))
+  if ((header[0] == 0xff && header[1] == 0x0a) ||  			// Codestream signature
+      (!memcmp(header, "\x00\x00\x00\x0cJXL \x0d\x0a\x87\x0a", 12)) 	// Container
     status = _cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, 
 	    			lut);
   else
