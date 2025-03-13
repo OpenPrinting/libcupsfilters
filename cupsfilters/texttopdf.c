@@ -15,6 +15,7 @@
 
 #include <config.h>
 
+#ifdef HAVE_FONTCONFIG
 #include <cupsfilters/pdfutils-private.h>
 #include <cupsfilters/debug-internal.h>
 #include <cupsfilters/filter.h>
@@ -2651,3 +2652,4 @@ write_pretty_header(texttopdf_doc_t *doc) // {{{
   _cfPDFOutPrintF(doc->pdf, "Q\n");
 }
 // }}}
+#endif // HAVE_FONTCONFIG

@@ -46,8 +46,10 @@
 
 static int	flush_tile(cf_image_t *img);
 static cf_ib_t	*get_tile(cf_image_t *img, int x, int y);
+#ifdef HAVE_EXIF
 static void trim_spaces(char *buf);
 static unsigned char *find_bytes(FILE *fp, long int *size);
+#endif // HAVE_EXIF
 
 //
 // 'cfImageClose()' - Close an image file.
