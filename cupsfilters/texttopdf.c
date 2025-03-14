@@ -23,7 +23,9 @@
 #include <cupsfilters/libcups2-private.h>
 #include <ctype.h>
 #include <errno.h>
+#ifdef HAVE_FONTCONFIG
 #include "fontconfig/fontconfig.h"
+#endif // HAVE_FONTCONFIG
 
 
 //
