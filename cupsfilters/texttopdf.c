@@ -570,7 +570,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
   cf_logfunc_t  log = data->logfunc;
   void		*ld = data->logdata;
   if (log) log(ld, CF_LOGLEVEL_ERROR,
-	       "cfFilterTextToPDF: No fontconfig support.");
+	       "cfFilterTextToPDF: Text-to-PDF conversion not supported (no fontconfig).");
   return (1);
 #else
   texttopdf_doc_t doc;
