@@ -15,7 +15,6 @@
 
 #include <config.h>
 
-#ifdef HAVE_FONTCONFIG
 #include <cupsfilters/pdfutils-private.h>
 #include <cupsfilters/debug-internal.h>
 #include <cupsfilters/filter.h>
@@ -56,6 +55,7 @@
 // Globals...
 //
 
+#ifdef HAVE_FONTCONFIG
 static char *code_keywords[] =	// List of known C/C++ keywords...
 	{
 	  "and",
@@ -547,6 +547,7 @@ static int      write_prolog(const char *title, const char *user,
 			    cf_logfunc_t log, void *ld);
 static void     write_page(texttopdf_doc_t *doc);
 static void     write_epilogue(texttopdf_doc_t *doc);
+#endif // HAVE_FONTCONFIG
 
 
 //
@@ -563,6 +564,13 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 		  void *parameters)	// I - Filter-specific parameters
 					//     (unused)
 {
+#ifndef HAVE_FONTCONFIG
+  cf_logfunc_t  log = data->logfunc;
+  void		*ld = data->logdata;
+  if (log) log(ld, CF_LOGLEVEL_ERROR,
+	       "cfFilterTextToPDF: No fontconfig support.");
+  return (1);
+#else
   texttopdf_doc_t doc;
   int		i,		// Looping var
 		temp,
@@ -651,7 +659,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     if (!iscanceled || !iscanceled(icd))
     {
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "textopdf: Unable to open input data stream.");
+		   "cfFilterTextToPDF: Unable to open input data stream.");
     }
     return (1);
   }
@@ -1461,7 +1469,7 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
   if (empty)
   {
     if(log) log(ld, CF_LOGLEVEL_DEBUG,
-		"Input is empty, outputting empty file");
+		"cfFilterTextToPDF: Input is empty, outputting empty file");
     goto out;
   }
 
@@ -1525,8 +1533,10 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
     free(doc.pdf);
 
   return (ret);
+#endif // HAVE_FONTCONFIG
 }
 
+#ifdef HAVE_FONTCONFIG
 
 static _cf_fontembed_emb_params_t *
 font_load(const char *font,
