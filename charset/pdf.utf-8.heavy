@@ -33,6 +33,7 @@ charset utf8
 0300 03FF ltor single DejaVuSansMono
 0400 04FF ltor single DejaVuSansMono DejaVuSansMono:bold DejaVuSansMono:oblique DejaVuSansMono:bold:oblique
 0500 05FF rtol single FreeMono
+0600 06FF rtol single FreeMono
 1E00 1EFF ltor single CourierNew CourierNew:bold CourierNew:italic CourierNew:bold:italic
 2000 21FF ltor single DejaVuSansMono DejaVuSansMono:bold DejaVuSansMono:oblique DejaVuSansMono:bold:oblique
 2200 23FF ltor single Symbol
