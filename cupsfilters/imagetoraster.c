@@ -416,7 +416,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
   //
 
   cfRasterPrepareHeader(&header, data, outformat,
-			CF_FILTER_OUT_FORMAT_CUPS_RASTER, 1, &cspace);
+			CF_FILTER_OUT_FORMAT_CUPS_RASTER, 0, &cspace);
   doc.Orientation = header.Orientation;
   doc.Duplex = header.Duplex;
   doc.Color = header.cupsNumColors>1?1:0;
