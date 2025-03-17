@@ -22,6 +22,8 @@
 #include <cups/file.h>
 #include <cups/array.h>
 #include <cupsfilters/libcups2-private.h>
+#include <time.h>
+#include <unistd.h>
 
 
 extern char **environ;
