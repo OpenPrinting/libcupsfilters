@@ -23,6 +23,15 @@
 #include <cups/array.h>
 #include <cupsfilters/libcups2-private.h>
 
+/* Global variable for timeout flag */
+volatile sig_atomic_t cfchain_timeout_expired = 0;
+
+/* Signal handler to set the timeout flag when the alarm expires */
+static void cfchain_alarm_handler(int sig)
+{
+  cfchain_timeout_expired = 1;  /* Mark that the timeout has expired */
+}
+
 
 extern char **environ;
 
@@ -621,24 +630,36 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 	      void *parameters)    // I - Filter-specific parameters
 {
   cups_array_t  *filter_chain = (cups_array_t *)parameters;
-  cf_filter_filter_in_chain_t *filter, *next;
-  int           current, filterfds[2][2], pid, status, retval, ret;
-  int           infd, outfd;
+  cf_filter_filter_in_chain_t *filter,  // Current filter
+		*next;		     // Next filter
+  int		current,	     // Current filter
+		filterfds[2][2],     // Pipes for filters
+		pid,		     // Process ID of filter
+		status,		     // Exit status
+		retval,		     // Return value
+		ret;
+  int		infd, outfd;         // Temporary file descriptors
   char          buf[4096];
   ssize_t       bytes;
-  cups_array_t  *pids;
-  filter_function_pid_t *pid_entry, key;
-  cf_logfunc_t  log = data->logfunc;
+  cups_array_t	*pids;		     // Executed filters array
+  filter_function_pid_t	*pid_entry,  // Entry in executed filters array
+		key;		     // Search key for filters
+  cf_logfunc_t log = data->logfunc;
   void          *ld = data->logdata;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
   void          *icd = data->iscanceleddata;
-  time_t        start_time;
-  int           timeout = 30;  // Timeout in seconds
 
+
+  //
   // Ignore broken pipe signals...
+  //
+
   signal(SIGPIPE, SIG_IGN);
 
+  //
   // Remove NULL filters...
+  //
+
   for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter;
        filter = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain))
@@ -650,13 +671,16 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		   filter->name ? filter->name : "Unspecified");
       cupsArrayRemove(filter_chain, filter);
     }
-    else if (log)
-      log(ld, CF_LOGLEVEL_INFO,
-	  "cfFilterChain: Running filter: %s",
-	  filter->name ? filter->name : "Unspecified");
+    else
+      if (log) log(ld, CF_LOGLEVEL_INFO,
+		   "cfFilterChain: Running filter: %s",
+		   filter->name ? filter->name : "Unspecified");
   }
 
-  // Empty filter chain -> Pass through the data unchanged...
+  //
+  // Empty filter chain -> Pass through the data unchanged
+  //
+
   if (cupsArrayGetCount(filter_chain) == 0)
   {
     if (log) log(ld, CF_LOGLEVEL_INFO,
@@ -673,18 +697,21 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
     if (bytes < 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
-		   "cfFilterChain: Data read error: %s", strerror(errno));
+		     "cfFilterChain: Data read error: %s", strerror(errno));
       retval = 1;
     }
     close(inputfd);
     close(outputfd);
-    return retval;
+    return (retval);
   }
 
+  //
   // Execute all of the filters...
-  pids = cupsArrayNew((cups_array_cb_t)compare_filter_pids, NULL,
-		      NULL, 0, NULL, NULL);
-  current = 0;
+  //
+
+  pids            = cupsArrayNew((cups_array_cb_t)compare_filter_pids, NULL,
+				 NULL, 0, NULL, NULL);
+  current         = 0;
   filterfds[0][0] = inputfd;
   filterfds[0][1] = -1;
   filterfds[1][0] = -1;
@@ -715,7 +742,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		     "cfFilterChain: Could not create pipe for output of %s: %s",
 		     filter->name ? filter->name : "Unspecified filter",
 		     strerror(errno));
-	return 1;
+	return (1);
       }
       fcntl_add_cloexec(filterfds[1 - current][0]);
       fcntl_add_cloexec(filterfds[1 - current][1]);
@@ -725,7 +752,12 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 
     if ((pid = fork()) == 0)
     {
-      // Child process...
+      //
+      // Child process goes here...
+      //
+      // Update input and output FDs as needed...
+      //
+
       infd = filterfds[current][0];
       outfd = filterfds[1 - current][1];
       if (filterfds[current][1] > 1)
@@ -735,11 +767,16 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 
       if (infd < 0)
 	infd = open("/dev/null", O_RDONLY);
+
       if (outfd < 0)
 	outfd = open("/dev/null", O_WRONLY);
 
-      ret = filter->function(infd, outfd, inputseekable, data,
-			     filter->parameters);
+      //
+      // Execute filter function...
+      //
+
+      ret = (filter->function)(infd, outfd, inputseekable, data,
+			       filter->parameters);
 
       close(infd);
       close(outfd);
@@ -747,6 +784,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		   "cfFilterChain: %s completed with status %d.",
 		   filter->name ? filter->name : "Unspecified filter", ret);
       exit(ret);
+
     }
     else if (pid > 0)
     {
@@ -756,7 +794,7 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 
       pid_entry = malloc(sizeof(filter_function_pid_t));
       pid_entry->pid = pid;
-      pid_entry->name = filter->name ? strdup(filter->name) : strdup("Unspecified filter");
+      pid_entry->name = filter->name ? filter->name : "Unspecified filter";
       cupsArrayAdd(pids, pid_entry);
     }
     else
@@ -771,7 +809,10 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
     inputseekable = 0;
   }
 
+  //
   // Close remaining pipes...
+  //
+
   if (filterfds[0][0] > 1)
     close(filterfds[0][0]);
   if (filterfds[0][1] > 1)
@@ -781,95 +822,95 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   if (filterfds[1][1] > 1)
     close(filterfds[1][1]);
 
-  // Wait for the children to exit, with timeout and cancellation check...
+  //
+  // Set up alarm for filter deadlock timeout...
+  // This installs a SIGALRM handler and sets an alarm for 60 seconds.
+  //
+  signal(SIGALRM, cfchain_alarm_handler);
+  alarm(60); // Timeout set to 60 seconds
+
+  //
+  // Wait for the children to exit...
+  //
+
   retval = 0;
-  start_time = time(NULL);
+
   while (cupsArrayGetCount(pids) > 0)
   {
-    pid = waitpid(-1, &status, WNOHANG);
-    if (pid > 0)
+    if ((pid = wait(&status)) < 0)
     {
-      key.pid = pid;
-      pid_entry = (filter_function_pid_t *)cupsArrayFind(pids, &key);
-      if (pid_entry)
+      if (errno == EINTR && iscanceled && iscanceled(icd))
       {
-	cupsArrayRemove(pids, pid_entry);
-	if (status)
+	if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		     "cfFilterChain: Job canceled, killing filters ...");
+	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
+	     pid_entry;
+	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
 	{
-	  if (WIFEXITED(status))
-	  {
-	    if (log) log(ld, CF_LOGLEVEL_ERROR,
-			 "cfFilterChain: %s (PID %d) stopped with status %d",
-			 pid_entry->name, pid, WEXITSTATUS(status));
-	  }
-	  else
-	  {
-	    if (log) log(ld, CF_LOGLEVEL_ERROR,
-			 "cfFilterChain: %s (PID %d) crashed on signal %d",
-			 pid_entry->name, pid, WTERMSIG(status));
-	  }
-	  retval = 1;
+	  kill(pid_entry->pid, SIGTERM);
+	  free(pid_entry);
+	}
+	break;
+      }
+      else if (errno == EINTR && cfchain_timeout_expired)
+      {
+	/* Timeout expired; kill hanging filter processes */
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterChain: Timeout expired, killing hanging filters ...");
+	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
+	     pid_entry;
+	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
+	{
+	  kill(pid_entry->pid, SIGTERM);
+	  free(pid_entry);
+	}
+	break;
+      }
+      else
+	continue;
+    }
+
+    key.pid = pid;
+    if ((pid_entry = (filter_function_pid_t *)cupsArrayFind(pids, &key)) !=
+	NULL)
+    {
+      cupsArrayRemove(pids, pid_entry);
+
+      if (status)
+      {
+	if (WIFEXITED(status))
+	{
+	  if (log) log(ld, CF_LOGLEVEL_ERROR,
+		       "cfFilterChain: %s (PID %d) stopped with status %d",
+		       pid_entry->name, pid, WEXITSTATUS(status));
 	}
 	else
 	{
-	  if (log) log(ld, CF_LOGLEVEL_INFO,
+	  if (log) log(ld, CF_LOGLEVEL_ERROR,
+		       "cfFilterChain: %s (PID %d) crashed on signal %d",
+		       pid_entry->name, pid, WTERMSIG(status));
+	}
+	retval = 1;
+      }
+      else
+      {
+	if (log) log(ld, CF_LOGLEVEL_INFO,
 		       "cfFilterChain: %s (PID %d) exited with no errors.",
 		       pid_entry->name, pid);
-	}
-	free(pid_entry->name);
-	free(pid_entry);
       }
-    }
-    else if (pid == 0)
-    {
-      // No child has exited yet
-      if (time(NULL) - start_time > timeout)
-      {
-	if (log) log(ld, CF_LOGLEVEL_ERROR,
-		     "cfFilterChain: Timeout reached, terminating filters...");
-	// Terminate all remaining child processes
-	filter_function_pid_t *entry;
-	for (entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
-	     entry;
-	     entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
-	{
-	  kill(entry->pid, SIGTERM);
-	}
-	retval = 1;
-	break;
-      }
-      sleep(1);
-    }
-    else
-    {
-      if (errno != EINTR)
-      {
-	if (log) log(ld, CF_LOGLEVEL_ERROR,
-		     "cfFilterChain: waitpid error: %s", strerror(errno));
-	retval = 1;
-	break;
-      }
-    }
-    // Check if the job was canceled...
-    if (iscanceled && iscanceled(icd))
-    {
-      if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		   "cfFilterChain: Job canceled, killing filters...");
-      filter_function_pid_t *entry;
-      for (entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
-	   entry;
-	   entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
-      {
-	kill(entry->pid, SIGTERM);
-      }
-      retval = 1;
-      break;
+
+      free(pid_entry);
     }
   }
 
+  alarm(0); /* Disable alarm as wait loop has finished */
+
   cupsArrayDelete(pids);
-  return retval;
+
+  return (retval);
 }
+
+
 
 //
 // 'sanitize_device_uri()' - Remove authentication info from a device URI
@@ -1685,3 +1726,4 @@ cfFilterCloseBackAndSidePipes(cf_filter_data_t *data) // I - FDs in filter_data
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "Closed the pipes for back and side channels");
 }
+
