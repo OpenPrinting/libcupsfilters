@@ -910,8 +910,6 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   return (retval);
 }
 
-
-
 //
 // 'sanitize_device_uri()' - Remove authentication info from a device URI
 //
@@ -1726,4 +1724,3 @@ cfFilterCloseBackAndSidePipes(cf_filter_data_t *data) // I - FDs in filter_data
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "Closed the pipes for back and side channels");
 }
-
