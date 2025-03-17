@@ -864,8 +864,6 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
       }
       else
       {
-        if (!first_exit_time)
-          first_exit_time = time(NULL);
         key.pid = pid;
         if ((pid_entry = (filter_function_pid_t *)cupsArrayFind(pids, &key)) != NULL)
         {
@@ -877,6 +875,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
               if (log) log(ld, CF_LOGLEVEL_ERROR,
                            "cfFilterChain: %s (PID %d) stopped with status %d",
                            pid_entry->name, pid, WEXITSTATUS(status));
+	      if (WEXITSTATUS(status))
+		retval = 1;
             }
             else
             {
@@ -893,6 +893,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
                          pid_entry->name, pid);
           }
           free(pid_entry);
+	  if (retval && !first_exit_time)
+	    first_exit_time = time(NULL);
         }
       }
     }
