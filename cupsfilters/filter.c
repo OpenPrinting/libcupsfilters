@@ -816,86 +816,84 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
     close(filterfds[1][1]);
 
   //
-  // Start dynamic timeout clock on first filter exit.
-  // When a filter process exits (zero or non-zero), record the time.
-  // Then, if any filter continues running more than 60 seconds after that event,
+  // Start dynamic timeout clock on first filter exit.  When a filter
+  // process exits (zero or non-zero), record the time.  Then, if any
+  // filter continues running more than 60 seconds after that event,
   // kill all remaining filter processes.
   //
+  time_t first_exit_time = 0;
+  while (cupsArrayGetCount(pids) > 0)
   {
-    time_t first_exit_time = 0;
-    while (cupsArrayGetCount(pids) > 0)
+    pid = waitpid(-1, &status, WNOHANG);
+    if (pid == 0)
     {
-      pid = waitpid(-1, &status, WNOHANG);
-      if (pid == 0)
+      if (first_exit_time && (time(NULL) - first_exit_time) > 60)
       {
-        if (first_exit_time && (time(NULL) - first_exit_time) > 60)
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterChain: Timeout expired, killing hanging filters ...");
+	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
+	     pid_entry;
+	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
         {
-          if (log) log(ld, CF_LOGLEVEL_ERROR,
-                       "cfFilterChain: Timeout expired, killing hanging filters ...");
-          for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
-               pid_entry;
-               pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
-          {
-            kill(pid_entry->pid, SIGTERM);
-            free(pid_entry);
-          }
-          break;
-        }
-        sleep(1);
-        continue;
+	  kill(pid_entry->pid, SIGTERM);
+	  free(pid_entry);
+	}
+	break;
       }
-      else if (pid < 0)
+      sleep(1);
+      continue;
+    }
+    else if (pid < 0)
+    {
+      if (errno == EINTR && iscanceled && iscanceled(icd))
       {
-        if (errno == EINTR && iscanceled && iscanceled(icd))
+	if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		     "cfFilterChain: Job canceled, killing filters ...");
+	for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
+	     pid_entry;
+	     pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
         {
-          if (log) log(ld, CF_LOGLEVEL_DEBUG,
-                       "cfFilterChain: Job canceled, killing filters ...");
-          for (pid_entry = (filter_function_pid_t *)cupsArrayGetFirst(pids);
-               pid_entry;
-               pid_entry = (filter_function_pid_t *)cupsArrayGetNext(pids))
-          {
-            kill(pid_entry->pid, SIGTERM);
-            free(pid_entry);
-          }
-          break;
-        }
-        else
-          continue;
+	  kill(pid_entry->pid, SIGTERM);
+	  free(pid_entry);
+	}
+	break;
       }
       else
+	continue;
+    }
+    else
+    {
+      key.pid = pid;
+      if ((pid_entry = (filter_function_pid_t *)cupsArrayFind(pids, &key)) != NULL)
       {
-        key.pid = pid;
-        if ((pid_entry = (filter_function_pid_t *)cupsArrayFind(pids, &key)) != NULL)
+	cupsArrayRemove(pids, pid_entry);
+	if (status)
         {
-          cupsArrayRemove(pids, pid_entry);
-          if (status)
+	  if (WIFEXITED(status))
           {
-            if (WIFEXITED(status))
-            {
-              if (log) log(ld, CF_LOGLEVEL_ERROR,
-                           "cfFilterChain: %s (PID %d) stopped with status %d",
-                           pid_entry->name, pid, WEXITSTATUS(status));
-	      if (WEXITSTATUS(status))
-		retval = 1;
-            }
-            else
-            {
-              if (log) log(ld, CF_LOGLEVEL_ERROR,
-                           "cfFilterChain: %s (PID %d) crashed on signal %d",
-                           pid_entry->name, pid, WTERMSIG(status));
-            }
-            retval = 1;
-          }
-          else
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterChain: %s (PID %d) stopped with status %d",
+			 pid_entry->name, pid, WEXITSTATUS(status));
+	    if (WEXITSTATUS(status))
+	      retval = 1;
+	  }
+	  else
           {
-            if (log) log(ld, CF_LOGLEVEL_INFO,
-                         "cfFilterChain: %s (PID %d) exited with no errors.",
-                         pid_entry->name, pid);
-          }
-          free(pid_entry);
-	  if (retval && !first_exit_time)
-	    first_exit_time = time(NULL);
-        }
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterChain: %s (PID %d) crashed on signal %d",
+			 pid_entry->name, pid, WTERMSIG(status));
+	  }
+	  retval = 1;
+	}
+	else
+        {
+	  if (log) log(ld, CF_LOGLEVEL_INFO,
+		       "cfFilterChain: %s (PID %d) exited with no errors.",
+		       pid_entry->name, pid);
+	}
+	free(pid_entry);
+	if (retval && !first_exit_time)
+	  first_exit_time = time(NULL);
       }
     }
   }
