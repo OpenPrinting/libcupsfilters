@@ -92,8 +92,9 @@ _cfImageZoomNew(
   if (xsize > CF_IMAGE_MAX_WIDTH ||
       ysize > CF_IMAGE_MAX_HEIGHT ||
       (xc1 - xc0) > CF_IMAGE_MAX_WIDTH ||
-      (yc1 - yc0) > CF_IMAGE_MAX_HEIGHT)
-    return (NULL);		// Protect against integer overflow
+      (yc1 - yc0) > CF_IMAGE_MAX_HEIGHT ||
+      xsize == 0 || ysize == 0)
+    return (NULL);		// Protect against integer overflow and divide by zero
 
   if ((z = (cf_izoom_t *)calloc(1, sizeof(cf_izoom_t))) == NULL)
     return (NULL);
