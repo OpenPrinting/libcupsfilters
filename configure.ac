@@ -295,7 +295,13 @@ AC_ARG_WITH([fontconfig],
 	[with_fontconfig="$withval"],
 	[with_fontconfig=yes]
 )
-AS_IF([test x"$with_fontconfig" != "xno"], [
+# --disable-texttopdf will do the same thing as --without-fontconfig.
+AC_ARG_ENABLE([texttopdf],
+	[AS_HELP_STRING([--disable-texttopdf], [Disable the texttopdf filter.])],
+	[enable_texttopdf="$enableval"],
+	[enable_texttopdf=yes]
+)
+AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"], [
 	AC_DEFINE([HAVE_FONTCONFIG], [1], [Defines if we are using fontconfig.])
   PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 ])
@@ -505,6 +511,7 @@ Build configuration:
 	png:             ${with_png}
 	tiff:            ${with_tiff}
 	fontconfig:      ${with_fontconfig}
+	texttopdf:       ${enable_texttopdf}
 	dbus:            ${enable_dbus}
 	werror:          ${enable_werror}
 	test-font:       ${with_test_font_path}
