@@ -18,7 +18,7 @@ For non-PDF printers (excluding Mac OS X users), you must install Ghostscript wi
 - autoconf, autopoint, automake, libtool for ./autogen.sh
 - CUPS devel files (version 2.2.2 or higher)
 - Poppler (with --enable-poppler-cpp) devel files for pdftoraster
-- fontconfig devel files for texttopdf
+- fontconfig devel files for texttopdf (disable using --without-fontconfig)
 - liblcms (liblcms2 recommended) devel files for color management
 - QPDF (11.0 or higher, 11.4.0 recommended) devel files
 

@@ -168,6 +168,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
     }
     else
 #endif // HAVE_GHOSTSCRIPT
+#ifdef HAVE_FONTCONFIG
     if (!strcasecmp(input_super, "text") ||
 	(!strcasecmp(input_super, "application") && input_type[0] == 'x'))
     {
@@ -187,7 +188,9 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 		   "cfFilterUniversal: Adding %s to chain",
 		   filter->name);
     }
-    else if (!strcasecmp(input, "image/urf") ||
+    else
+#endif // HAVE_FONTCONFIG
+    if (!strcasecmp(input, "image/urf") ||
 	     !strcasecmp(input, "image/pwg-raster"))
     {
       outformat = malloc(sizeof(cf_filter_out_format_t));

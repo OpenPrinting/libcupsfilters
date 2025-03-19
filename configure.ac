@@ -290,7 +290,21 @@ AS_IF([test x"$lcms2" = "xno"], [
 	PKG_CHECK_MODULES([LCMS], [lcms])
 	AC_DEFINE([USE_LCMS1], [1], [Defines if use lcms1])
 ])
-PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
+AC_ARG_WITH([fontconfig],
+	[AS_HELP_STRING([--without-fontconfig], [Disable fontconfig support.])],
+	[with_fontconfig="$withval"],
+	[with_fontconfig=yes]
+)
+# --disable-texttopdf will do the same thing as --without-fontconfig.
+AC_ARG_ENABLE([texttopdf],
+	[AS_HELP_STRING([--disable-texttopdf], [Disable the texttopdf filter.])],
+	[enable_texttopdf="$enableval"],
+	[enable_texttopdf=yes]
+)
+AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"], [
+	AC_DEFINE([HAVE_FONTCONFIG], [1], [Defines if we are using fontconfig.])
+  PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
+])
 PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
 
 # =================
@@ -496,6 +510,8 @@ Build configuration:
 	exif:            ${enable_exif}
 	png:             ${with_png}
 	tiff:            ${with_tiff}
+	fontconfig:      ${with_fontconfig}
+	texttopdf:       ${enable_texttopdf}
 	dbus:            ${enable_dbus}
 	werror:          ${enable_werror}
 	test-font:       ${with_test_font_path}
