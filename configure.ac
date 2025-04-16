@@ -256,6 +256,26 @@ AS_IF([test x"$with_tiff" != "xno"], [
 	AC_SUBST(LIBTIFF_LIBS)
 ])
 
+AC_ARG_WITH([jpegxl],
+    [AS_HELP_STRING([--without-jpegxl], [Disable JPEG‑XL support.])],
+    [with_jpegxl="$withval"],
+    [with_jpegxl=yes]
+)
+AS_IF([test x"$with_jpegxl" != "xno"], [
+    PKG_CHECK_MODULES([LIBJXL], [libjxl >= 0.7.0],
+        [
+            AC_DEFINE([HAVE_LIBJXL], [1], [Define if libjxl is available for JPEG‑XL support])
+            AC_SUBST(LIBJXL_CFLAGS)
+            AC_SUBST(LIBJXL_LIBS)
+        ],
+        [
+            AC_MSG_ERROR([libjxl is required for JPEG‑XL support, but it was not found.])
+        ]
+    )
+], [
+    AC_MSG_NOTICE([JPEG‑XL support disabled.])
+])
+
 dnl including EXIF library
 EXIF_LIBS=""
 EXIF_CFLAGS=""
@@ -507,6 +527,7 @@ Build configuration:
 	ippfind-path:    ${with_ippfind_path}
 	imagefilters:    ${enable_imagefilters}
 	jpeg:            ${with_jpeg}
+	jpegxl:          ${with_jpegxl}
 	exif:            ${enable_exif}
 	png:             ${with_png}
 	tiff:            ${with_tiff}
