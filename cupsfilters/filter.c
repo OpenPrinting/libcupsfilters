@@ -653,6 +653,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   // Remove NULL filters...
   //
 
+  retval = 0;
+
   for (filter = (cf_filter_filter_in_chain_t *)cupsArrayGetFirst(filter_chain);
        filter;
        filter = (cf_filter_filter_in_chain_t *)cupsArrayGetNext(filter_chain))
@@ -678,7 +680,6 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
   {
     if (log) log(ld, CF_LOGLEVEL_INFO,
 		 "cfFilterChain: No filter at all in chain, passing through the data.");
-    retval = 0;
     while ((bytes = read(inputfd, buf, sizeof(buf))) > 0)
       if (write(outputfd, buf, bytes) < bytes)
       {
