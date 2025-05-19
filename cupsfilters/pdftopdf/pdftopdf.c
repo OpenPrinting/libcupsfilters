@@ -25,760 +25,1349 @@
 #include <string.h>
 #include <stdbool.h>
 #include "pdftopdf-private.h"
-#include "processor.h"
 
 #include <stdarg.h>
 
-static bool 
-optGetInt(const char *name, 
-	  int num_options, 
-	  cups_option_t *options, 
-	  int *ret)  // {{{
+static const char       *Prefix;
+static int              Verbosity = 0;
+
+#define XFORM_TEXT_SIZE         10.0    // Point size of plain text output
+#define XFORM_TEXT_HEIGHT       12.0    // Point height of plain text output
+#define XFORM_TEXT_WIDTH        0.6     // Width of monospaced characters
+
+
+//
+// 'pdfio_start_page()' - Start a page.
+//
+// This function applies a transform on the back side pages.
+//
+
+static pdfio_stream_t *                 // O - Page content stream
+pdfio_start_page(xform_prepare_t *p,    // I - Preparation data
+                 pdfio_dict_t    *dict) // I - Page dictionary
 {
-  const char *val = cupsGetOption(name, num_options, options);
-  if (val) 
+  pdfio_stream_t        *st;            // Page content stream
+
+
+  if ((st = pdfioFileCreatePage(p->pdf, dict)) != NULL)
   {
-    *ret = atoi(val);
-    return true;
-  }
-  return false;
-}
-// }}}
-
-static bool 
-optGetFloat(const char *name, 
-	    int num_options, 
-	    cups_option_t *options, 
-	    float *ret)  // {{{
-{
-  const char *val = cupsGetOption(name, num_options, options);
-  if (val) 
-  {
-    *ret = atof(val);
-    return true;
-  }
-  return false;
-}
-// }}}
-
-static bool 
-is_false(const char *value) // {{{
-{
-  if (!value) 
-    return false;
-  return ((strcasecmp(value, "no") == 0) || 
-	  (strcasecmp(value, "off") == 0) || 
-	  (strcasecmp(value, "false") == 0));
-}
-// }}}
-
-static bool
-is_true(const char *value) // {{{
-{
-  if (!value) 
-    return false;
-  return ((strcasecmp(value, "yes") == 0) || 
-	  (strcasecmp(value, "on") == 0) || 
-	  (strcasecmp(value, "true") == 0));
-}
-// }}}
-
-static bool 
-parsePosition(const char *value, 
-	      pdftopdf_position_e *xpos, 
-	      pdftopdf_position_e *ypos) // {{{
-{
-  // ['center','top','left','right','top-left','top-right','bottom',
-  //  'bottom-left','bottom-right']
-  *xpos = CENTER;
-  *ypos = CENTER;
-  int next = 0;
-
-  if (strcasecmp(value, "center") == 0) 
-    return true;
-  else if (strncasecmp(value, "top", 3) == 0) 
-  {
-    *ypos = TOP;
-    next = 3;
-  } 
-  else if (strncasecmp(value, "bottom", 6) == 0) {
-    *ypos = BOTTOM;
-    next = 6;
+    if (p->use_duplex_xform && !(pdfioFileGetNumPages(p->pdf) & 1))
+    {
+      pdfioContentSave(st);
+      pdfioContentMatrixConcat(st, p->duplex_xform);
+    }
   }
 
-  if (next) 
-  {
-    if (value[next] == 0) 
-      return true;
-    else if (value[next] != '-')
-      return false;
-    value += next + 1;
-  }
-  if (strcasecmp(value, "left") == 0) 
-    *xpos = LEFT;
-  else if (strcasecmp(value, "right") == 0) 
-    *xpos = RIGHT;
+  return (st);
+}
+
+//
+// 'pdfio_end_page()' - End a page.
+//
+// This function restores graphics state when ending a back side page.
+//
+
+static void
+pdfio_end_page(xform_prepare_t *p,      // I - Preparation data
+               pdfio_stream_t  *st)     // I - Page content stream
+{
+  if (p->use_duplex_xform && !(pdfioFileGetNumPages(p->pdf) & 1))
+    pdfioContentRestore(st);
+
+  pdfioStreamClose(st);
+}
+
+//
+// 'generate_job_error_sheet()' - Generate a job error sheet.
+//
+
+static bool				// O - `true` on success, `false` on failure
+generate_job_error_sheet(
+    xform_prepare_t  *p)		// I - Preparation data
+{
+  pdfio_stream_t *st;			// Page stream
+  pdfio_obj_t	*courier;		// Courier font
+  pdfio_dict_t	*dict;			// Page dictionary
+  size_t	i,			// Looping var
+		count;			// Number of pages
+  const char	*msg;			// Current message
+  size_t	mcount;			// Number of messages
+
+
+  // Create a page dictionary with the Courier font...
+  courier = pdfioFileCreateFontObjFromBase(p->pdf, "Courier");
+  dict    = pdfioDictCreate(p->pdf);
+
+  pdfioPageDictAddFont(dict, "F1", courier);
+
+  // Figure out how many impressions to produce...
+  if (!strcmp(p->options->sides, "one-sided"))
+    count = 1;
   else
-    return false;
+    count = 2;
 
-  return true;
-}
-// }}}
-
-static void 
-parseRanges(const char *range, _cfPDFToPDFIntervalSet *ret) // {{{
-{
-  _cfPDFToPDFIntervalSet_clear(ret);
-  
-  if (!range) 
+  // Create pages...
+  for (i = 0; i < count; i ++)
   {
-    _cfPDFToPDFIntervalSet_add(ret, 1, 1);  
-    _cfPDFToPDFIntervalSet_finish(ret);
-    return;
-  }
+    // Create the error sheet...
+    st = pdfio_start_page(p, dict);
 
-  int lower, upper;
-  while (*range) 
-  {
-    if (*range == '-') 
+    // The job error sheet is a banner with the following information:
+    //
+    //   Errors:
+    //     ...
+    //
+    //   Warnings:
+    //     ...
+
+    pdfioContentSetFillColorDeviceGray(st, 0.0);
+    pdfioContentTextBegin(st);
+    pdfioContentTextMoveTo(st, p->crop.x1, p->crop.y2 - 2.0 * XFORM_TEXT_SIZE);
+    pdfioContentSetTextFont(st, "F1", 2.0 * XFORM_TEXT_SIZE);
+    pdfioContentSetTextLeading(st, 2.0 * XFORM_TEXT_HEIGHT);
+    pdfioContentTextShow(st, false, "Errors:\n");
+
+    pdfioContentSetTextFont(st, "F1", XFORM_TEXT_SIZE);
+    pdfioContentSetTextLeading(st, XFORM_TEXT_HEIGHT);
+
+    for (msg = (const char *)cupsArrayGetFirst(p->errors), mcount = 0; msg; msg = (const char *)cupsArrayGetNext(p->errors))
     {
-      range++;
-      upper = strtol(range, (char **)&range, 10);
-      if (upper >= 2147483647) 
-        _cfPDFToPDFIntervalSet_add(ret, 1, 1);  
-      else 
-        _cfPDFToPDFIntervalSet_add(ret, 1, upper+1);  
-    } 
-    else 
-    {
-      lower = strtol(range, (char **)&range, 10);
-      if (*range == '-') 
-      { 
-	range++;
-       	if (!isdigit(*range)) 
-          _cfPDFToPDFIntervalSet_add(ret, lower, lower);  
-	else 
-	{
-	  upper = strtol(range, (char **)&range, 10);
-	  if (upper >= 2147483647) 
-            _cfPDFToPDFIntervalSet_add(ret, lower, lower);  
-	  else 
-            _cfPDFToPDFIntervalSet_add(ret, lower, upper+1);  
-        }
-      } 
-      else 
+      if (*msg == 'E')
       {
-        _cfPDFToPDFIntervalSet_add(ret, lower, lower+1);  
+	pdfioContentTextShowf(st, false, "  %s\n", msg + 1);
+	mcount ++;
       }
     }
-    if (*range != ',') 
-      break;
-    range++;
-  }
-  _cfPDFToPDFIntervalSet_finish(ret);
-}
-// }}}
 
-static bool 
-_cfPDFToPDFParseBorder(const char *val, 
-		       pdftopdf_border_type_e *ret) // {{{
-{
-  if (strcasecmp(val, "none") == 0) 
-    *ret = NONE;
-  else if (strcasecmp(val, "single") == 0) 
-    *ret = ONE_THIN;
-  else if (strcasecmp(val, "single-thick") == 0)
-    *ret = ONE_THICK;
-  else if (strcasecmp(val, "double") == 0) 
-    *ret = TWO_THIN;
-  else if (strcasecmp(val, "double-thick") == 0) 
-    *ret = TWO_THICK;
-  else 
-    return false;
-  return true;
-}
-// }}}
+    if (mcount == 0)
+      pdfioContentTextShow(st, false, "  No Errors\n");
 
-void 
-getParameters(cf_filter_data_t *data, 
-	      int num_options, 
-	      cups_option_t *options, 
-	      _cfPDFToPDFProcessingParameters *param, 
-	      pdftopdf_doc_t *doc) // {{{
-{
-  char *final_content_type = data->final_content_type;
-  ipp_t *printer_attrs = data->printer_attrs;
-  ipp_t *job_attrs = data->job_attrs;
-  ipp_attribute_t *attr;
-  const char *val;
-  int ipprot;
-  int nup;
-  char rawlabel[256];
-  char *classification;
-  char cookedlabel[256];
+    pdfioContentSetTextFont(st, "F1", 2.0 * XFORM_TEXT_SIZE);
+    pdfioContentSetTextLeading(st, 2.0 * XFORM_TEXT_HEIGHT);
+    pdfioContentTextShow(st, false, "\n");
+    pdfioContentTextShow(st, false, "Warnings:\n");
 
-  if ((val = cupsGetOption("copies", num_options, options)) != NULL ||
-      (val = cupsGetOption("Copies", num_options, options)) != NULL ||
-      (val = cupsGetOption("num-copies", num_options, options)) != NULL ||
-      (val = cupsGetOption("NumCopies", num_options, options)) != NULL) 
-  {
-    int copies = atoi(val);
-    if (copies > 0) 
-      param->num_copies = copies;
-  }
+    pdfioContentSetTextFont(st, "F1", XFORM_TEXT_SIZE);
+    pdfioContentSetTextLeading(st, XFORM_TEXT_HEIGHT);
 
-  if (param->num_copies == 0) 
-    param->num_copies = 1;
-
-  if (printer_attrs != NULL &&
-      (attr = ippFindAttribute(printer_attrs, 
-			       "landscape-orientation-requested-preferred", 
-			       IPP_TAG_ZERO)) != NULL &&
-      ippGetInteger(attr, 0) == 5) 
-    param->normal_landscape = ROT_270;
-  else 
-    param->normal_landscape = ROT_90;
-
-  param->orientation = ROT_0;
-  param->no_orientation = false;
-  if (optGetInt("orientation-requested", num_options, options, &ipprot)) 
-  {
-    // IPP orientation values are:
-    //   3: 0 degrees,  4: 90 degrees,  5: -90 degrees,  6: 180 degrees
-    
-    if ((ipprot < 3) || (ipprot > 6)) 
+    for (msg = (const char *)cupsArrayGetFirst(p->errors), mcount = 0; msg; msg = (const char *)cupsArrayGetNext(p->errors))
     {
-      if (ipprot && doc->logfunc)
-        doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		     "cfFilterPDFToPDF: Bad value (%d) for "
-		     "orientation-requested, using 0 degrees", 
-		     ipprot);
-      param->no_orientation = true;
-    } 
-    else 
-    {
-      static const pdftopdf_rotation_e 
-	ipp2rot[4] = {ROT_0, ROT_90, ROT_270, ROT_180};
-      param->orientation = ipp2rot[ipprot - 3]; 
+      if (*msg == 'I')
+      {
+	pdfioContentTextShowf(st, false, "  %s\n", msg + 1);
+	mcount ++;
+      }
     }
-  } 
-  else if ((val = cupsGetOption("landscape", num_options, options)) != NULL) 
-  {
-    if (!is_false(val)) 
-      param->orientation = param->normal_landscape;
-  } 
+
+    if (mcount == 0)
+      pdfioContentTextShow(st, false, "  No Warnings\n");
+
+    pdfioContentTextEnd(st);
+    pdfio_end_page(p, st);
+  }
+
+  return (true);
+}
+
+
+//
+// 'generate_job_sheets()' - Generate a job banner sheet.
+//
+
+static bool				// O - `true` on success, `false` on failure
+generate_job_sheets(
+    xform_prepare_t  *p)		// I - Preparation data
+{
+  pdfio_stream_t *st;			// Page stream
+  pdfio_obj_t	*courier;		// Courier font
+  pdfio_dict_t	*dict;			// Page dictionary
+  size_t	i,			// Looping var
+		count;			// Number of pages
+
+  // Create a page dictionary with the Courier font...
+  courier = pdfioFileCreateFontObjFromBase(p->pdf, "Courier");
+  dict    = pdfioDictCreate(p->pdf);
+
+  pdfioPageDictAddFont(dict, "F1", courier);
+
+  // Figure out how many impressions to produce...
+  if (!strcmp(p->options->sides, "one-sided"))
+    count = 1;
   else
-    param->no_orientation = true;
-   
-  param->pagesize_requested = 
-    (cfGetPageDimensions(printer_attrs, job_attrs, num_options, options, NULL, 
-			 0,
-			 &(param->page->width), &(param->page->height), 
-			 &(param->page->left), &(param->page->bottom), 
-			 &(param->page->right), &(param->page->top), 
-			 NULL, NULL) >= 1);
-   
-  cfSetPageDimensionsToDefault(&(param->page->width), &(param->page->height), 
-		  	       &(param->page->left), &(param->page->bottom), 
-			       &(param->page->right), &(param->page->top), 
-			       doc->logfunc, doc->logdata);
+    count = 2;
 
-  param->page->right = param->page->width - param->page->right;
-  param->page->top = param->page->height - param->page->top;
-
-  param->paper_is_landscape = (param->page->width > param->page->height);
-
-  _cfPDFToPDFPageRect *tmp = (_cfPDFToPDFPageRect *)malloc(sizeof(_cfPDFToPDFPageRect)); 
-  _cfPDFToPDFPageRect_init(tmp);
-
-  optGetFloat("page-top", num_options, options, &tmp->top);
-  optGetFloat("page-left", num_options, options, &tmp->left);
-  optGetFloat("page-right", num_options, options, &tmp->right);
-  optGetFloat("page-bottom", num_options, options, &tmp->bottom);
-
-  if ((val = cupsGetOption("media-top-margin", num_options, options)) 
-      != NULL)
-    tmp->top = atof(val) * 72.0 / 2540.0;
-  if ((val = cupsGetOption("media-left-margin", num_options, options)) 
-      != NULL) 
-    tmp->left = atof(val) * 72.0 / 2540.0;
-  if ((val = cupsGetOption("media-right-margin", num_options, options)) 
-      != NULL) 
-    tmp->right = atof(val) * 72.0 / 2540.0;
-  if ((val = cupsGetOption("media-bottom-margin", num_options, options)) 
-      != NULL) 
-    tmp->bottom = atof(val) * 72.0 / 2540.0;
-
-  if ((param->orientation == ROT_90) || (param->orientation == ROT_270)) 
-  { // unrotate page
-    // NaN stays NaN
-    tmp->right = param->page->height - tmp->right;
-    tmp->top = param->page->width - tmp->top;
-
-    _cfPDFToPDFPageRect_rotate_move(tmp, param->orientation, param->page->height, param->page->width);
-  } 
-  else 
+  // Create pages...
+  for (i = 0; i < count; i ++)
   {
-    tmp->right = param->page->width - tmp->right;
-    tmp->top = param->page->height - tmp->top;
+    st = pdfio_start_page(p, dict);
 
-    _cfPDFToPDFPageRect_rotate_move(tmp, param->orientation, param->page->width, param->page->height);
-  }
-  _cfPDFToPDFPageRect_set(param->page, tmp);
+    // The job sheet is a banner with the following information:
+    //
+    //     Title: job-title
+    //      User: job-originating-user-name
+    //     Pages: job-media-sheets
+    //   Message: job-sheet-message
 
-  if ((val = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs, "sides")) != 
-      NULL && 
-      strncmp(val, "two-sided-", 10) == 0)
-    param->duplex = true;
-  else if (is_true(cupsGetOption("Duplex", num_options, options))) 
-  {
-    param->duplex = true;
-    param->set_duplex = true;
-  } 
-  else if ((val = cupsGetOption("sides", num_options, options)) != NULL) 
-  {
-    if ((strcasecmp(val, "two-sided-long-edge") == 0) || 
-	(strcasecmp(val, "two-sided-short-edge") == 0)) 
-    {
-      param->duplex = true;
-      param->set_duplex = true;
-    } 
-    else if (strcasecmp(val, "one-sided") != 0) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported sides value %s, using sides=one-sided!", 
-				     val);
-    }
+    pdfioContentTextBegin(st);
+    pdfioContentSetTextFont(st, "F1", 2.0 * XFORM_TEXT_SIZE);
+    pdfioContentSetTextLeading(st, 2.0 * XFORM_TEXT_HEIGHT);
+    pdfioContentTextMoveTo(st, p->media.x2 / 8.0, p->media.y2 / 2.0 + 2 * (XFORM_TEXT_HEIGHT + XFORM_TEXT_SIZE));
+    pdfioContentSetFillColorDeviceGray(st, 0.0);
+
+    pdfioContentTextShowf(st, false, "  Title: %s\n", p->options->job_name);
+    pdfioContentTextShowf(st, false, "   User: %s\n", p->options->job_originating_user_name);
+    pdfioContentTextShowf(st, false, "  Pages: %u\n", (unsigned)(p->num_outpages / count));
+    if (p->options->job_sheet_message[0])
+      pdfioContentTextShowf(st, false, "Message: %s\n", p->options->job_sheet_message);
+
+    pdfioContentTextEnd(st);
+    pdfio_end_page(p, st);
   }
 
-  // default nup is 1
-  nup = 1;
-  if (optGetInt("number-up", num_options, options, &nup)) 
-  {
-    if (!_cfPDFToPDFNupParameters_possible(nup)) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported number-up value %d, using number-up=1!", 
-				     nup);
-      nup = 1;
-    }
-    _cfPDFToPDFNupParameters_preset(nup, param->nup);
-  }
-
-  if ((val = cupsGetOption("number-up-layout", num_options, options)) != NULL) 
-  {
-    if (!_cfPDFToPDFParseNupLayout(val, param->nup)) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		       		     "cfFilterPDFToPDF: Unsupported number-up-layout %s, using number-up-layout=lrtb!",
-				     val);
-      param->nup->first = X;
-      param->nup->xstart = LEFT;
-      param->nup->ystart = TOP;
-    }
-  }
-
-  if ((val = cupsGetOption("page-border", num_options, options)) != NULL) 
-  {
-    if (!_cfPDFToPDFParseBorder(val, &(param->border))) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported page-border value %s, using page-border=none!", 
-				     val);
-      param->border = NONE;
-    }
-  }
-
-  if ((val = cupsGetOption("OutputOrder", num_options, options)) != NULL ||
-      (val = cupsGetOption("output-order", num_options, options)) != NULL ||
-      (val = cupsGetOption("page-delivery", num_options, options)) != NULL) 
-  {
-    param->reverse = (strcasecmp(val, "Reverse") == 0 || 
-		      strcasecmp(val, "reverse-order") == 0);
-  } 
-  else 
-  {
-    param->reverse = cfIPPReverseOutput(printer_attrs, job_attrs);
-  }
-
-  classification = getenv("CLASSIFICATION");
-  if (classification) 
-    strcpy(rawlabel, classification);
-
-  if ((val = cupsGetOption("page-label", num_options, options)) != NULL) 
-  {
-    if (strlen(rawlabel) > 0) strcat(rawlabel, " - ");
-    strcat(rawlabel, cupsGetOption("page-label", num_options, options));
-  }
-
-  char *rawptr = rawlabel;
-  char *cookedptr = cookedlabel;
-  while (*rawptr) 
-  {
-    if (*rawptr < 32 || *rawptr > 126) 
-    {
-      sprintf(cookedptr, "\\%03o", (unsigned int)*rawptr);
-      cookedptr += 4;
-    } 
-    else 
-    {
-      *cookedptr++ = *rawptr;
-    }
-    rawptr++;
-  }
-  *cookedptr = '\0';
-  param->page_label = strdup(cookedlabel);
-
-  if ((val = cupsGetOption("page-set", num_options, options)) != NULL) 
-  {
-    if (strcasecmp(val, "even") == 0)
-      param->odd_pages = false;
-    else if (strcasecmp(val, "odd") == 0) 
-      param->even_pages = false;
-    else if (strcasecmp(val, "all") != 0) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported page-set value %s, using page-set=all!", 
-				     val);
-    }
-  }
-
-  if ((val = cupsGetOption("page-ranges", num_options, options)) != NULL) 
-    parseRanges(val, param->page_ranges);
-  if ((val = cupsGetOption("input-page-ranges", num_options, options)) != NULL) 
-    parseRanges(val, param->input_page_ranges);
-
-  if ((val = cupsGetOption("mirror", num_options, options)) != NULL ||
-      (val = cupsGetOption("mirror-print", num_options, options)) != NULL) 
-    param->mirror = is_true(val);
-
-  param->booklet = CF_PDFTOPDF_BOOKLET_OFF;
-  if ((val = cupsGetOption("booklet", num_options, options)) != NULL) 
-  {
-    if (strcasecmp(val, "shuffle-only") == 0) 
-      param->booklet = CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE;
-    else if (is_true(val))
-      param->booklet = CF_PDFTOPDF_BOOKLET_ON;
-    else if (!is_false(val)) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported booklet value %s, using booklet=off!", 
-				     val);
-    }
-  }
-  param->book_signature = -1;
-  if (optGetInt("booklet-signature", num_options, options, &(param->book_signature))) 
-  {
-    if (param->book_signature == 0) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported booklet-signature value, using booklet-signature=-1 (all)!", 
-				     val);
-      param->book_signature = -1;
-    }
-  }
-
-  if ((val = cupsGetOption("position", num_options, options)) != NULL) 
-  {
-    if (!parsePosition(val, &(param->xpos), &(param->ypos))) 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-		     		     "cfFilterPDFToPDF: Unrecognized position value %s, using position=center!", 
-				     val);
-      param->xpos = CENTER;
-      param->ypos = CENTER;
-    }
-  }
-
-  if (is_true(cupsGetOption("Collate", num_options, options))) 
-    param->collate = true;
-  else if ((val = cupsGetOption("sheet-collate", num_options, options)) != NULL) 
-    param->collate = (strcasecmp(val, "uncollated") != 0);
-  else if (((val = cupsGetOption("multiple-document-handling", 
-				 num_options, options)) != NULL &&
-	    (strcasecmp(val, "separate-documents-collated-copies") == 0 ||
-             strcasecmp(val, "separate-documents-uncollated-copies") == 0 ||
-             strcasecmp(val, "single-document") == 0 ||
-             strcasecmp(val, "single-document-new-sheet") == 0)) ||
-           (val = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs, 
-					     "multiple-document-handling")) != 
-	   NULL) 
-  {
-    param->collate = 
-      (strcasecmp(val, "separate-documents-uncollated-copies") != 0);
-  }
-
-#if 0 
-  if ((val = cupsGetOption("scaling", num_options, options)) != 0)
-  {
-    scalint = atoi(val) * 0.01;
-    fitplot = true
-  }
-  else if (fitplot)
-    scaling = 1.0;
-
-  if ((val = cupsGetOption("natural-scaling", num_options, options)) != 0)
-    naturalScaling = atoi(val) * 0.01;
-#endif
-  
-  // Make pages a multiple of two (only considered when duplex is on).
-  // i.e. printer has hardware-duplex, but needs pre-inserted filler pages
-  // FIXME? pdftopdf also supports it as cmdline option (via checkFeature())
-  param->even_duplex = 
-    (param->duplex && 
-     is_true(cupsGetOption("even-duplex", num_options, options)));
-
-  param->auto_rotate = param->no_orientation;
-  if ((val = cupsGetOption("pdftopdfAutoRotate", 
- 	     		   num_options, options)) != NULL || 
-      (val = cupsGetOption("pdfAutoRotate", num_options, options)) != NULL)
-    param->auto_rotate = !is_false(val);
-
-  if ((val = cupsGetOption("ipp-attribute-fidelity", num_options, options)) != 
-      NULL) 
-  {
-    if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") || 
-	!strcasecmp(val, "on"))
-      param->fidelity = true;
-  }
-
-  if (printer_attrs == NULL && !param->pagesize_requested && 
-      param->booklet == CF_PDFTOPDF_BOOKLET_OFF && 
-      param->nup->nupX == 1 && param->nup->nupY == 1)
-    param->cropfit = true;
-
-  else if ((val = cupsGetOption("print-scaling", num_options, options)) != NULL) 
-  {
-    // Standard IPP attribute
-    if (!strcasecmp(val, "auto")) 
-      param->autoprint = true;
-    else if (!strcasecmp(val, "auto-fit")) 
-      param->autofit = true;
-    else if (!strcasecmp(val, "fill")) 
-      param->fillprint = true;
-    else if (!strcasecmp(val, "fit"))
-      param->fitplot = true;
-    else if (!strcasecmp(val, "none")) 
-      param->cropfit = true;
-    else 
-      param->autoprint = true;
-  } 
-  else 
-  {
-    // Legacy CUPS attributes
-    if ((val = cupsGetOption("fitplot", num_options, options)) == NULL) 
-    {
-      if ((val = cupsGetOption("fit-to-page", num_options, options)) == NULL)
-        val = cupsGetOption("ipp-attribute-fidelity", num_options, options);
-    }
-    // TODO?  pstops checks == "true", pdftops !is_false  ... pstops says:
-    // fitplot only for PS (i.e. not for PDF, cmp. cgpdftopdf)
-    param->fitplot = (val && !is_false(val));
-
-    if ((val = cupsGetOption("fill", num_options, options)) != 0) 
-    {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-        param->fillprint = true;
-    }
-    if ((val = cupsGetOption("crop-to-fit", num_options, options)) != NULL) 
-    {
-      if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
-        param->cropfit = 1;
-    }
-    if (!param->autoprint && !param->autofit && !param->fitplot && 
-	!param->fillprint && !param->cropfit)
-      param->autoprint = true;
-  }
-
-  // Certain features require a given page size for the page to be
-  // printed or all pages of the document being the same size. Here we
-  // set param.pagesize_requested so that the default page size is used
-  // when no size got specified by the user.
-  if (param->fitplot || param->fillprint || param->autoprint || param->autofit || 
-      param->booklet != CF_PDFTOPDF_BOOKLET_OFF || 
-      param->nup->nupX > 1 || param->nup->nupY > 1)
-    param->pagesize_requested = true;
-
-  //
-  // Do we have to do the page logging in page_log?
-  //
-  // CUPS standard is that the last filter (not the backend, usually the
-  // printer driver) does page logging in the /var/log/cups/page_log file
-  // by outputting "PAGE: <# of current page> <# of copies>" to stderr.
-  //
-  // cfFilterPDFToPDF() would have to do this only for PDF printers as
-  // in this case cfFilterPDFToPDF() is the last filter, but some of
-  // the other filters are not able to do the logging because they do
-  // not have access to the number of pages of the file to be printed,
-  // so cfFilterPDFToPDF() overtakes their logging duty.
-  //
-
-  // Check whether page logging is forced or suppressed by the options
-
-  if ((val = cupsGetOption("pdf-filter-page-logging", 
-			   num_options, options)) != NULL) 
-  {
-    if (strcasecmp(val, "auto") == 0) 
-    {
-      param->page_logging = -1;
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-		      		     "cfFilterPDFToPDF: Automatic page logging selected by options.");
-    } 
-    else if (is_true(val)) 
-    {
-      param->page_logging = 1;
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-		      		     "cfFilterPDFToPDF: Forced page logging selected by options.");
-    } 
-    else if (is_false(val)) 
-    {
-      param->page_logging = 0;
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-		                     "cfFilterPDFToPDF: Suppressed page logging selected by options.");
-    } 
-    else 
-    {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, 
-		      		     "cfFilterPDFToPDF: Unsupported page logging setting \"pdf-filter-page-logging=%s\", using \"auto\"!", 
-				     val);
-       param->page_logging = -1;
-    }
-  }
-
-  if (param->page_logging == -1) 
-  {
-    // We determine whether to log pages or not
-    // using the output data MIME type. log pages only when the output is
-    // either pdf or PWG Raster
-    if (final_content_type && 
-	(strcasestr(final_content_type, "/pdf") || 
-	 strcasestr(final_content_type, "/vnd.cups-pdf") || 
-	 strcasestr(final_content_type, "/pwg-raster")))
-      param->page_logging = 1;
-    else 
-      param->page_logging = 0;
-
-    // If final_content_type is not clearly available we are not sure whether
-    // to log pages or not
-    if (!final_content_type || 
-	final_content_type[0] == '\0')
-      param->page_logging = -1;
-
-    if (doc->logfunc) 
-    {
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-		   "cfFilterPDFToPDF: Determined whether to log pages or not using output data type.");
-      doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG, 
-		   "final_content_type = %s => page_logging = %d", 
-		   final_content_type ? final_content_type : "NULL", 
-		   param->page_logging);
-    }
-
-      if (param->page_logging == -1) 
-	param->page_logging = 0;
-  }
-  free(tmp);
+  return (true);
 }
 
-void 
-calculate(int num_options, 
-	  cups_option_t *options, 
-	  _cfPDFToPDFProcessingParameters *param, 
-	  char *final_content_type) 
+
+
+//
+// 'media_to_rect()' - Convert `cups_media_t` to `pdfio_rect_t` for media and crop boxes.
+//
+
+static void
+media_to_rect(cups_media_t *size,       // I - CUPS media (size) information
+              pdfio_rect_t *media,      // O - PDF MediaBox value
+              pdfio_rect_t *crop)       // O - PDF CropBox value
 {
-  const char	*val;
-  bool 		hw_copies = false, 
-		hw_collate = false;
+  // cups_media_t uses hundredths of millimeters, pdf_rect_t uses points...
+  media->x1 = 0.0;
+  media->y1 = 0.0;
+  media->x2 = 72.0 * size->width / 2540.0;
+  media->y2 = 72.0 * size->length / 2540.0;
 
-  // Check options for caller's instructions about hardware copies/collate
-  if ((val = cupsGetOption("hardware-copies", 
-			   num_options, options)) != NULL)
-    // Use hardware copies according to the caller's instructions
-    hw_copies = is_true(val);
+  crop->x1  = 72.0 * size->left / 2540.0;
+  crop->y1  = 72.0 * size->bottom / 2540.0;
+  crop->x2  = 72.0 * (size->width - size->right) / 2540.0;
+  crop->y2  = 72.0 * (size->length - size->top) / 2540.0;
+}
+
+//
+// 'prepare_log()' - Log an informational or error message while preparing
+//                   documents for printing.
+//
+
+static void
+prepare_log(xform_prepare_t *p,         // I - Preparation data
+            bool            error,      // I - `true` for error, `false` for info
+            const char      *message,   // I - Printf-style message string
+            ...)                        // I - Addition arguments as needed
+{
+  va_list       ap;                     // Argument pointer
+  char          buffer[1024];           // Output buffer
+
+
+  va_start(ap, message);
+  vsnprintf(buffer + 1, sizeof(buffer) - 1, message, ap);
+  va_end(ap);
+
+  buffer[0] = error ? 'E' : 'I';
+
+  cupsArrayAdd(p->errors, buffer);
+
+  /*
+  if (error)
+    fprintf(stderr, _("%s: %s"), Prefix, buffer + 1);
   else
-    // Caller did not tell us whether the printer does Hardware copies
-    // or not, so we assume hardware copies on PDF printers, and software
-    // copies on other (usually raster) printers or if we do not know the
-    // final output format.
-    hw_copies = (final_content_type && 
-		 (strcasestr(final_content_type, "/pdf") || 
-		  strcasestr(final_content_type, "/vnd.cups-pdf")));
+    fprintf(stderr, "INFO: %s\n", buffer + 1);
+    */
+}
 
-  if (hw_copies) 
+//
+// 'pdfio_error_cb()' - Log an error from the PDFio library.
+//
+
+static bool                             // O - `false` to stop
+pdfio_error_cb(pdfio_file_t *pdf,       // I - PDF file (unused)
+               const char   *message,   // I - Error message
+               void         *cb_data)   // I - Preparation data
+{
+  xform_prepare_t       *p = (xform_prepare_t *)cb_data;
+                                        // Preparation data
+
+
+  if (pdf != p->pdf)
+    prepare_log(p, true, "Input Document %d: %s", p->document, message);
+  else
+    prepare_log(p, true, "Output Document: %s", message);
+
+  return (false);
+}
+
+//
+// 'resource_dict_cb()' - Merge resource dictionaries from multiple input pages.
+//
+// This function detects resource conflicts and maps conflicting names as
+// needed.
+//
+
+static bool
+resource_dict_cb(
+    pdfio_dict_t *dict,			// I - Dictionary
+    const char   *key,			// I - Dictionary key
+    xform_page_t *outpage)		// I - Output page
+{
+  pdfio_array_t	*arrayval;		// Array value
+  pdfio_dict_t	*dictval;		// Dictionary value
+  const char	*nameval,		// Name value
+		*curname;		// Current name value
+  pdfio_obj_t	*objval;		// Object value
+  char		mapname[256];		// Mapped resource name
+
+
+  fprintf(stderr, "DEBUG: resource_dict_cb(dict=%p, key=\"%s\", outpage=%p)\n", (void *)dict, key, (void *)outpage);
+
+  snprintf(mapname, sizeof(mapname), "%c%s", (int)('a' + outpage->layout), key);
+
+  switch (pdfioDictGetType(dict, key))
   {
-    if ((val = cupsGetOption("hardware-collate",
-			     num_options, options)) != NULL)
-      // Use hardware collate according to the caller's instructions
-      hw_collate = is_true(val);
+    case PDFIO_VALTYPE_ARRAY : // Array
+        arrayval = pdfioDictGetArray(dict, key);
+        if (pdfioDictGetArray(outpage->restype, key))
+        {
+	  if (!outpage->resmap[outpage->layout])
+	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
+
+	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
+	  key = mapname;
+	}
+
+        pdfioDictSetArray(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval));
+        break;
+
+    case PDFIO_VALTYPE_DICT : // Dictionary
+        dictval = pdfioDictGetDict(dict, key);
+        if (pdfioDictGetDict(outpage->restype, key))
+        {
+	  if (!outpage->resmap[outpage->layout])
+	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
+
+	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
+	  key = mapname;
+	}
+
+        pdfioDictSetDict(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
+        break;
+
+    case PDFIO_VALTYPE_NAME : // Name
+        nameval = pdfioDictGetName(dict, key);
+        if ((curname = pdfioDictGetName(outpage->restype, key)) != NULL)
+        {
+          if (!strcmp(nameval, curname))
+            break;
+
+	  if (!outpage->resmap[outpage->layout])
+	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
+
+	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
+	  key = mapname;
+	}
+
+        pdfioDictSetName(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, nameval));
+        break;
+
+    case PDFIO_VALTYPE_INDIRECT : // Object reference
+        objval = pdfioDictGetObj(dict, key);
+        if (pdfioDictGetObj(outpage->restype, key))
+        {
+	  if (!outpage->resmap[outpage->layout])
+	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
+
+	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
+	  key = mapname;
+	}
+
+        pdfioDictSetObj(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioObjCopy(outpage->pdf, objval));
+        break;
+
+    default :
+        break;
+  }
+
+  return (true);
+}
+
+//
+// 'page_dict_cb()' - Merge page dictionaries from multiple input pages.
+//
+// This function detects resource conflicts and maps conflicting names as
+// needed.
+//
+
+static bool				// O - `true` to continue, `false` to stop
+page_dict_cb(pdfio_dict_t *dict,	// I - Dictionary
+             const char   *key,		// I - Dictionary key
+             xform_page_t *outpage)	// I - Output page
+{
+  pdfio_array_t	*arrayres;		// Array resource
+  pdfio_array_t	*arrayval = NULL;	// Array value
+  pdfio_dict_t	*dictval = NULL;	// Dictionary value
+  pdfio_obj_t	*objval;		// Object value
+
+
+  fprintf(stderr, "DEBUG: page_dict_cb(dict=%p, key=\"%s\", outpage=%p), type=%d\n", (void *)dict, key, (void *)outpage, pdfioDictGetType(dict, key));
+
+  if (strcmp(key, "ColorSpace") && strcmp(key, "ExtGState") && strcmp(key, "Font") && strcmp(key, "Pattern") && strcmp(key, "ProcSet") && strcmp(key, "Properties") && strcmp(key, "Shading") && strcmp(key, "XObject"))
+    return (true);
+
+  switch (pdfioDictGetType(dict, key))
+  {
+    case PDFIO_VALTYPE_ARRAY : // Array resource
+        arrayval = pdfioDictGetArray(dict, key);
+        break;
+
+    case PDFIO_VALTYPE_DICT : // Dictionary resource
+        dictval = pdfioDictGetDict(dict, key);
+        break;
+
+    case PDFIO_VALTYPE_INDIRECT : // Object reference to dictionary
+        objval   = pdfioDictGetObj(dict, key);
+        arrayval = pdfioObjGetArray(objval);
+        dictval  = pdfioObjGetDict(objval);
+
+        fprintf(stderr, "DEBUG: page_dict_cb: objval=%p(%u), arrayval=%p, dictval=%p\n", (void *)objval, (unsigned)pdfioObjGetNumber(objval), (void *)arrayval, (void *)dictval);
+        break;
+
+    default :
+        break;
+  }
+
+  if (arrayval)
+  {
+    // Copy/merge an array resource...
+    if ((arrayres = pdfioDictGetArray(outpage->resdict, key)) == NULL)
+    {
+      // Copy array
+      pdfioDictSetArray(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval));
+    }
+    else if (!strcmp(key, "ProcSet"))
+    {
+      // Merge ProcSet array
+      size_t		i, j,		// Looping var
+			ic, jc;		// Counts
+      const char	*iv, *jv;	// Values
+
+      for (i = 0, ic = pdfioArrayGetSize(arrayval); i < ic; i ++)
+      {
+	if ((iv = pdfioArrayGetName(arrayval, i)) == NULL)
+	  continue;
+
+	for (j = 0, jc = pdfioArrayGetSize(arrayres); j < jc; j ++)
+	{
+	  if ((jv = pdfioArrayGetName(arrayres, j)) == NULL)
+	    continue;
+
+	  if (!strcmp(iv, jv))
+	    break;
+	}
+
+	if (j >= jc)
+	  pdfioArrayAppendName(arrayres, pdfioStringCreate(outpage->pdf, iv));
+      }
+    }
+  }
+  else if (dictval)
+  {
+    // Copy/merge dictionary...
+    if ((outpage->restype = pdfioDictGetDict(outpage->resdict, key)) == NULL)
+      pdfioDictSetDict(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
     else
-      hw_collate = (final_content_type && 
-		    (strcasestr(final_content_type, "/pdf") || 
-		     strcasestr(final_content_type, "/vnd.cups-pdf") || 
-		     strcasestr(final_content_type, "/pwg-raster") || 
-		     strcasestr(final_content_type, "/urf") || 
-		     strcasestr(final_content_type, "/PCLm")));
+      pdfioDictIterateKeys(dictval, (pdfio_dict_cb_t)resource_dict_cb, outpage);
   }
 
-  if (param->reverse && param->duplex) 
-    // Enable even_duplex or the first page may be empty.
-    param->even_duplex = true; // disabled later, if non-duplex
+  return (true);
+}
 
-  if (param->num_copies == 1) 
+
+
+//
+// 'pdfio_password_cb()' - Return the password, if any, for the input document.
+//
+
+static const char *                     // O - Document password
+pdfio_password_cb(void       *cb_data,  // I - Document number
+                  const char *filename) // I - Filename (unused)
+{
+  int   document = *((int *)cb_data);   // Document number
+  char  name[128];                      // Environment variable name
+
+
+  (void)filename;
+
+  if (document > 1)
   {
-    param->device_copies = 1;
-    // collate is never needed for a single copy
-    param->collate = false; // (does not make a big difference for us)
-  } 
-  else if (hw_copies) 
-  { // hw copy generation available
-    param->device_copies = param->num_copies;
-    if (param->collate) 
+    snprintf(name, sizeof(name), "IPP_DOCUMENT_PASSWORD%d", document);
+    return (getenv(name));
+  }
+  else
+  {
+    return (getenv("IPP_DOCUMENT_PASSWORD"));
+  }
+}
+
+
+
+
+//
+// 'prepare_number_up()' - Prepare the layout rectangles based on the number-up and orientation-requested values.
+//
+
+static void
+prepare_number_up(xform_prepare_t *p)	// I - Preparation data
+{
+  size_t	i,			// Looping var
+		cols,			// Number of columns
+		rows;			// Number of rows
+  pdfio_rect_t	*r;			// Current layout rectangle...
+  double	width,			// Width of layout rectangle
+		height;			// Height of layout rectangle
+
+
+  if (!strcmp(p->options->imposition_template, "booklet"))
+  {
+    // "imposition-template" = 'booklet' forces 2-up output...
+    p->num_layout   = 2;
+    p->layout[0]    = p->media;
+    p->layout[0].y2 = p->media.y2 / 2.0;
+    p->layout[1]    = p->media;
+    p->layout[1].y1 = p->media.y2 / 2.0;
+
+    if (p->options->number_up != 1)
+      prepare_log(p, false, "Ignoring \"number-up\" = '%d'.", p->options->number_up);
+
+    return;
+  }
+  else
+  {
+    p->num_layout = (size_t)p->options->number_up;
+  }
+
+  // Figure out the number of rows and columns...
+  switch (p->num_layout)
+  {
+    default : // 1-up or unknown
+	if (p->options->number_up != 1)
+	  prepare_log(p, false, "Ignoring \"number-up\" = '%d'.", p->options->number_up);
+
+        p->num_layout   = 1;
+        p->layout[0]    = p->crop;
+        return;
+
+    case 2 : // 2-up
+        cols = 1;
+        rows = 2;
+        break;
+    case 4 : // 4-up
+        cols = 2;
+        rows = 2;
+        break;
+    case 6 : // 6-up
+        cols = 2;
+        rows = 3;
+        break;
+    case 9 : // 9-up
+        cols = 3;
+        rows = 3;
+        break;
+    case 12 : // 12-up
+        cols = 3;
+        rows = 4;
+        break;
+    case 16 : // 16-up
+        cols = 4;
+        rows = 4;
+        break;
+  }
+
+  // Then arrange the page rectangles evenly across the page...
+  width  = (p->crop.x2 - p->crop.x1) / cols;
+  height = (p->crop.y2 - p->crop.y1) / rows;
+
+  switch (p->options->orientation_requested)
+  {
+    default : // Portrait or "none"...
+        for (i = 0, r = p->layout; i < p->num_layout; i ++, r ++)
+        {
+          r->x1 = p->crop.x1 + width * (i % cols);
+          r->y1 = p->crop.y1 + height * (rows - 1 - i / cols);
+          r->x2 = r->x1 + width;
+          r->y2 = r->y1 + height;
+        }
+        break;
+
+    case IPP_ORIENT_LANDSCAPE : // Landscape
+        for (i = 0, r = p->layout; i < p->num_layout; i ++, r ++)
+        {
+          r->x1 = p->crop.x1 + width * (cols - 1 - i / rows);
+          r->y1 = p->crop.y1 + height * (rows - 1 - (i % rows));
+          r->x2 = r->x1 + width;
+          r->y2 = r->y1 + height;
+        }
+        break;
+
+    case IPP_ORIENT_REVERSE_PORTRAIT : // Reverse portrait
+        for (i = 0, r = p->layout; i < p->num_layout; i ++, r ++)
+        {
+          r->x1 = p->crop.x1 + width * (cols - 1 - (i % cols));
+          r->y1 = p->crop.y1 + height * (i / cols);
+          r->x2 = r->x1 + width;
+          r->y2 = r->y1 + height;
+        }
+        break;
+
+    case IPP_ORIENT_REVERSE_LANDSCAPE : // Reverse landscape
+        for (i = 0, r = p->layout; i < p->num_layout; i ++, r ++)
+        {
+          r->x1 = p->crop.x1 + width * (i / rows);
+          r->y1 = p->crop.y1 + height * (i % rows);
+          r->x2 = r->x1 + width;
+          r->y2 = r->y1 + height;
+        }
+        break;
+  }
+}
+
+//
+// 'prepare_pages()' - Prepare the pages for the output document.
+//
+
+static void
+prepare_pages(
+    xform_prepare_t  *p,		// I - Preparation data
+    size_t           num_documents,	// I - Number of documents
+    xform_document_t *documents)	// I - Documents
+{
+  int		page;			// Current page number in output
+  size_t	i,			// Looping var
+		current,		// Current output page index
+		layout;			// Current layout cell
+  xform_page_t	*outpage;		// Current output page
+  xform_document_t *d;			// Current document
+  bool		use_page;		// Use this page?
+
+
+  if (!strcmp(p->options->imposition_template, "booklet"))
+  {
+    // Booklet printing arranges input pages so that the folded output can be
+    // stapled along the midline...
+    p->num_outpages = (size_t)(p->num_inpages + 1) / 2;
+    if (p->num_outpages & 1)
+      p->num_outpages ++;
+
+    for (current = 0, layout = 0, page = 1, i = num_documents, d = documents; i > 0; i --, d ++)
     {
-      param->device_collate = hw_collate;
-      if (!param->device_collate) 
-	// printer can't hw collate -> we must copy collated in sw
-	param->device_copies = 1;
-    } // else: printer copies w/o collate and takes care of duplex/even_duplex
-  } 
-  else 
-  { // sw copies
-    param->device_copies = 1;
-    if (param->duplex) 
-    { // &&(num_copies>1)
-      // sw collate + even_duplex must be forced to prevent copies on the
-      // back sides
-      param->collate = true;
-      param->device_collate = false;
+      while (page <= d->last_page)
+      {
+	if (p->options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+	  use_page = ippOptionsCheckPage(p->options, page - d->first_page + 1);
+	else
+	  use_page = ippOptionsCheckPage(p->options, page);
+
+        if (use_page)
+        {
+	  if (current < p->num_outpages)
+	    outpage = p->outpages + current;
+	  else
+	    outpage = p->outpages + 2 * p->num_outpages - current - 1;
+
+	  outpage->pdf           = p->pdf;
+	  outpage->input[layout] = pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+	  layout = 1 - layout;
+	  current ++;
+	}
+
+        page ++;
+      }
+
+      if (p->options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+        page = 1;
+    }
+  }
+  else
+  {
+    // Normal printing lays out N input pages on each output page...
+    for (current = 0, outpage = p->outpages, layout = 0, page = 1, i = num_documents, d = documents; i > 0; i --, d ++)
+    {
+      while (page <= d->last_page)
+      {
+	if (p->options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+	  use_page = ippOptionsCheckPage(p->options, page - d->first_page + 1);
+	else
+	  use_page = ippOptionsCheckPage(p->options, page);
+
+        if (use_page)
+        {
+          outpage->pdf           = p->pdf;
+          outpage->input[layout] = pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+
+          if (Verbosity)
+	    fprintf(stderr, "DEBUG: Using page %d (%p) of document %d, cell=%u/%u, current=%u\n", page, (void *)outpage->input[layout], (int)(d - documents + 1), (unsigned)layout + 1, (unsigned)p->num_layout, (unsigned)current);
+
+          layout ++;
+          if (layout == p->num_layout)
+          {
+            current ++;
+            outpage ++;
+            layout = 0;
+          }
+        }
+
+        page ++;
+      }
+
+      if (p->options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+      {
+        page = 1;
+
+        if (layout)
+        {
+	  current ++;
+	  outpage ++;
+	  layout = 0;
+        }
+      }
+      else if (p->options->multiple_document_handling == IPPOPT_HANDLING_SINGLE_NEW_SHEET && (current & 1))
+      {
+	current ++;
+	outpage ++;
+	layout = 0;
+      }
+    }
+
+    if (layout)
+      current ++;
+
+    p->num_outpages = current;
+  }
+}
+
+//
+// 'copy_page()' - Copy the input page to the output page.
+//
+
+static void
+copy_page(xform_prepare_t *p,		// I - Preparation data
+          xform_page_t    *outpage,	// I - Output page
+          size_t          layout)	// I - Layout cell
+{
+  pdfio_rect_t	*cell = p->layout + layout;
+					// Layout cell
+  pdfio_dict_t	*idict;			// Input page dictionary
+  pdfio_rect_t	irect;			// Input page rectangle
+  double	cwidth,			// Cell width
+		cheight,		// Cell height
+		iwidth,			// Input page width
+		iheight,		// Input page height
+		scaling;		// Scaling factor
+  bool		rotate;			// Rotate 90 degrees?
+  pdfio_matrix_t cm;			// Cell transform matrix
+  size_t	i,			// Looping var
+		count;			// Number of input page streams
+  pdfio_stream_t *st;			// Input page stream
+  char		buffer[65536],		// Copy buffer
+		*bufptr,		// Pointer into buffer
+		*bufstart,		// Start of current sequence
+		*bufend,		// End of buffer
+		name[256],		// Name buffer
+		*nameptr;		// Pointer into name
+  ssize_t	bytes;			// Bytes read
+  const char	*resname;		// Resource name
+
+
+  // Skip if this cell is empty...
+  if (!outpage->input[layout])
+    return;
+
+  // Save state for this cell...
+  pdfioContentSave(outpage->output);
+
+  // Clip to cell...
+  if (getenv("IPPTRANSFORM_DEBUG"))
+  {
+    // Draw a box around the cell for debugging...
+    pdfioContentSetStrokeColorDeviceGray(outpage->output, 0.0);
+    pdfioContentPathRect(outpage->output, cell->x1, cell->y1, cell->x2 - cell->x1, cell->y2 - cell->y1);
+    pdfioContentStroke(outpage->output);
+  }
+
+  pdfioContentPathRect(outpage->output, cell->x1, cell->y1, cell->x2 - cell->x1, cell->y2 - cell->y1);
+  pdfioContentClip(outpage->output, false);
+  pdfioContentPathEnd(outpage->output);
+
+  // Transform input page to output cell...
+  idict = pdfioObjGetDict(outpage->input[layout]);
+
+  if (!pdfioDictGetRect(idict, "CropBox", &irect))
+  {
+    // No crop box, use media box...
+    if (!pdfioDictGetRect(idict, "MediaBox", &irect))
+    {
+      // No media box, use output page size...
+      irect = p->media;
     }
   }
 
-  if (param->device_copies != 1) 
-    param->num_copies = 1;
+  cwidth  = cell->x2 - cell->x1;
+  cheight = cell->y2 - cell->y1;
 
-  if (param->duplex && 
-      param->collate && !param->device_collate) 
-    param->even_duplex = true;
+  iwidth  = irect.x2 - irect.x1;
+  iheight = irect.y2 - irect.y1;
 
-  if (!param->duplex) 
-    param->even_duplex = false;
+  if ((iwidth > iheight && cwidth < cheight) || (iwidth < iheight && cwidth > cheight))
+  {
+    // Need to rotate...
+    rotate  = true;
+    iwidth  = irect.y2 - irect.y1;
+    iheight = irect.x2 - irect.x1;
+  }
+  else
+  {
+    // No rotation...
+    rotate = false;
+  }
+
+  fprintf(stderr, "DEBUG: iwidth=%g, iheight=%g, cwidth=%g, cheight=%g, rotate=%s\n", iwidth, iheight, cwidth, cheight, rotate ? "true" : "false");
+
+  scaling = cwidth / iwidth;
+  if (p->options->print_scaling == IPPOPT_SCALING_FILL)
+  {
+    // Scale to fill...
+    if ((iheight * scaling) < cheight)
+      scaling = cheight / iheight;
+  }
+  else
+  {
+    // Scale to fit...
+    if ((iheight * scaling) > cheight)
+      scaling = cheight / iheight;
+  }
+
+  if (rotate)
+  {
+    cm[0][0] = 0.0;
+    cm[0][1] = -scaling;
+    cm[1][0] = scaling;
+    cm[1][1] = 0.0;
+    cm[2][0] = cell->x1 + 0.5 * (cwidth - iwidth * scaling);
+    cm[2][1] = cell->y2 + 0.5 * (cheight - iheight * scaling);
+  }
+  else
+  {
+    cm[0][0] = scaling;
+    cm[0][1] = 0.0;
+    cm[1][0] = 0.0;
+    cm[1][1] = scaling;
+    cm[2][0] = cell->x1 + 0.5 * (cwidth - iwidth * scaling);
+    cm[2][1] = cell->y1 + 0.5 * (cheight - iheight * scaling);
+  }
+
+  if (Verbosity)
+    fprintf(stderr, "DEBUG: Page %u, cell %u/%u, cm=[%g %g %g %g %g %g], input=%p\n", (unsigned)(outpage - p->outpages + 1), (unsigned)layout + 1, (unsigned)p->num_layout, cm[0][0], cm[0][1], cm[1][0], cm[1][1], cm[2][0], cm[2][1], (void *)outpage->input[layout]);
+
+  pdfioContentMatrixConcat(outpage->output, cm);
+
+  // Copy content streams...
+  for (i = 0, count = pdfioPageGetNumStreams(outpage->input[layout]); i < count; i ++)
+  {
+    fprintf(stderr, "DEBUG: Opening content stream %u/%u...\n", (unsigned)i + 1, (unsigned)count);
+
+    if ((st = pdfioPageOpenStream(outpage->input[layout], i, true)) != NULL)
+    {
+      fprintf(stderr, "DEBUG: Opened stream %u, resmap[%u]=%p\n", (unsigned)i + 1, (unsigned)layout, (void *)outpage->resmap[layout]);
+      if (outpage->resmap[layout])
+      {
+        // Need to map resource names...
+	while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
+	{
+	  for (bufptr = buffer, bufstart = buffer, bufend = buffer + bytes; bufptr < bufend;)
+	  {
+	    if (*bufptr == '/')
+	    {
+	      // Start of name...
+	      bool done = false;		// Done with name?
+
+	      bufptr ++;
+	      pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+
+              nameptr = name;
+
+              do
+              {
+		if (bufptr >= bufend)
+		{
+		  // Read another buffer's worth...
+		  if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
+		    break;
+
+                  bufptr = buffer;
+                  bufend = buffer + bytes;
+		}
+
+		if (strchr("<>(){}[]/% \t\n\r", *bufptr))
+		{
+		  // Delimiting character...
+		  done = true;
+		}
+		else if (*bufptr == '#')
+		{
+		  int	j,			// Looping var
+			ch = 0;			// Escaped character
+
+                  for (j = 0; j < 2; j ++)
+                  {
+		    bufptr ++;
+		    if (bufptr >= bufend)
+		    {
+		      // Read another buffer's worth...
+		      if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
+			break;
+
+		      bufptr = buffer;
+		      bufend = buffer + bytes;
+		    }
+
+		    if (!isxdigit(*bufptr & 255))
+		      break;
+		    else if (isdigit(*bufptr))
+		      ch = (ch << 4) | (*bufptr - '0');
+		    else
+		      ch = (ch << 4) | (tolower(*bufptr) - 'a' + 10);
+		  }
+
+                  if (nameptr < (name + sizeof(name) - 1))
+                  {
+                    // Save escaped character...
+                    *nameptr++ = (char)ch;
+		    bufptr ++;
+		  }
+		  else
+		  {
+		    // Not enough room...
+		    break;
+		  }
+		}
+		else if (nameptr < (name + sizeof(name) - 1))
+		{
+		  // Save literal character...
+		  *nameptr++ = *bufptr++;
+		}
+		else
+		{
+		  // Not enough room...
+		  break;
+		}
+	      }
+	      while (!done);
+
+              bufstart = bufptr;
+	      *nameptr = '\0';
+
+	      // See if it needs to be mapped...
+	      if ((resname = pdfioDictGetName(outpage->resmap[layout], name)) == NULL)
+		resname = name;
+
+	      pdfioStreamPuts(outpage->output, resname);
+	    }
+	    else if (buffer[0] == '(')
+	    {
+	      // Skip string...
+	      bool	done = false;		// Are we done yet?
+	      int	parens = 0;		// Number of parenthesis
+
+	      do
+	      {
+		bufptr ++;
+		if (bufptr >= bufend)
+		{
+		  // Save what has been skipped so far...
+		  pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+
+                  // Read another buffer's worth...
+		  if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
+		    break;
+
+		  bufptr   = buffer;
+		  bufstart = buffer;
+		  bufend   = buffer + bytes;
+		}
+
+		if (*bufptr == ')')
+		{
+		  if (parens > 0)
+		    parens --;
+		  else
+		    done = true;
+
+		  bufptr ++;
+		}
+		else if (*bufptr == '(')
+		{
+		  parens ++;
+		  bufptr ++;
+		}
+		else if (*bufptr == '\\')
+		{
+		  // Skip escaped character...
+		  bufptr ++;
+
+		  if (bufptr >= bufend)
+		  {
+		    // Save what has been skipped so far...
+		    pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+
+		    // Read another buffer's worth...
+		    if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
+		      break;
+
+		    bufptr   = buffer;
+		    bufstart = buffer;
+		    bufend   = buffer + bytes;
+		  }
+
+                  bufptr ++;
+		}
+		else
+		{
+		  bufptr ++;
+		}
+	      }
+	      while (!done);
+	    }
+	    else
+	    {
+	      // Skip one character...
+	      bufptr ++;
+	    }
+	  }
+
+	  if (bufptr > bufstart)
+	  {
+	    // Write the remainder...
+	    pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+	  }
+	}
+      }
+      else
+      {
+        // Copy page stream verbatim...
+        while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
+          pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
+      }
+
+      pdfioStreamClose(st);
+    }
+  }
+
+  // Restore state...
+  pdfioStreamPuts(outpage->output, "\n");
+  pdfioContentRestore(outpage->output);
 }
 
-// check whether a given file is empty
-bool 
-is_empty(FILE *f) 
+
+//
+// 'prepare_documents()' - Prepare one or more documents for printing.
+//
+// This function generates a single PDF file containing the union of the input
+// documents and any job sheets.
+//
+
+static bool				// O - `true` on success, `false` on failure
+prepare_documents(
+    size_t           num_documents,	// I - Number of input documents
+    xform_document_t *documents,	// I - Input documents
+    ipp_options_t    *options,		// I - IPP options
+    const char       *sheet_back,	// I - Back side transform
+    char             *outfile,		// I - Output filename buffer
+    size_t           outsize,		// I - Output filename buffer size
+    const char       *outformat,	// I - Output format
+    unsigned         *outpages,		// O - Number of pages
+    bool             generate_copies)	// I - Generate copies in output PDF?
 {
-  char buf[1];
-  if (fread(buf, 1, 1, f) == 0) 
-    return true;
-  rewind(f);
-  return false;
+  bool			ret = false;	// Return value
+  int			copies;		// Number of copies
+  size_t		i;		// Looping var
+  xform_prepare_t	p;		// Preparation data
+  xform_document_t	*d;		// Current document
+  xform_page_t		*outpage;	// Current output page
+  int			outdir;		// Output direction
+  bool			reverse_order;	// Should output be in reverse order?
+  size_t		layout;		// Layout cell
+  int			document;	// Document number
+  int			page;		// Current page number
+  bool			duplex = !strncmp(options->sides, "two-sided-", 10);
+					// Doing two-sided printing?
+
+  fprintf(stderr, "prepdocs check_______________\n");
+  // Initialize data for preparing input files for transform...
+  memset(&p, 0, sizeof(p));
+  p.options = options;
+  p.errors  = cupsArrayNew(NULL, NULL, NULL, 0, (cups_acopy_cb_t)strdup, (cups_afree_cb_t)free);
+
+  media_to_rect(&options->media, &p.media, &p.crop);
+  prepare_number_up(&p);
+
+  if (!strncmp(options->sides, "two-sided-", 10) && sheet_back && strcmp(sheet_back, "normal"))
+  {
+    // Need to do a transform on the back side of pages...
+    if (!strcmp(sheet_back, "flipped"))
+    {
+      if (!strcmp(options->sides, "two-sided-short-edge"))
+      {
+	p.use_duplex_xform   = true;
+        p.duplex_xform[0][0] = -1.0;
+        p.duplex_xform[0][1] = 0.0;
+        p.duplex_xform[1][0] = 0.0;
+        p.duplex_xform[1][1] = 1.0;
+        p.duplex_xform[2][0] = p.media.x2;
+        p.duplex_xform[2][1] = 0.0;
+      }
+      else
+      {
+	p.use_duplex_xform   = true;
+        p.duplex_xform[0][0] = 1.0;
+        p.duplex_xform[0][1] = 0.0;
+        p.duplex_xform[1][0] = 0.0;
+        p.duplex_xform[1][1] = -1.0;
+        p.duplex_xform[2][0] = 0.0;
+        p.duplex_xform[2][1] = p.media.y2;
+      }
+    }
+    else if ((!strcmp(sheet_back, "manual-tumble") && !strcmp(options->sides, "two-sided-short-edge")) || (!strcmp(sheet_back, "rotated") && !strcmp(options->sides, "two-sided-long-edge")))
+    {
+      p.use_duplex_xform   = true;
+      p.duplex_xform[0][0] = -1.0;
+      p.duplex_xform[0][1] = 0.0;
+      p.duplex_xform[1][0] = 0.0;
+      p.duplex_xform[1][1] = -1.0;
+      p.duplex_xform[2][0] = p.media.x2;
+      p.duplex_xform[2][1] = p.media.y2;
+    }
+  }
+
+  if ((p.pdf = pdfioFileCreateTemporary(outfile, outsize, "1.7", &p.media, &p.media, pdfio_error_cb, &p)) == NULL)
+    return (false);
+
+  // Loop through the input documents to count pages, etc.
+  for (i = num_documents, d = documents, document = 1, page = 1; i > 0; i --, d ++, document ++)
+  {
+    if (Verbosity)
+      fprintf(stderr, "DEBUG: Preparing document %d: '%s' (%s)\n", document, d->filename, d->format);
+
+    if (!strcmp(d->format, "application/pdf"))
+    {
+      // PDF file...
+      d->pdf_filename = d->filename;
+    }
+
+    if (Verbosity)
+      fprintf(stderr, "DEBUG: Opening prepared document %d: '%s'.\n", document, d->pdf_filename);
+
+    d->pdf = pdfioFileOpen(d->pdf_filename, pdfio_password_cb, NULL, pdfio_error_cb, NULL);
+    size_t num_pages = pdfioFileGetNumPages(d->pdf);
+    fprintf(stderr, "breaking here\n");
+    fprintf(stderr, "&&&&&&&&&&&&&&&&&&&%ld\n", num_pages);
+
+    if ((d->pdf = pdfioFileOpen(d->pdf_filename, pdfio_password_cb, &document, pdfio_error_cb, &p)) == NULL)
+      goto done;
+
+    if (options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+    {
+      d->first_page = 1;
+      d->last_page  = (int)pdfioFileGetNumPages(d->pdf);
+      fprintf(stderr, "number of pages is %d\n", d->last_page);
+    }
+    else
+    {
+      d->first_page = page;
+      d->last_page  = page + (int)pdfioFileGetNumPages(d->pdf) - 1;
+      fprintf(stderr, "number of pages is %d\n", d->last_page);
+    }
+
+    if (Verbosity)
+      fprintf(stderr, "DEBUG: Document %d: pages %d to %d.\n", document, d->first_page, d->last_page);
+
+    while (page <= d->last_page)
+    {
+      if (options->multiple_document_handling < IPPOPT_HANDLING_SINGLE_DOCUMENT)
+      {
+        if (ippOptionsCheckPage(options, page - d->first_page + 1))
+          d->num_pages ++;
+      }
+      else if (ippOptionsCheckPage(options, page))
+      {
+        d->num_pages ++;
+      }
+
+      page ++;
+    }
+
+    if ((d->last_page & 1) && duplex && options->multiple_document_handling != IPPOPT_HANDLING_SINGLE_DOCUMENT)
+    {
+      d->last_page ++;
+      page ++;
+    }
+
+    if ((d->num_pages & 1) && duplex && options->multiple_document_handling != IPPOPT_HANDLING_SINGLE_DOCUMENT)
+      d->num_pages ++;
+
+    p.num_inpages += d->num_pages;
+  }
+
+  // When doing N-up or booklet printing, the default is to scale to fit unless
+  // fill is explicitly chosen...
+  if (p.num_layout > 1 && options->print_scaling != IPPOPT_SCALING_FILL)
+    options->print_scaling = IPPOPT_SCALING_FIT;
+
+  // Prepare output pages...
+  prepare_pages(&p, num_documents, documents);
+
+  // Add job-sheets content...
+  if (options->job_sheets[0] && strcmp(options->job_sheets, "none"))
+    generate_job_sheets(&p);
+
+  // Copy pages to the output file...
+  for (copies = generate_copies ? options->copies : 1; copies > 0; copies --)
+  {
+    reverse_order = !strcmp(options->output_bin, "face-up");
+    if (options->page_delivery >= IPPOPT_DELIVERY_REVERSE_ORDER_FACE_DOWN)
+      reverse_order = !reverse_order;
+
+    if (reverse_order)
+    {
+      outpage = p.outpages + p.num_outpages - 1;
+      outdir  = -1;
+    }
+    else
+    {
+      outpage = p.outpages;
+      outdir  = 1;
+    }
+
+    if (p.num_layout == 1 && options->print_scaling == IPPOPT_SCALING_NONE && strcasecmp(outformat, "image/pwg-raster") && strcasecmp(outformat, "image/urf"))
+    {
+      // Simple path - no layout/scaling/rotation of pages so we can just copy the pages quickly.
+      if (Verbosity)
+	fputs("DEBUG: Doing fast copy of pages.\n", stderr);
+
+      for (i = p.num_outpages; i > 0; i --, outpage += outdir)
+      {
+	if (outpage->input[0])
+	  pdfioPageCopy(p.pdf, outpage->input[0]);
+      }
+    }
+    else
+    {
+      // Layout path - merge page resources and do mapping of resources as needed
+      if (Verbosity)
+	fprintf(stderr, "DEBUG: Doing full layout of %u pages.\n", (unsigned)p.num_outpages);
+
+      for (i = p.num_outpages; i > 0; i --, outpage += outdir)
+      {
+	// Create a page dictionary that merges the resources from each of the
+	// input pages...
+	if (Verbosity)
+	  fprintf(stderr, "DEBUG: Laying out page %u/%u.\n", (unsigned)(outpage - p.outpages + 1), (unsigned)p.num_outpages);
+
+	outpage->pagedict = pdfioDictCreate(p.pdf);
+	outpage->resdict  = pdfioDictCreate(p.pdf);
+
+	pdfioDictSetRect(outpage->pagedict, "CropBox", &p.media);
+	pdfioDictSetRect(outpage->pagedict, "MediaBox", &p.media);
+	pdfioDictSetDict(outpage->pagedict, "Resources", outpage->resdict);
+	pdfioDictSetName(outpage->pagedict, "Type", "Page");
+
+	for (layout = 0; layout < p.num_layout; layout ++)
+	{
+	  pdfio_dict_t	*pagedict,	// Page dictionary
+			*resdict;	// Resources dictionary
+	  pdfio_obj_t	*resobj;	// Resources object
+
+	  if (!outpage->input[layout])
+	    continue;
+
+	  outpage->layout  = layout;
+	  outpage->restype = NULL;
+
+          pagedict = pdfioObjGetDict(outpage->input[layout]);
+          if ((resdict = pdfioDictGetDict(pagedict, "Resources")) != NULL)
+	    pdfioDictIterateKeys(resdict, (pdfio_dict_cb_t)page_dict_cb, outpage);
+	  else if ((resobj = pdfioDictGetObj(pagedict, "Resources")) != NULL)
+	    pdfioDictIterateKeys(pdfioObjGetDict(resobj), (pdfio_dict_cb_t)page_dict_cb, outpage);
+          else if (Verbosity)
+            fprintf(stderr, "DEBUG: No Resources for cell %u.\n", (unsigned)layout);
+
+	  // TODO: Handle inherited resources from parent page objects...
+	}
+
+	// Now copy the content streams to build the composite page, using the
+	// resource map for any named resources...
+	outpage->output = pdfio_start_page(&p, outpage->pagedict);
+
+	for (layout = 0; layout < p.num_layout; layout ++)
+	  copy_page(&p, outpage, layout);
+
+	pdfio_end_page(&p, outpage->output);
+	outpage->output = NULL;
+      }
+    }
+  }
+
+  // Add final job-sheets content...
+  if (options->job_sheets[0] && strcmp(options->job_sheets, "none"))
+    generate_job_sheets(&p);
+
+  // Add job-error-sheet content as needed...
+  if (options->job_error_sheet.report == IPPOPT_ERROR_REPORT_ALWAYS || (options->job_error_sheet.report == IPPOPT_ERROR_REPORT_ON_ERROR && cupsArrayGetCount(p.errors) > 0))
+    generate_job_error_sheet(&p);
+
+  ret = true;
+
+  *outpages = (unsigned)pdfioFileGetNumPages(p.pdf);
+
+  // Finalize the output and return...
+  done:
+  cupsArrayDelete(p.errors);
+
+  for (i = p.num_outpages, outpage = p.outpages; i > 0; i --, outpage ++)
+  {
+    if (outpage->output)
+      pdfioStreamClose(outpage->output);
+  }
+
+  if (!pdfioFileClose(p.pdf))
+    ret = false;
+
+  if (!ret)
+  {
+    // Remove temporary file...
+    unlink(outfile);
+    *outfile = '\0';
+  }
+
+  // Close and delete intermediate files...
+  for (i = num_documents, d = documents; i > 0; i --, d ++)
+  {
+    pdfioFileClose(d->pdf);
+    if (d->tempfile[0])
+      unlink(d->tempfile);
+  }
+
+  // Return success/fail status...
+  return (ret);
 }
 
 // coping inputfp data to temp_fp, so that we have a filename, as it is required in pdfioFileOpen API
 int 
 copy_fd_to_tempfile(int inputfd, 
-		    FILE *temp_file, 
-		    pdftopdf_doc_t *doc) 
+		    FILE *temp_file) 
 {
   char buffer[BUFSIZ]; 
   ssize_t bytes_read, bytes_written;
@@ -788,20 +1377,19 @@ copy_fd_to_tempfile(int inputfd,
     bytes_written = fwrite(buffer, 1, bytes_read, temp_file);
     if (bytes_written != bytes_read) 
     {
-      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, "write to temporary file failed");
+      fprintf(stderr, "write to temporary file failed");
       return -1; 
     }
   }
 
   if (bytes_read == -1) 
   {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR, "Read from inputfd failed");
-       return -1; 
-    }
+    fprintf(stderr, "Read from inputfd failed");
+    return -1; 
+  }
 
-    return 0; 
+  return 0; 
 }
-
 
 int 
 cfFilterPDFToPDF(int inputfd, 
@@ -811,77 +1399,44 @@ cfFilterPDFToPDF(int inputfd,
 		 void *parameters) 
 {
 
-  pdftopdf_doc_t 	doc;
-  char 			*final_content_type = data->final_content_type;
-  FILE 			*inputfp, 
-       			*outputfp;
-  const char 		*t;
-  int 			streaming = 0;
-  size_t 		bytes;
-  char 			buf[BUFSIZ];
-  cf_logfunc_t 		log = data->logfunc;
-  void 			*ld = data->logdata;
+  char               *final_content_type = data->final_content_type;
+  cf_logfunc_t       log = data->logfunc;
+  void               *ld = data->logdata;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
-  void 			*icd = data->iscanceleddata;
-  int 			num_options = 0;
-  cups_option_t 	*options = NULL;
+  void               *icd = data->iscanceleddata;
 
-  _cfPDFToPDFProcessingParameters *param = (_cfPDFToPDFProcessingParameters *)malloc(sizeof(_cfPDFToPDFProcessingParameters));
-  _cfPDFToPDFProcessingParameters_init(param);
-
+  // New variables from prepare_documents
+  // confirmed required
+  char          pdf_file[1024];
+  const char	*output_type = "application/pdf";
+  ipp_options_t *ipp_options;
+  xform_document_t file;
   
-  fprintf(stderr, "_cfPDFToPDFProcessingParameters_init has been done\n");
+  //not confirmed
+  xform_document_t   *documents = NULL;
+  int                copies;
+  bool               duplex = false;
+  bool               reverse_order = false;
+  size_t             layout = 1;
+  xform_page_t       *outpage = NULL;
+  const char         *sheet_back = "rotated";
+  unsigned      	pdf_pages;
+
+  memset(&file, 0, sizeof(file));
+
+  ipp_options = ippOptionsNew(data->num_options, data->options);
+  fprintf(stderr, "hellomello__________\n");
   
-  param->job_id = data->job_id;
-  param->user = data->job_user;
-  param->title = data->job_title;
-  param->num_copies = data->copies;
-  param->copies_to_be_logged = data->copies;
-  param->page->width = param->page->height = 0;
-  param->page->left = param->page->bottom = -1;
-  param->page->right = param->page->top = -1;
-
-  doc.logfunc = log;
-  doc.logdata = ld;
-  doc.iscanceledfunc = iscanceled;
-  doc.iscanceleddata = icd;
-
-  num_options = cfJoinJobOptionsAndAttrs(data, num_options, &options);
-
-  getParameters(data, num_options, options, param, &doc);
-  calculate(num_options, options, param, final_content_type);
-
-#ifdef DEBUG
-  _cfPDFToPDFProcessingParameters_dump(param, &doc);
-#endif
-
-  // If we are in streaming mode we only apply JCL and do not run the
-  // job through QPDL (so no page management, form flattening,
-  // page size/orientation adjustment, ...)
-  if ((t = cupsGetOption("filter-streaming-mode", 
-	   		 num_options, options)) != NULL && 
-      (strcasecmp(t, "false") && strcasecmp(t, "off") && 
-       strcasecmp(t, "no"))) 
-  {
-    streaming = 1;
-    if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-	     	   "cfFilterPDFToPDF: Streaming mode: No PDF processing, only adding of JCL");
-  }
-
-  cupsFreeOptions(num_options, options);
-
-  _cfPDFToPDF_PDFioProcessor proc;
-
   char temp_filename[] = "/tmp/tempfileXXXXXX";
   int temp_fd = mkstemp(temp_filename);
-  if (temp_fd == -1) 
+  if (temp_fd == -1)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR, "tempfilename wasn't created");
     return 1;
   }
 
   // Convert the temp_fd to a FILE* stream
-  inputfp = fdopen(temp_fd, "wb+");
+  FILE *inputfp = fdopen(temp_fd, "wb+");
   if (!inputfp) {
       if (log) log(ld, CF_LOGLEVEL_ERROR, "Couldn't convert temp_fd to FILE* stream");
       close(temp_fd);
@@ -889,126 +1444,103 @@ cfFilterPDFToPDF(int inputfd,
       unlink(temp_filename);
       return 1;
   }
-
-  if (copy_fd_to_tempfile(inputfd, inputfp, &doc) == -1) {
+  if (copy_fd_to_tempfile(inputfd, inputfp) == -1) {
         fprintf(stderr, "Failed to copy inputfd to temp file\n");
         fclose(inputfp);
         close(inputfd);
         unlink(temp_filename); // Clean up temporary file
         return 1;
     }
-  
+
   rewind(inputfp); // Rewind the temp_file for reading
- 
-  if (!streaming) 
+
+  file.filename = temp_filename;
+  file.format = "application/pdf";
+  file.pdf_filename = temp_filename;
+
+  if (!prepare_documents(1, &file, ipp_options, sheet_back, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf")))
   {
-    if (is_empty(inputfp)) 
-    {
-      fclose(inputfp);
-      close(inputfd);
-      unlink(temp_filename); 
-      if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-		   "cfFilterPDFToPDF: Input is empty, outputting empty file.");
-      return 0;
-    }
-    
-    //test
-    if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-		 " cfFilterPDFToPDF: Processing PDF input with PDFio: Page-ranges, page-set, number-up, booklet, size adjustment, ...");
-
-    // Load the PDF input data into PDFio
-    if (!_cfPDFToPDF_PDFioProcessor_load_filename(&proc, temp_filename, &doc, 1))
-    {
-      if (log) log(ld, CF_LOGLEVEL_DEBUG, "cfFilterPDFToPDF: error in _cfPDFToPDF_PDFioProcessor_load_filename");
-      fclose(inputfp);
-      close(inputfd);
-      unlink(temp_filename); 
-      return 1;
-    }
-
-    // Process the PDF input data
-    if (!_cfProcessPDFToPDF(&proc, param, &doc))
-    {
-      if (log) log(ld, CF_LOGLEVEL_DEBUG, "cfFilterPDFToPDF: error in _cfProcessPDFToPDF");
-      return 2;
-    }
-
-    // Pass information to subsequent filters via PDF comments
-    char *output[10];
-    int output_len = 0;
-
-    output[output_len++] = "% This file was generated by pdftopdf";
-
-    if (param->device_copies > 0) 
-    {
-      char buf[256];
-      snprintf(buf, sizeof(buf), "%d", param->device_copies);
-      output[output_len++] = strdup(buf);
-
-      if (param->device_collate)
-        output[output_len++] = "%%PDFTOPDFCollate : true";
-      else
-        output[output_len++] = "%%PDFTOPDFCollate : false";
-    }
-
-    _cfPDFToPDF_PDFioProcessor_set_comments(&proc, output, output_len);
+    // Unable to prepare documents, exit...
+    ippOptionsDelete(ipp_options);
+    return (1);
   }
+  fprintf(stderr, "hellomello__________\n");
 
-  char temp_output_filename[] = "/tmp/outputfilenameXXXXXX";
+  // After processing, close and unlink the initial temp file
+fclose(inputfp); // Ensure the FILE* is closed
+close(temp_fd);  // Close the underlying file descriptor
+unlink(temp_filename); // Remove the initial temporary file
 
-  int temp_output_fd = mkstemp(temp_output_filename);
-  if (temp_output_fd == -1) {
-    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to create temporary output file");
-    return 1;
-  }
+// ...
 
-  outputfp = fdopen(temp_output_fd, "wb+");
-  if (!outputfp) {
-    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to open temporary output file stream");
-    close(temp_output_fd);
-    unlink(temp_output_filename);
-    return 1;
-  }
-
-  if (!streaming) 
-  {
-    _cfPDFToPDF_PDFioProcessor_emit_filename(&proc, temp_output_filename, &doc); 
-  } 
-  else 
-  {
-    if (log) log(ld, CF_LOGLEVEL_DEBUG, 
-		 "cfFilterPDFToPDF: Passing on unchanged PDF data from input");
-    while ((bytes = fread(buf, 1, sizeof(buf), inputfp)) > 0)
-      if (fwrite(buf, 1, bytes, outputfp) != bytes)
-        break;
-    fclose(inputfp);
-    close(inputfd);
-    unlink(temp_filename); 
-  }
-
-  fflush(outputfp);
-  rewind(outputfp);
-  char buffer[8192];
-  ssize_t bytes_read;
-  while ((bytes_read = read(temp_output_fd, buffer, sizeof(buffer))) > 0) 
-  {
-  if (write(outputfd, buffer, bytes_read) != bytes_read) {
-    if (log) log(ld, CF_LOGLEVEL_ERROR, "Failed to write to output_fd");
-    fclose(outputfp);
-    close(outputfd);
-    unlink(temp_output_filename);
-    return 1;
-  }
+// Copy the generated PDF to outputfd
+int tempfd = open(pdf_file, O_RDONLY);
+if (tempfd < 0) {
+    perror("open tempfile for reading");
+    return 1; // Error
 }
 
-// free Param
-  _cfPDFToPDFProcessingParameters_free(param);
+char buffer[8192];
+ssize_t bytes_read, bytes_written, total_written;
 
-// Clean up the temporary file
-  unlink(temp_output_filename);
-  fclose(outputfp);
-  close(inputfd);
-  unlink(temp_filename); 
-  return 0;
+while ((bytes_read = read(tempfd, buffer, sizeof(buffer))) > 0) {
+    if (bytes_read < 0) {
+        perror("read");
+        close(tempfd);
+        return 1;
+    }
+
+    total_written = 0;
+    while (total_written < bytes_read) {
+        bytes_written = write(outputfd, buffer + total_written, bytes_read - total_written);
+        if (bytes_written < 0) {
+            perror("write");
+            close(tempfd);
+            return 1;
+        }
+        total_written += bytes_written;
+    }
+}
+
+close(tempfd);
+unlink(pdf_file); // Remove the generated PDF temp file
+
+return 0; // Success
+
+/*
+  int tempfd = open(pdf_file, O_RDONLY);
+  if (tempfd < 0)
+{
+  perror("open tempfile for reading");
+  return false;
+}
+
+// 4. Copy tempfile to outputfd
+char buffer[8192];
+ssize_t bytes;
+while ((bytes = read(tempfd, buffer, sizeof(buffer))) > 0)
+{
+  if (write(outputfd, buffer, bytes) != bytes)
+  {
+    perror("write to outputfd failed");
+    close(tempfd);
+    return false;
+  }
+}
+if (bytes < 0)
+{
+  perror("read from tempfile failed");
+  close(tempfd);
+  return false;
+}
+
+close(tempfd);
+
+// 5. Optionally delete the temporary file
+unlink(pdf_file);
+  fprintf(stderr, "hellomello__________\n");
+
+return true;
+*/
 }
 // }}}

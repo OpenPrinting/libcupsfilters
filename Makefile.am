@@ -182,23 +182,8 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pdf.c \
 	cupsfilters/pdftopdf/pdftopdf.c \
 	cupsfilters/pdftopdf/pdftopdf-private.h \
-	cupsfilters/pdftopdf/pdftopdf-processor.c \
-	cupsfilters/pdftopdf/pdfio-pdftopdf-processor.c \
-	cupsfilters/pdftopdf/processor.h \
-	cupsfilters/pdftopdf/pptypes.c \
-        cupsfilters/pdftopdf/pptypes-private.h \
-	cupsfilters/pdftopdf/nup.c \
-        cupsfilters/pdftopdf/nup-private.h \
-        cupsfilters/pdftopdf/intervalset.c \
-        cupsfilters/pdftopdf/intervalset-private.h \
-	cupsfilters/pdftopdf/pdfio-tools.c \
-	cupsfilters/pdftopdf/pdfio-tools-private.h \
-	cupsfilters/pdftopdf/pdfio-xobject.c \
-	cupsfilters/pdftopdf/pdfio-xobject-private.h \
-	cupsfilters/pdftopdf/pdfio-pdftopdf.c \
-	cupsfilters/pdftopdf/pdfio-pdftopdf-private.h \
-	cupsfilters/pdftopdf/pdfio-cm.c \
-	cupsfilters/pdftopdf/pdfio-cm-private.h \
+	cupsfilters/pdftopdf/ipp-options.c \
+	cupsfilters/pdftopdf/ipp-options.h \
 	cupsfilters/pdftoraster.c \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
