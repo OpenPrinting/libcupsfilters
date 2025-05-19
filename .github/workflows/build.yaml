@@ -28,9 +28,9 @@ jobs:
       run: |
         cd ..
         mkdir pdfio
-        wget https://github.com/michaelrsweet/pdfio/releases/download/v1.5.0/pdfio-1.5.0.tar.gz
-        tar -xzf pdfio-1.5.0.tar.gz
-        cd pdfio-1.5.0
+        wget https://github.com/michaelrsweet/pdfio/releases/download/v1.5.3/pdfio-1.5.3.tar.gz
+        tar -xzf pdfio-1.5.3.tar.gz
+        cd pdfio-1.5.3
         ./configure --prefix=/usr --enable-shared
         make all
         make test
