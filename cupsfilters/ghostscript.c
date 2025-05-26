@@ -44,6 +44,13 @@ typedef enum gs_doc_e
 
 typedef cups_page_header_t gs_page_header;
 
+typedef enum cups_halftone_type_e
+{
+  HALFTONE_DEFAULT,
+  HALFTONE_STOCHASTIC,
+  HALFTONE_FOO2ZJS
+} cups_halftone_type_t;
+
 static gs_doc_t
 parse_doc_type(FILE *fp)
 {
@@ -805,6 +812,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   struct sigaction sa;
   cf_cm_calibration_t cm_calibrate;
   int pxlcolor = 0; // 1 if printer is color printer otherwise 0.
+  cups_halftone_type_t halftonetype = HALFTONE_DEFAULT;
   ipp_attribute_t *ipp_attr;
   cf_logfunc_t log = data->logfunc;
   void          *ld = data->logdata;
@@ -1606,6 +1614,27 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   else if (!cm_disabled)
     cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
 
+  if ((t = cupsGetOption("cupsHalftoneType", num_options, options)) != NULL ||
+      (t = cupsGetOption("halftone-type", num_options, options)) != NULL)
+  {
+    if (!strcasecmp(t, "true") || !strcasecmp(t, "on") ||
+	!strcasecmp(t, "yes") || !strcasecmp(t, "stochastic"))
+      halftonetype = HALFTONE_STOCHASTIC;
+    else if (!strcasecmp(t, "foo2zjs"))
+      halftonetype = HALFTONE_FOO2ZJS;
+  }
+
+  //
+  // Use Stochastic Halftone dithering found in GhostScript stocht.ps library file.
+  // It is activated automatically.
+  //
+  if (halftonetype == HALFTONE_STOCHASTIC)
+  {
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: Ghostscript using Stochastic Halftone dithering.");
+    cupsArrayAdd(gs_args, strdup("stocht.ps"));
+  }
+
   // Switch to taking PostScript commands on the Ghostscript command line
   cupsArrayAdd(gs_args, strdup("-c"));
 
@@ -1661,6 +1690,54 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		 "cfFilterGhostscript: Ghostscript using Any-Part-of-Pixel method to "
 		 "fill paths.");
+
+  //
+  // Use halftone dithering algorithm found in foo2zjs-pstops file
+  //
+  if (halftonetype == HALFTONE_FOO2ZJS)
+  {
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: Ghostscript using foo2zjs Halftone dithering.");
+    cupsArrayAdd(gs_args, strdup("/SpotDot { 180 mul cos exch 180 mul cos add 2 div } def\
+<<\
+    /HalftoneType 5\
+    /Cyan <<\
+        /HalftoneType 1\
+        /AccurateScreens true\
+        /Frequency 150\
+        /Angle 105\
+        /SpotFunction /SpotDot load\
+    >>\
+    /Magenta <<\
+        /HalftoneType 1\
+        /AccurateScreens true\
+        /Frequency 150\
+        /Angle 165\
+        /SpotFunction /SpotDot load\
+    >>\
+    /Yellow <<\
+        /HalftoneType 1\
+        /AccurateScreens true\
+        /Frequency 150\
+        /Angle 30\
+        /SpotFunction /SpotDot load\
+    >>\
+    /Black <<\
+        /HalftoneType 1\
+        /AccurateScreens true\
+        /Frequency 150\
+        /Angle 45\
+        /SpotFunction /SpotDot load\
+    >>\
+    /Default <<\
+        /HalftoneType 1\
+        /AccurateScreens true\
+        /Frequency 150\
+        /Angle 37\
+        /SpotFunction /SpotDot load\
+    >>\
+>> /Default exch /Halftone defineresource sethalftone"));
+  }
 
   // Mark the end of PostScript commands supplied on the Ghostscript command
   // line (with the "-c" option), so that we can supply the input file name
