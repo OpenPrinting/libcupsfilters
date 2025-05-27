@@ -769,6 +769,8 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     customBottom = bottom * 72.0 / 2540.0;
     customRight = right * 72.0 / 2540.0;
     customTop = top * 72.0 / 2540.0;
+    min_width = min_width * 72 / 2540;
+    min_length = min_length * 72 / 2540;
   }
 
   //
