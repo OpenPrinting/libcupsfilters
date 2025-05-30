@@ -1420,7 +1420,12 @@ write_page_image(cups_raster_t *raster,
   poppler::page *current_page = doc->poppler_doc->create_page(pageNo - 1);
   poppler::page_renderer pr;
   pr.set_render_hint(poppler::page_renderer::antialiasing, true);
-  pr.set_render_hint(poppler::page_renderer::text_antialiasing, true);
+  pr.set_render_hint(poppler::page_renderer::text_hinting, true);
+  // text anti-aliasing for 1-bit color produces jagged text
+  if (doc->header.cupsBitsPerColor != 1)
+    pr.set_render_hint(poppler::page_renderer::text_antialiasing, true);
+  else
+    pr.set_render_hint(poppler::page_renderer::text_antialiasing, false);
 
   // Overspray borderless page size: If the dimensions of the page
   // size are up to 10% larger than the ones of the input page, zoom
