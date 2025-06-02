@@ -2918,8 +2918,9 @@ format_K(imagetoraster_doc_t *doc,
 
         for (x = xsize; x > 0; x --)
         {
-          if (*r0++ > dither[x & 15])
-            *ptr ^= bitmask;
+	  if (*r0 > dither[x & 15] || *r0 == 0xff)
+	    *ptr ^= bitmask;
+	  r0++;
 
           if (bitmask > 1)
 	    bitmask >>= 1;
@@ -4274,8 +4275,9 @@ format_w(imagetoraster_doc_t *doc,
 
         for (x = xsize; x > 0; x --)
         {
-          if (*r0++ > dither[x & 15])
-            *ptr ^= bitmask;
+	  if (*r0 > dither[x & 15] || *r0 == 0xff)
+	    *ptr ^= bitmask;
+	  r0++;
 
           if (bitmask > 1)
 	    bitmask >>= 1;
