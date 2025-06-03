@@ -101,7 +101,6 @@ cfPDFPagesFP(char *file)
 
   int pages = pdfioFileGetNumPages(pdf);
   pdfioFileClose(pdf);
-  fprintf(stderr, "uddhav the number of pages are:%d", pages);
   return pages;
 }
 

@@ -1172,8 +1172,6 @@ prepare_documents(
 
     d->pdf = pdfioFileOpen(d->pdf_filename, pdfio_password_cb, NULL, pdfio_error_cb, NULL);
     size_t num_pages = pdfioFileGetNumPages(d->pdf);
-    fprintf(stderr, "breaking here\n");
-    fprintf(stderr, "&&&&&&&&&&&&&&&&&&&%ld\n", num_pages);
 
     if ((d->pdf = pdfioFileOpen(d->pdf_filename, pdfio_password_cb, &document, pdfio_error_cb, &p)) == NULL)
       goto done;
@@ -1182,13 +1180,11 @@ prepare_documents(
     {
       d->first_page = 1;
       d->last_page  = (int)pdfioFileGetNumPages(d->pdf);
-      fprintf(stderr, "number of pages is %d\n", d->last_page);
     }
     else
     {
       d->first_page = page;
       d->last_page  = page + (int)pdfioFileGetNumPages(d->pdf) - 1;
-      fprintf(stderr, "number of pages is %d\n", d->last_page);
     }
 
     if (Verbosity)
@@ -1425,7 +1421,6 @@ cfFilterPDFToPDF(int inputfd,
   memset(&file, 0, sizeof(file));
 
   ipp_options = ippOptionsNew(data->num_options, data->options);
-  fprintf(stderr, "hellomello__________\n");
   
   char temp_filename[] = "/tmp/tempfileXXXXXX";
   int temp_fd = mkstemp(temp_filename);
@@ -1464,7 +1459,6 @@ cfFilterPDFToPDF(int inputfd,
     ippOptionsDelete(ipp_options);
     return (1);
   }
-  fprintf(stderr, "hellomello__________\n");
 
   // After processing, close and unlink the initial temp file
 fclose(inputfp); // Ensure the FILE* is closed
@@ -1506,41 +1500,5 @@ close(tempfd);
 unlink(pdf_file); // Remove the generated PDF temp file
 
 return 0; // Success
-
-/*
-  int tempfd = open(pdf_file, O_RDONLY);
-  if (tempfd < 0)
-{
-  perror("open tempfile for reading");
-  return false;
-}
-
-// 4. Copy tempfile to outputfd
-char buffer[8192];
-ssize_t bytes;
-while ((bytes = read(tempfd, buffer, sizeof(buffer))) > 0)
-{
-  if (write(outputfd, buffer, bytes) != bytes)
-  {
-    perror("write to outputfd failed");
-    close(tempfd);
-    return false;
-  }
-}
-if (bytes < 0)
-{
-  perror("read from tempfile failed");
-  close(tempfd);
-  return false;
-}
-
-close(tempfd);
-
-// 5. Optionally delete the temporary file
-unlink(pdf_file);
-  fprintf(stderr, "hellomello__________\n");
-
-return true;
-*/
 }
 // }}}
