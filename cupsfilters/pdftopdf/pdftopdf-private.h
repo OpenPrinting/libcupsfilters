@@ -12,7 +12,7 @@
 #include <cupsfilters/filter.h>
 #include <pdfio.h>
 #include <pdfio-content.h>
-#include "ipp-options.h"
+#include "ipp-options-private.h"
 #define XFORM_MAX_PAGES         10000
 #define XFORM_MAX_LAYOUT        16
 

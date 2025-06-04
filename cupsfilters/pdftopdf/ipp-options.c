@@ -8,7 +8,7 @@
 // information.
 //
 
-#include "ipp-options.h"
+#include "ipp-options-private.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

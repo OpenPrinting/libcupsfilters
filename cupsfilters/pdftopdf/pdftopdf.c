@@ -1105,7 +1105,6 @@ prepare_documents(
   bool			duplex = !strncmp(options->sides, "two-sided-", 10);
 					// Doing two-sided printing?
 
-  fprintf(stderr, "prepdocs check_______________\n");
   // Initialize data for preparing input files for transform...
   memset(&p, 0, sizeof(p));
   p.options = options;
