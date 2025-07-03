@@ -429,18 +429,22 @@ parse_pdftopdf_comment(FILE *fp,
       char *p;
 
       p = strchr(buf + 19, ':');
-      (*deviceCopies) = atoi(p + 1);
+      if (p)
+        (*deviceCopies) = atoi(p + 1);
     }
     else if (strncmp(buf, "%%PDFTOPDFCollate", 17) == 0)
     {
       char *p;
 
       p = strchr(buf + 17, ':');
-      while (*p == ' ' || *p == '\t') p ++;
-      if (strncasecmp(p, "true", 4) == 0)
-	*deviceCollate = true;
-      else
-	*deviceCollate = false;
+      if (p) {
+        p ++;
+        while (*p == ' ' || *p == '\t') p ++;
+        if (strncasecmp(p, "true", 4) == 0)
+          *deviceCollate = true;
+        else
+          *deviceCollate = false;
+      }
     }
   }
 }
