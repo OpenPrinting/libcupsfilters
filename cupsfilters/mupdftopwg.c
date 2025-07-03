@@ -102,6 +102,7 @@ parse_pdf_header_options(FILE *fp,
         h->Collate = CUPS_FALSE;
         continue;
       }
+      p ++;
       while (*p == ' ' || *p == '\t')
 	p ++;
       if (strncasecmp(p, "true", 4) == 0)

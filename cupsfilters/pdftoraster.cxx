@@ -446,6 +446,7 @@ parse_pdftopdf_comment(FILE *fp,
 	*deviceCollate = false;
 	continue;
       }
+      p ++;
       while (*p == ' ' || *p == '\t') p ++;
       if (strncasecmp(p, "true", 4) == 0)
 	*deviceCollate = true;
