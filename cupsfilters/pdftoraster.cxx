@@ -1578,6 +1578,13 @@ out_page(pdftoraster_doc_t *doc,
     return (0);
 
   poppler::page *current_page =doc->poppler_doc->create_page(pageNo - 1);
+  if (!current_page)
+  {
+    if (log)
+      log(ld, CF_LOGLEVEL_ERROR,
+	  "cfFilterPDFToRaster: Cannot create page %d", pageNo);
+    return (1);
+  }
   poppler::page_box_enum box = poppler::page_box_enum::crop_box;
   poppler::rectf inputPageBox = current_page->page_rect(box);
   poppler::page::orientation_enum orient = current_page->orientation();
