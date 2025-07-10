@@ -429,6 +429,11 @@ parse_pdftopdf_comment(FILE *fp,
       char *p;
 
       p = strchr(buf + 19, ':');
+      if (!p)
+      {
+	(*deviceCopies) = 1;
+	continue;
+      }
       (*deviceCopies) = atoi(p + 1);
     }
     else if (strncmp(buf, "%%PDFTOPDFCollate", 17) == 0)
@@ -436,6 +441,12 @@ parse_pdftopdf_comment(FILE *fp,
       char *p;
 
       p = strchr(buf + 17, ':');
+      if (!p)
+      {
+	*deviceCollate = false;
+	continue;
+      }
+      p ++;
       while (*p == ' ' || *p == '\t') p ++;
       if (strncasecmp(p, "true", 4) == 0)
 	*deviceCollate = true;

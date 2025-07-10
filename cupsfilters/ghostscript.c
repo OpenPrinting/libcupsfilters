@@ -92,6 +92,11 @@ parse_pdf_header_options(FILE *fp,
       char *p;
 
       p = strchr(buf + 19, ':');
+      if (!p)
+      {
+        h->NumCopies = 1;
+        continue;
+      }
       h->NumCopies = atoi(p + 1);
     }
     else if (strncmp(buf, "%%PDFTOPDFCollate", 17) == 0)
@@ -99,6 +104,12 @@ parse_pdf_header_options(FILE *fp,
       char *p;
 
       p = strchr(buf + 17, ':');
+      if (!p)
+      {
+        h->Collate = CUPS_FALSE;
+        continue;
+      }
+      p ++;
       while (*p == ' ' || *p == '\t')
 	p ++;
       if (strncasecmp(p, "true", 4) == 0)
