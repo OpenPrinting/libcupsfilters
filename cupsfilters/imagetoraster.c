@@ -1680,6 +1680,8 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 			      (doc.Orientation > 1 ? -1 : 1) * xtemp,
 			      (doc.Orientation > 1 ? -1 : 1) * ytemp,
 			      doc.Orientation & 1, zoom_type);
+	  if (z == NULL) continue;
+
 	  //
 	  // Write leading blank space as needed...
 	  //
