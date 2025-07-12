@@ -80,26 +80,30 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   jxl_size = ftell(fp);
   fseek(fp, 0, SEEK_SET);
   jxl_data = (uint8_t*)malloc(jxl_size);
-  if (!jxl_data) {
+  if (!jxl_data)
+  {
     fclose(fp);
     return 1;
   }
   bytes_read = fread(jxl_data, 1, jxl_size, fp);
-  if (bytes_read != (size_t)jxl_size) {
+  if (bytes_read != (size_t)jxl_size)
+  {
     free(jxl_data);
     fclose(fp);
     return 1;
   }
 
   dec = JxlDecoderCreate(NULL);
-  if (!dec) {
+  if (!dec)
+  {
     free(jxl_data);
     fclose(fp);
     return 1;
   }
 
   status = JxlDecoderSubscribeEvents(dec, JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE);
-  if (status != JXL_DEC_SUCCESS) {
+  if (status != JXL_DEC_SUCCESS)
+  {
     JxlDecoderDestroy(dec);
     free(jxl_data);
     fclose(fp);
@@ -113,14 +117,16 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   //
   
   status = JxlDecoderProcessInput(dec);
-  if (status != JXL_DEC_BASIC_INFO) {
+  if (status != JXL_DEC_BASIC_INFO)
+  {
     JxlDecoderDestroy(dec);
     free(jxl_data);
     fclose(fp);
     return 1;
   }
 
-  if (JxlDecoderGetBasicInfo(dec, &info) != JXL_DEC_SUCCESS) {
+  if (JxlDecoderGetBasicInfo(dec, &info) != JXL_DEC_SUCCESS)
+  {
     JxlDecoderDestroy(dec);
     free(jxl_data);
     fclose(fp);
@@ -135,7 +141,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   //
   
   if (img->xsize == 0 || img->xsize > CF_IMAGE_MAX_WIDTH ||
-      img->ysize == 0 || img->ysize > CF_IMAGE_MAX_HEIGHT) {
+      img->ysize == 0 || img->ysize > CF_IMAGE_MAX_HEIGHT)
+  {
     DEBUG_printf(("DEBUG: JXL image has invalid dimensions %ux%u!\n",
                   (unsigned)img->xsize, (unsigned)img->ysize));
     JxlDecoderDestroy(dec);
@@ -157,9 +164,12 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   // Determine colorspace based on number of color channels
   //
   
-  if (info.num_color_channels == 3) {
+  if (info.num_color_channels == 3)
+  {
     img->colorspace = (primary == CF_IMAGE_RGB_CMYK) ? CF_IMAGE_RGB : primary;
-  } else {
+  } 
+  else
+  {
     img->colorspace = secondary;
   }
 
@@ -169,7 +179,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   
   JxlPixelFormat format;
   format.num_channels = (info.num_color_channels == 1) ? 1 : 3;
-  if (info.alpha_bits > 0) {
+  if (info.alpha_bits > 0)
+  {
     format.num_channels++;
   }
   format.data_type = JXL_TYPE_UINT8;
@@ -177,7 +188,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   format.align = 0;
 
   size_t buffer_size;
-  if (JxlDecoderImageOutBufferSize(dec, &format, &buffer_size) != JXL_DEC_SUCCESS) {
+  if (JxlDecoderImageOutBufferSize(dec, &format, &buffer_size) != JXL_DEC_SUCCESS)
+  {
     JxlDecoderDestroy(dec);
     free(jxl_data);
     fclose(fp);
@@ -185,14 +197,16 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   }
 
   uint8_t *pixels = (uint8_t*)malloc(buffer_size);
-  if (!pixels) {
+  if (!pixels)
+  {
     JxlDecoderDestroy(dec);
     free(jxl_data);
     fclose(fp);
     return 1;
   }
 
-  if (JxlDecoderSetImageOutBuffer(dec, &format, pixels, buffer_size) != JXL_DEC_SUCCESS) {
+  if (JxlDecoderSetImageOutBuffer(dec, &format, pixels, buffer_size) != JXL_DEC_SUCCESS)
+  {
     free(pixels);
     JxlDecoderDestroy(dec);
     free(jxl_data);
@@ -205,7 +219,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   //
   
   status = JxlDecoderProcessInput(dec);
-  if (status != JXL_DEC_FULL_IMAGE) {
+  if (status != JXL_DEC_FULL_IMAGE)
+  {
     free(pixels);
     JxlDecoderDestroy(dec);
     free(jxl_data);
@@ -217,15 +232,19 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   // Handle alpha blending with white background
   //
   
-  if (info.alpha_bits > 0) {
+  if (info.alpha_bits > 0)
+  {
     int channels = format.num_channels;
     size_t pixel_count = img->xsize * img->ysize;
-    for (size_t i = 0; i < pixel_count; i++) {
+    for (size_t i = 0; i < pixel_count; i++)
+    {
       uint8_t *pixel = pixels + i * channels;
       uint8_t alpha = pixel[channels - 1];
-      if (alpha != 255) {
+      if (alpha != 255)
+      {
         float ratio = alpha / 255.0f;
-        for (int c = 0; c < channels - 1; c++) {
+        for (int c = 0; c < channels - 1; c++)
+        {
           pixel[c] = (uint8_t)(pixel[c] * ratio + 255 * (1.0f - ratio) + 0.5f);
         }
         pixel[channels - 1] = 255;
@@ -239,7 +258,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   
   int bpp = cfImageGetDepth(img);
   cf_ib_t *out = (cf_ib_t*)calloc(img->xsize * bpp, sizeof(cf_ib_t));
-  if (!out) {
+  if (!out)
+  {
     free(pixels);
     JxlDecoderDestroy(dec);
     free(jxl_data);
@@ -247,15 +267,19 @@ _cfImageReadJPEGXL( cf_image_t      *img,
     return 1;
   }
 
-  for (int y = 0; y < img->ysize; y++) {
+  for (int y = 0; y < img->ysize; y++)
+  {
     uint8_t *row = pixels + y * img->xsize * format.num_channels;
 
-    if (info.num_color_channels == 3) {                  // RGB(A) Image
-      if (saturation != 100 || hue != 0) {
+    if (info.num_color_channels == 3)
+    {                  // RGB(A) Image
+      if (saturation != 100 || hue != 0)
+      {
         cfImageRGBAdjust(row, img->xsize, saturation, hue);
       }
 
-      switch (img->colorspace) {
+      switch (img->colorspace)
+      {
         case CF_IMAGE_WHITE:
           cfImageRGBToWhite(row, out, img->xsize);
           break;
@@ -273,8 +297,11 @@ _cfImageReadJPEGXL( cf_image_t      *img,
           cfImageRGBToCMYK(row, out, img->xsize);
           break;
       }
-    } else {                                              // Grayscale Image
-      switch (img->colorspace) {
+    } 
+    else
+    {                                              // Grayscale Image
+      switch (img->colorspace)
+      {
         case CF_IMAGE_WHITE:
           memcpy(out, row, img->xsize);
           break;
@@ -294,7 +321,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
       }
     }
 
-    if (lut) {
+    if (lut)
+    {
       cfImageLut(out, img->xsize * bpp, lut);
     }
 
