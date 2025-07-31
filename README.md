@@ -61,6 +61,10 @@ make/model/device ID matching, ...
 
 For compiling and using this package see the INSTALL file.
 
+JPEG-XL support is optionally available. It is activated if the JPEG-XL
+library (libjxl) and its header files are installed when building
+libcupsfilters.
+
 Report bugs to
 
     https://github.com/OpenPrinting/libcupsfilters/issues

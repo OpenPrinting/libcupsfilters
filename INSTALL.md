@@ -28,7 +28,7 @@ or
 - MuPDF (version 1.15 or higher)
 
 ### Optional Features
-- libdbus, libjpeg, libpng, libtiff, libexif devel files for various format supports
+- libdbus, libjpeg, libpng, libtiff, libexif, libjxl devel files for various format supports
 - Dejavu Sans fonts for internal test suite
 
 ### Compiler and Make Tools
@@ -98,9 +98,9 @@ make check
   ```
   sudo apt-get install ghostscript
   ```
-- Install optional libraries (libdbus, libjpeg, libpng, libtiff, libexif):
+- Install optional libraries (libdbus, libjpeg, libpng, libtiff, libexif, libjxl):
   ```
-  sudo apt-get install libdbus-1-dev libjpeg-dev libpng-dev libtiff-dev libexif-dev
+  sudo apt-get install libdbus-1-dev libjpeg-dev libpng-dev libtiff-dev libexif-dev libjxl-dev
   ```
 - Install Dejavu Sans fonts (for internal test suite):
   ```
@@ -120,9 +120,9 @@ make check
   ```
   sudo dnf install ghostscript
   ```
-- Install optional libraries (libdbus, libjpeg, libpng, libtiff, libexif):
+- Install optional libraries (libdbus, libjpeg, libpng, libtiff, libexif, libjxl):
   ```
-  sudo dnf install dbus-devel libjpeg-turbo-devel libpng-devel libtiff-devel libexif-devel
+  sudo dnf install dbus-devel libjpeg-turbo-devel libpng-devel libtiff-devel libexif-devel libjxl-devel
   ```
 - Install Dejavu Sans fonts (for internal test suite):
   ```
