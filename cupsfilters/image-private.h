@@ -39,6 +39,9 @@
 #	include <libexif/exif-data.h>
 #endif
 
+#ifdef HAVE_LIBJXL
+#include "image-jpeg-xl.h"
+#endif
 
 //
 // Constants...

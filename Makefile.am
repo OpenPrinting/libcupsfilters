@@ -169,6 +169,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/image-png.c \
 	cupsfilters/image-private.h \
 	cupsfilters/image-tiff.c \
+	cupsfilters/image-jpeg-xl.c \
 	cupsfilters/image-zoom.c \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
@@ -219,6 +220,7 @@ libcupsfilters_la_LIBADD = \
 	$(LCMS_LIBS) \
 	$(LIBQPDF_LIBS) \
 	$(LIBJPEG_LIBS) \
+	$(LIBJXL_LIBS) \
 	$(EXIF_LIBS) \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
@@ -234,12 +236,14 @@ libcupsfilters_la_CFLAGS = \
 	$(LCMS_CFLAGS) \
 	$(LIBQPDF_CFLAGS) \
 	$(LIBJPEG_CFLAGS) \
+	$(LIBJXL_CFLAGS) \
 	$(EXIF_CFLAGS) \
 	$(LIBPNG_CFLAGS) \
 	$(TIFF_CFLAGS)
 libcupsfilters_la_LDFLAGS = \
 	-no-undefined \
-	-version-info 2
+	-version-info 2 \
+	$(LIBJXL_LIBS)
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
 libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11

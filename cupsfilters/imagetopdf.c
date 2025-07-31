@@ -21,7 +21,6 @@
 #include <cupsfilters/image.h>
 #include <cupsfilters/ipp.h>
 #include <cupsfilters/raster.h>
-#include <cupsfilters/ipp.h>
 #include <cupsfilters/image-private.h>
 #include <cupsfilters/libcups2-private.h>
 #include <math.h>

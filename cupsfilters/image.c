@@ -38,6 +38,12 @@
 
 
 #include "image-private.h"
+#include "config.h"
+
+#ifdef HAVE_LIBJXL
+#include <jxl/decode.h>
+#include "image-jpeg-xl.h"
+#endif
 
 
 //
@@ -314,7 +320,7 @@ cfImageOpen(
 		filename ? filename : "(null)", primary, secondary,
 		saturation, hue, lut));
 
-  if ((fp = fopen(filename, "r")) == NULL)
+  if ((fp = fopen(filename, "rb")) == NULL)
     return (NULL);
 
   return (cfImageOpenFP(fp, primary, secondary, saturation, hue, lut));
@@ -404,6 +410,13 @@ cfImageOpenFP(
 			      lut);
   else
 #endif // HAVE_LIBTIFF
+#ifdef HAVE_LIBJXL
+  if (_cfIsJPEGXL(header, sizeof(header)))
+    status = _cfImageReadJPEGXL(img, fp, primary, secondary, saturation, hue, 
+	    			lut);
+  else
+#endif // HAVE_LIBJXL
+	  
   {
     fclose(fp);
     status = -1;
