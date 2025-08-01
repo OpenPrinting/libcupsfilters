@@ -21,7 +21,9 @@ EXTRA_DIST = \
 	$(doc_DATA) \
 	autogen.sh \
 	config.rpath \
-	libcupsfilters.pc.in
+	libcupsfilters.pc.in \
+	pdf.utf-8.heavy.in \
+	pdf.utf-8.simple.in
 
 EXTRA_DIST += \
 	data/makePDFfromPS.sh \
