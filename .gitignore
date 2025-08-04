@@ -96,3 +96,7 @@ test-analyze
 Test_summary_final.txt
 test.pdf
 test.ps
+
+# ignore generated charset file
+charset/pdf.utf-8.simple
+charset/pdf.utf-8.heavy

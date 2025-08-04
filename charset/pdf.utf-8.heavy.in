@@ -28,7 +28,14 @@ charset utf8
 # printing.
 #
 
-0000 04FF ltor single monospace monospace:bold monospace:oblique monospace:bold:oblique
-0500 05FF rtol single monospace
-0600 06FF rtol single monospace
-3000 9FFF ltor double ARPLUmingCN
+0000 00FF ltor single CourierNew CourierNew:bold CourierNew:italic CourierNew:bold:italic
+0100 02FF ltor single DejaVuSansMono DejaVuSansMono:bold DejaVuSansMono:oblique DejaVuSansMono:bold:oblique
+0300 03FF ltor single DejaVuSansMono
+0400 04FF ltor single DejaVuSansMono DejaVuSansMono:bold DejaVuSansMono:oblique DejaVuSansMono:bold:oblique
+0500 05FF rtol single FreeMono
+0600 06FF rtol single FreeMono
+1E00 1EFF ltor single CourierNew CourierNew:bold CourierNew:italic CourierNew:bold:italic
+2000 21FF ltor single DejaVuSansMono DejaVuSansMono:bold DejaVuSansMono:oblique DejaVuSansMono:bold:oblique
+2200 23FF ltor single Symbol
+3000 9FFF ltor double @CJKFONTS@
+#0400 04FF ltor single FreeMono FreeMono:bold FreeMono:oblique FreeMono:bold:oblique

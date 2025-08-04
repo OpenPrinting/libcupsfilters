@@ -498,12 +498,26 @@ CXXFLAGS="$CXXFLAGS -D_GNU_SOURCE -DPOINTERHOLDER_TRANSITION=0"
 #                                      See /usr/include/qpdf/PointerHolder.hh
 CXXFLAGS="$CXXFLAGS -std=c++17"
 
+# =========
+# CJK FONTS
+# =========
+AC_ARG_WITH([cjk-fonts],
+	[AS_HELP_STRING([--with-cjk-fonts=value], [Set font name for CJK fonts (default: ARPLUmingCN).])],
+	[AS_IF([test "x$withval" != "x" -a "x$withval" != "xyes" -a "x$withval" != "xno"],
+	       [CJKFONTS="$withval"],
+	       [CJKFONTS="ARPLUmingCN"])],
+	[CJKFONTS="ARPLUmingCN"])
+
+AC_SUBST([CJKFONTS])
+
 # =====================
 # Prepare all .in files
 # =====================
 AC_CONFIG_FILES([
 	libcupsfilters.pc
 	Makefile
+	charset/pdf.utf-8.heavy
+	charset/pdf.utf-8.simple
 ])
 AC_OUTPUT
 
@@ -536,5 +550,6 @@ Build configuration:
 	dbus:            ${enable_dbus}
 	werror:          ${enable_werror}
 	test-font:       ${with_test_font_path}
+	cjk-fonts:       ${CJKFONTS}
 ==============================================================================
 ])
