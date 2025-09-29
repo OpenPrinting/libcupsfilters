@@ -34,9 +34,9 @@ make check
 - You require compiled source code of [cups-filters](https://github.com/OpenPrinting/cups-filters).
 - You can test the changes manually by calling the following:
 ```bash
-cat PATH/TO/INPUT/FILE.filetype | CONTENT_TYPE=<INPUT_TYPE" FINAL_CONTENT_TYPE="OUTPUT_TYPE" LD_LIBRARY_PATH=.libs PATH/TO/cups-filters/pdftopdf 1 1 1 1 'PRINTING ATTRIBUTIONS' > PATH/TO/OUTPUT/FILE.filetype
+cat PATH/TO/INPUT/FILE.filetype | CONTENT_TYPE=<"INPUT_TYPE"> FINAL_CONTENT_TYPE=<"OUTPUT_TYPE"> LD_LIBRARY_PATH=.libs PATH/TO/cups-filters/pdftopdf 1 1 1 1 'PRINTING ATTRIBUTIONS' > PATH/TO/OUTPUT/FILE.filetype
 ```
-- Printing attributions are giving in next sections:
+- Printing attributions are given in next sections.
 
 
 Adding New Test Cases in CI/CD Environment
@@ -65,31 +65,31 @@ Printing Attributes
 
 The current implementation of pdfio supports many printing attributes as follows:
 
-### 1. copies: A number that specifies how many copies of the entire job to print  
+### 1. **copies**: A number that specifies how many copies of the entire job to print  
 copies=3 will print three copies of the document(s).
 
-### 2. output-order: Specifies the order in which the pages should be printed.
+### 2. **output-order**: Specifies the order in which the pages should be printed.
 reverse will print the pages in reverse order, from the last page to the first.
 
-### 3. number-up: This powerful feature allows you to print multiple pages of a document on a single sheet of paper
+### 3. **number-up**: This powerful feature allows you to print multiple pages of a document on a single sheet of paper
 number-up=2 will print two pages side-by-side on each sheet. The supported values are 1, 2, 3, 4, 6, 8, 9, 10, 12, 15, 16.
 
-### 4. page-border: You can add a border around each page on the sheet. This is especially useful with number-up.
+### 4. **page-border**: You can add a border around each page on the sheet. This is especially useful with number-up.
 The options are none, single, single-thick, double, and double-thick.
 
-### 5. page-delivery: This attribute controls the stacking order and orientation of the output pages
+### 5. **page-delivery**: This attribute controls the stacking order and orientation of the output pages
 The options are same-order-face-down, same-order-face-up, reverse-order-face-down, and reverse-order-face-up.
 
-### 6. page-ranges: If you only want to print specific pages, you can specify them with this attribute
+### 6. **page-ranges**: If you only want to print specific pages, you can specify them with this attribute
 For example, page-ranges=1-4,7,9-12 will print pages 1 through 4, page 7, and pages 9 through 12.
 
-### 7. page-set: A simpler way to select pages. 
+### 7. **page-set**: A simpler way to select pages. 
 The options are all, odd, and even.
 
-### 8. sides: This attribute controls whether printing is done on one or both sides of the paper. 
+### 8. **sides**: This attribute controls whether printing is done on one or both sides of the paper. 
 Common values are one-sided, two-sided-long-edge (for duplex printing, flipping on the long edge), and two-sided-short-edge (for duplex printing, flipping on the short edge).
 
-### 9. media: A shorthand way to specify the media size. 
+### 9. **media**: A shorthand way to specify the media size. 
 The accepted media values are as follows:
     - iso_a4_210x297mm (This is the default value if no media is specified)
     - iso_a6_105x148mm
@@ -98,7 +98,7 @@ The accepted media values are as follows:
     - na_govt-letter_8x10in
     - Any media name containing the string "photo" (e.g., na_4x6-photo_4x6in)
 
-### 10. media-col: A more detailed way to specify media properties. 
+### 10. **media-col**: A more detailed way to specify media properties. 
 This is a collection of attributes that can include:
     - media-size-name: The standard name of the media size.
     - media-size: The dimensions of the media, specified with x-dimension and y-dimension.
@@ -107,36 +107,36 @@ This is a collection of attributes that can include:
     - media-type: The type of paper (e.g., stationery, photographic).
     - media-bottom-margin, media-left-margin, media-right-margin, media-top-margin: The unprintable margins of the media.
 
-### 11. orientation-requested: This specifies the orientation of the content on the page. 
+### 11. **orientation-requested**: This specifies the orientation of the content on the page. 
 The possible values are:
     - 3: Portrait
     - 4: Landscape
     - 5: Reverse Landscape
     - 6: Reverse Portrait
 
-### 12. print-color-mode: Sets the color mode for the print job, 
+### 12. **print-color-mode**: Sets the color mode for the print job, 
 such as color or monochrome.
 
-### 13. print-quality: This allows you to control the print quality, which can affect both the appearance and the printing speed. 
+### 13. **print-quality**: This allows you to control the print quality, which can affect both the appearance and the printing speed. 
 The options are:
     - 3: Draft quality
     - 4: Normal quality
     - 5: High quality
 
-### 14. print-rendering-intent: Specifies how colors should be handled, which is important for color-critical work.
+### 14. **print-rendering-intent**: Specifies how colors should be handled, which is important for color-critical work.
 
-### 15. print-scaling: This attribute determines how the document content is scaled to fit on the page. 
+### 15. **print-scaling**: This attribute determines how the document content is scaled to fit on the page. 
 The options are auto, auto-fit, fill, fit, and none.
 
-### 16. printer-resolution: You can specify the desired print resolution in dots per inch (DPI), 
+### 16. **printer-resolution**: You can specify the desired print resolution in dots per inch (DPI), 
 for example, 600dpi or 1200x600dpi.
 
-### 17. mirror: A boolean value (true or false) that, when set to true, will print a mirrored image of the document
+### 17. **mirror**: A boolean value (true or false) that, when set to true, will print a mirrored image of the document
 
-### 18. booklet: A special mode that arranges the pages in a way that they can be folded and stapled to create a booklet. 
+### 18. **booklet**: A special mode that arranges the pages in a way that they can be folded and stapled to create a booklet. 
 When booklet=true, it automatically sets number-up=2 and arranges the pages in the correct order for booklet making.
 
-### 19. overrides: This is an advanced feature that allows you to specify different printing attributes for different parts of the job. 
+### 19. **overrides**: This is an advanced feature that allows you to specify different printing attributes for different parts of the job. 
 For example, you can use overrides to print certain pages on different paper or with a different orientation.
 
 Sources of Current Files utilized in Test
