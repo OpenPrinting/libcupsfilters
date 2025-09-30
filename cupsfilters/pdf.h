@@ -13,6 +13,10 @@
 #include <stdio.h>
 
 typedef struct pdfio_file_t cf_pdf_t;
+// This is for conservation of the API, to avoid the name QPDF not going away
+// here. Actually the type cf_pdf_t is opaque, so the name of the struct does
+// not need to be defined by anythings.
+#define QPDF pdfio_file_t
 
 typedef struct _cf_opt cf_opt_t;
 
