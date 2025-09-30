@@ -38,6 +38,10 @@ cat PATH/TO/INPUT/FILE.filetype | CONTENT_TYPE=<"INPUT_TYPE"> FINAL_CONTENT_TYPE
 ```
 - Printing attributions are given in next sections.
 
+Conversion Rules
+----------------
+
+- If you have `make install` the cups-filters library, you would be able to have a look at conversion rules at *`/usr/share/cups/mime/cupsfilters-universal*.convs`* for the input and output formats rules.
 
 Adding New Test Cases in CI/CD Environment
 ------------------------------------------
@@ -61,8 +65,6 @@ Input_File Input_Type Output_File Output_Type Make Model Color Duplex Formats Jo
 If you have a doubt in understanding how this format works, have a look at how cases are defined in "cupsfilters/test-filter-cases.txt". 
 
 PRO-TIP: the values seperated by tab goes to next attribute.
-
-Also, have a look at conversion rules at *`/usr/share/cups/mime/cupsfilters-universal*.convs`* for looking at the input and output formats
 
 Printing Attributes
 -------------------
