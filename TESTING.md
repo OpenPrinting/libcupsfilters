@@ -58,7 +58,11 @@ cupsfilters/test-filter-cases.txt
 ```bash
 Input_File Input_Type Output_File Output_Type Make Model Color Duplex Formats Job-Id: random number User: randome name Title: randome title Copies: range between 1 to 20 Options
 ```
-If you have a doubt in understanding how this format works, have a look at how cases are defined in "cupsfilters/test-filter-cases.txt". PRO-TIP: the values seperated by tab goes to next attribute.
+If you have a doubt in understanding how this format works, have a look at how cases are defined in "cupsfilters/test-filter-cases.txt". 
+
+PRO-TIP: the values seperated by tab goes to next attribute.
+
+Also, have a look at conversion rules at *`/usr/share/cups/mime/cupsfilters-universal*.convs`* for looking at the input and output formats
 
 Printing Attributes
 -------------------
@@ -91,15 +95,13 @@ Sources of Current Files utilized in Test
 
 | File                               | Source |
 |------------------------------------|--------|
-| `bashrc.urf`                       | CUPS   |
-| `filled-2.pdf`                     | CUPS   |
+| `urf_test_file_4pg.urf`            | Converted `test_file_4pg.pdf` to Urf File format using pdftoraster   |
+| `filled-2.pdf`                     | [Pranjal Bhor's test file](https://github.com/psmlbhor/PDF_flattening/blob/master/filled.pdf)   |
 | `form_english.pdf`                 | CUPS   |
-| `onepage-a4-adobe-rgb-8-150dpi.pwg`| PWG sample |
-| `test_file.pdf`                    | CUPS   |
-| `test_file.pwg`                    | CUPS   |
-| `test_file_1pg.pdf`                | CUPS   |
-| `test_file_2pg.pdf`                | CUPS   |
-| `test_file_4pg.pdf`                | CUPS   |
+| `onepage-a4-adobe-rgb-8-150dpi.pwg`| [PWG sample](https://ftp.pwg.org/pub/pwg/ipp/examples/) |
+| `test_file_1pg.pdf`                | [cups/example/onepage-a4.pdf](https://github.com/OpenPrinting/cups/blob/master/examples/onepage-a4.pdf)|
+| `test_file_4pg.pdf`                | [cups/example/document-a4.pdf](https://github.com/OpenPrinting/cups/blob/master/examples/document-a4.pdf)   |
+| `test_file_8pg.pdf`                | [cups/example/testfile.pdf](https://github.com/OpenPrinting/cups/blob/master/examples/testfile.pdf)  |
 
 
 If more files are required by you for testing your additions or enhance the testing suite, you can visit the following sites:
