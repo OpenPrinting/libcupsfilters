@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "pdf.h"
 
 #include <pdfio.h>
@@ -102,14 +104,45 @@ cfPDFPages(const char *filename)
 //
 
 int 
-cfPDFPagesFP(char *file) 
+cfPDFPagesFP(FILE *file) 
 {
-  pdfio_file_t *pdf = pdfioFileOpen(file, NULL, NULL, NULL, NULL);
+  char temp_filename[] = "/tmp/pdf-file-XXXXXX";
+  int temp_fd = mkstemp(temp_filename);
+
+  if (temp_fd == -1) 
+  {
+    fprintf(stderr, "mkstemp: Could not create temporary file\n");
+    return (-1);
+  }
+
+  FILE *temp_fp = fdopen(temp_fd, "wb+");
+  if (!temp_fp) 
+  {
+    fprintf(stderr, "fdopen: Could not open temporary file stream\n");
+    close(temp_fd);
+    unlink(temp_filename); 
+    return 1;
+  }
+
+  char buffer[8192];
+  size_t bytes_read;
+  while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) 
+  {
+    fwrite(buffer, 1, bytes_read, temp_fp);
+  }
+
+  pdfio_file_t *pdf = pdfioFileOpen(temp_filename, NULL, NULL, NULL, NULL);
 
   if (!pdf)
+  {
+    fclose(temp_fp);
+    unlink(temp_filename);
     return -1;
+  }
 
   int pages = pdfioFileGetNumPages(pdf);
+  fclose(temp_fp);
+  unlink(temp_filename);
   pdfioFileClose(pdf);
   return pages;
 }
@@ -293,7 +326,7 @@ int cfPDFResizePage(cf_pdf_t *pdf,   // I - Pointer to PDFio file object
   float old_mediabox[4];
   pdfio_rect_t media_box;
 
-  if (!dict_lookup_rect(page, "/MediaBox", old_mediabox, true))
+  if (!dict_lookup_rect(page, "MediaBox", old_mediabox, true))
     return (1);
   
   fit_rect(old_mediabox, new_mediabox, scale);

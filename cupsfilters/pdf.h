@@ -57,7 +57,7 @@ int cfPDFFillForm(cf_pdf_t *doc,
 
 int cfPDFPages(const char *filename);
 
-int cfPDFPagesFP(char *file);
+int cfPDFPagesFP(FILE *file);
 
 #endif // !_CUPS_FILTERS_PDF_H_
 
