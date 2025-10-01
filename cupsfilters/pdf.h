@@ -12,11 +12,15 @@
 
 #include <stdio.h>
 
-typedef struct pdfio_file_t cf_pdf_t;
-// This is for conservation of the API, to avoid the name QPDF not going away
-// here. Actually the type cf_pdf_t is opaque, so the name of the struct does
-// not need to be defined by anythings.
-#define QPDF pdfio_file_t
+// cf_pdf_t is an opaque data type. It is supposed to be only used with the
+// functions of the cfPDF... API which is defined in this file (pdf.h). Its
+// internal structure is not expected to be used directly.
+//
+// Due to this the name after "struct" is meaningless. We keep the "QPDF" here
+// to satisfy automatic checkers of the API used by the packaging and build
+// server infrastructure of operating system distributions. This way we do not
+// need to bump the soname for this meaningless symbol.
+typedef struct QPDF cf_pdf_t;
 
 typedef struct _cf_opt cf_opt_t;
 
