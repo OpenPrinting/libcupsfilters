@@ -1014,7 +1014,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 
     if (doc_type == GS_DOC_TYPE_PDF)
     {
-      int pages = cfPDFPages(filename);
+      int pages = cfPDFPagesFP(fp);
 
       if (pages == 0)
       {
