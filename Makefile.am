@@ -181,32 +181,16 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/lut.c \
 	cupsfilters/mupdftopwg.c \
 	cupsfilters/pack.c \
-	cupsfilters/pclmtoraster.cxx \
-	cupsfilters/pdf.cxx \
-	cupsfilters/pdftopdf/pdftopdf.cxx \
-	cupsfilters/pdftopdf/pdftopdf-private.h \
-	cupsfilters/pdftopdf/pdftopdf-processor.cxx \
-	cupsfilters/pdftopdf/pdftopdf-processor-private.h \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-processor.cxx \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-processor-private.h \
-	cupsfilters/pdftopdf/pptypes.cxx \
-	cupsfilters/pdftopdf/pptypes-private.h \
-	cupsfilters/pdftopdf/nup.cxx \
-	cupsfilters/pdftopdf/nup-private.h \
-	cupsfilters/pdftopdf/intervalset.cxx \
-	cupsfilters/pdftopdf/intervalset-private.h \
-	cupsfilters/pdftopdf/qpdf-tools.cxx \
-	cupsfilters/pdftopdf/qpdf-tools-private.h \
-	cupsfilters/pdftopdf/qpdf-xobject.cxx \
-	cupsfilters/pdftopdf/qpdf-xobject-private.h \
-	cupsfilters/pdftopdf/qpdf-pdftopdf.cxx \
-	cupsfilters/pdftopdf/qpdf-pdftopdf-private.h \
-	cupsfilters/pdftopdf/qpdf-cm.cxx \
-	cupsfilters/pdftopdf/qpdf-cm-private.h \
-	cupsfilters/pdftoraster.cxx \
+	cupsfilters/pclmtoraster.c \
+	cupsfilters/pdf.c \
+	cupsfilters/pdftopdf.c \
+	cupsfilters/pdftopdf-private.h \
+	cupsfilters/ipp-options.c \
+	cupsfilters/ipp-options-private.h \
+	cupsfilters/pdftoraster.c \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
-	cupsfilters/pwgtopdf.cxx \
+	cupsfilters/pwgtopdf.c \
 	cupsfilters/pwgtoraster.c \
 	cupsfilters/raster.c \
 	cupsfilters/rastertopwg.c \
@@ -220,7 +204,7 @@ libcupsfilters_la_LIBADD = \
 	$(FONTCONFIG_LIBS) \
 	$(CUPS_LIBS) \
 	$(LCMS_LIBS) \
-	$(LIBQPDF_LIBS) \
+	$(LIBPDFIO_LIBS) \
 	$(LIBJPEG_LIBS) \
 	$(LIBJXL_LIBS) \
 	$(EXIF_LIBS) \
@@ -236,7 +220,7 @@ libcupsfilters_la_CFLAGS = \
 	$(FONTCONFIG_CFLAGS) \
 	$(CUPS_CFLAGS) \
 	$(LCMS_CFLAGS) \
-	$(LIBQPDF_CFLAGS) \
+	$(LIBPDFIO_CFLAGS) \
 	$(LIBJPEG_CFLAGS) \
 	$(LIBJXL_CFLAGS) \
 	$(EXIF_CFLAGS) \
@@ -326,11 +310,10 @@ test_ps_LDADD = libcupsfilters.la
 testfilters_SOURCES = \
 	cupsfilters/testfilters.c \
 	$(pkgfiltersinclude_DATA)
-
 testfilters_LDADD = \
 	libcupsfilters.la \
-	-lm -ldl -lcups
-
+	$(CUPS_LIBS) \
+	-lm -ldl
 testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib

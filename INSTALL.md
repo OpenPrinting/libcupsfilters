@@ -17,10 +17,9 @@ For non-PDF printers (excluding Mac OS X users), you must install Ghostscript wi
 - POSIX-compliant shell (/bin/sh)
 - autoconf, autopoint, automake, libtool for ./autogen.sh
 - CUPS devel files (version 2.2.2 or higher)
-- Poppler (with --enable-poppler-cpp) devel files for pdftoraster
 - fontconfig devel files for texttopdf (disable using --without-fontconfig)
 - liblcms (liblcms2 recommended) devel files for color management
-- QPDF (11.0 or higher, 11.4.0 recommended) devel files
+- PDFio (1.5.3 or higher) devel files
 
 ### Additional Binaries for Non-PDF Printers
 - Ghostscript 10.01.1 or higher (with specific output devices support)
@@ -90,9 +89,9 @@ make check
   ```
   sudo apt-get install build-essential autoconf autopoint automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, mupdf-tools, gettext, libcups2-dev, libqpdf-dev:
+- Install poppler-utils fontconfig, liblcms2, mupdf-tools, gettext, libcups2-dev, libpdfio-dev:
   ```
-  sudo apt-get install libpoppler-cpp-dev poppler-utils libfontconfig1-dev liblcms2-dev mupdf-tools gettext libcups2-dev libqpdf-dev
+  sudo apt-get install poppler-utils libfontconfig1-dev liblcms2-dev mupdf-tools gettext libcups2-dev libpdfio-dev
   ```
 - Install Ghostscript (for non-PDF printers):
   ```
@@ -112,9 +111,9 @@ make check
   ```
   sudo dnf install gcc gcc-c++ make autoconf automake libtool
   ```
-- Install Poppler, fontconfig, liblcms2, mupdf-tools:
+- Install poppler-utils, fontconfig, liblcms2, mupdf-tools, libpdfio:
   ```
-  sudo dnf install libpoppler-cpp-dev poppler-utils libfontconfig1-dev liblcms2-dev mupdf-tools
+  sudo dnf install poppler-utils libfontconfig1-dev liblcms2-dev libpdfio-dev mupdf-tools
   ```
 - Install Ghostscript (for non-PDF printers):
   ```

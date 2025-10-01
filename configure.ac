@@ -325,7 +325,8 @@ AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"],
 	AC_DEFINE([HAVE_FONTCONFIG], [1], [Defines if we are using fontconfig.])
   PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 ])
-PKG_CHECK_MODULES([LIBQPDF], [libqpdf >= 11.0.0])
+PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.5.3])
+
 
 # =================
 # Check for Poppler
@@ -493,9 +494,6 @@ AS_IF([test x"$GCC" = "xyes"], [
 	CXXFLAGS="$CXXFLAGS -Wall " # -Weffc++" # TODO: enable when it does not print 1MB of warnings
 ])
 CFLAGS="$CFLAGS -D_GNU_SOURCE"
-CXXFLAGS="$CXXFLAGS -D_GNU_SOURCE -DPOINTERHOLDER_TRANSITION=0"
-#                                   ^^ Silence deprecation warnings of QPDF 11
-#                                      See /usr/include/qpdf/PointerHolder.hh
 CXXFLAGS="$CXXFLAGS -std=c++17"
 
 # =========
