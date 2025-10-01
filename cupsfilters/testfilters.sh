@@ -11,5 +11,5 @@ mkdir -p cupsfilters/test_files/output_files
 exit_code=$?
 
 #Delete the output_files folder all together...
-#rm -r cupsfilters/test_files/output_files
+rm -r cupsfilters/test_files/output_files
 exit $exit_code
