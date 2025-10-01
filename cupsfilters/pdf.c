@@ -381,7 +381,9 @@ cfPDFWrite(cf_pdf_t *pdf,
 // 'cfPDFFillForm()' - Fill recognized fields with information
 //
 
-int cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt) {
+int
+cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt)
+{
     // TODO: PDFio does not directly support form filling.
     return 0;
 }
