@@ -69,7 +69,6 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   JxlDecoderStatus status;
   uint8_t *jxl_data = NULL;
   long jxl_size;
-  int ok = 0;
   size_t bytes_read;
 
   //
@@ -157,7 +156,7 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   
 #ifdef HAVE_EXIF
   fseek(fp, 0, SEEK_SET);
-  int temp = _cfImageReadEXIF(img, fp);    // Handle resolution from EXIF if needed
+  //int temp = _cfImageReadEXIF(img, fp);    // Handle resolution from EXIF if needed
 #endif
 
   //
