@@ -183,10 +183,10 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/pack.c \
 	cupsfilters/pclmtoraster.c \
 	cupsfilters/pdf.c \
-	cupsfilters/pdftopdf/pdftopdf.c \
-	cupsfilters/pdftopdf/pdftopdf-private.h \
-	cupsfilters/pdftopdf/ipp-options.c \
-	cupsfilters/pdftopdf/ipp-options-private.h \
+	cupsfilters/pdftopdf.c \
+	cupsfilters/pdftopdf-private.h \
+	cupsfilters/ipp-options.c \
+	cupsfilters/ipp-options-private.h \
 	cupsfilters/pdftoraster.c \
 	cupsfilters/pdfutils.c \
 	cupsfilters/pdfutils-private.h \
