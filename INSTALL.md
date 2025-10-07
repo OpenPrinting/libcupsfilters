@@ -19,7 +19,7 @@ For non-PDF printers (excluding Mac OS X users), you must install Ghostscript wi
 - CUPS devel files (version 2.2.2 or higher)
 - fontconfig devel files for texttopdf (disable using --without-fontconfig)
 - liblcms (liblcms2 recommended) devel files for color management
-- PDFio (1.5.3 or higher) devel files
+- PDFio (1.6.0 or higher) devel files
 
 ### Additional Binaries for Non-PDF Printers
 - Ghostscript 10.01.1 or higher (with specific output devices support)
