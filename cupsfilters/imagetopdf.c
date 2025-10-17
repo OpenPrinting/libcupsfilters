@@ -1203,6 +1203,24 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       doc.xinches = doc.xinches * atoi(val) / 100;
       doc.yinches = doc.yinches * atoi(val) / 100;
     }
+  // FIX by ishpreet: Handle explicit landscape option
+  if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
+  {
+    // User explicitly requested landscape
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+                 "cfFilterImageToPDF: Explicit landscape option detected");
+    doc.Orientation = (normal_landscape == 4 ? 1 : 3);
+  }
+  else if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
+  {
+    int orient = atoi(val);
+    if (orient == 4 || orient == 5)  // 4=landscape, 5=reverse landscape
+    {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+                   "cfFilterImageToPDF: Orientation-requested=%d (landscape)", orient);
+      doc.Orientation = (normal_landscape == 4 ? 1 : 3);
+    }
+  }
 
     if (!fillprint && !cropfit &&
 	(((val = cupsGetOption("orientation-requested", num_options, options)) ==
