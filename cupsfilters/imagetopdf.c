@@ -961,9 +961,16 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       normal_landscape = 4;
     if ((val = cupsGetOption("orientation-requested",
 			     num_options, options)) != NULL)
+    {
       tempOrientation = atoi(val);
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterImageToPDF: orientation-requested=%d received",
+		   tempOrientation);
+    }
     else if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
     {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterImageToPDF: landscape=%s received", val);
       if (!strcasecmp(val, "true") || !strcasecmp(val, "yes") ||
 	  !strcasecmp(val, "on") || !strcasecmp(val, "1"))
 	tempOrientation = normal_landscape;
@@ -971,22 +978,35 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	       !strcasecmp(val, "off") || !strcasecmp(val, "0"))
 	tempOrientation = 3;
     }
+    else
+    {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterImageToPDF: No orientation or landscape option provided");
+    }
     if (tempOrientation == 0)
     {
       if (((pw > ph) && (w < h)) || ((pw < ph) && (w > h)))
 	tempOrientation = normal_landscape;
       else
 	tempOrientation = 3;
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterImageToPDF: Auto-detected tempOrientation=%d",
+		   tempOrientation);
     }
     if (tempOrientation == 4 || tempOrientation == 5)
     {
       int tmp = pw;
       pw = ph;
       ph = tmp;
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterImageToPDF: Landscape requested, swapping page dimensions");
     }
     doc.Orientation = (tempOrientation == 5 ? 3 :
 		       (tempOrientation == 6 ? 2 :
 			tempOrientation - 3));
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterImageToPDF: Final doc.Orientation=%d (0=portrait, 1=90deg, 2=180deg, 3=270deg)",
+		 doc.Orientation);
 
     if (w * 72.0 / doc.img->xppi > pw || h * 72.0 / doc.img->yppi > ph)
       document_large = 1;
@@ -1203,24 +1223,6 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       doc.xinches = doc.xinches * atoi(val) / 100;
       doc.yinches = doc.yinches * atoi(val) / 100;
     }
-  // FIX by ishpreet: Handle explicit landscape option
-  if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
-  {
-    // User explicitly requested landscape
-    if (log) log(ld, CF_LOGLEVEL_DEBUG,
-                 "cfFilterImageToPDF: Explicit landscape option detected");
-    doc.Orientation = (normal_landscape == 4 ? 1 : 3);
-  }
-  else if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
-  {
-    int orient = atoi(val);
-    if (orient == 4 || orient == 5)  // 4=landscape, 5=reverse landscape
-    {
-      if (log) log(ld, CF_LOGLEVEL_DEBUG,
-                   "cfFilterImageToPDF: Orientation-requested=%d (landscape)", orient);
-      doc.Orientation = (normal_landscape == 4 ? 1 : 3);
-    }
-  }
 
     if (!fillprint && !cropfit &&
 	(((val = cupsGetOption("orientation-requested", num_options, options)) ==
