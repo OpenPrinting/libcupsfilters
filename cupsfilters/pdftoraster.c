@@ -29,6 +29,9 @@
 #include <cupsfilters/bitmap.h>
 #include <strings.h>
 #include <math.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 #include <pdfio.h>
 #include <pdfio-content.h>
@@ -69,6 +72,8 @@
 
 #define MAX_CHECK_COMMENT_LINES 20
 #define MAX_BYTES_PER_PIXEL 32
+
+extern char **environ;		// need this to pass parent's environment to child
 
 typedef struct cms_profile_s
 {
@@ -1522,40 +1527,122 @@ write_page_image(cups_raster_t *raster,
   char img_path[] = "/tmp/tempimg_XXXXXX";
   int fd_img = mkstemp(img_path);
   close(fd_img); // We just need the filename
-  
-  char command[1024];
+ 
+  int ret;		// exit status
+  pid_t pid = fork();	// child process
 
-
-  switch (doc->header.cupsColorSpace) 
+  if (pid == -1)	// fork failedd
   {
-    case CUPS_CSPACE_W:
-    case CUPS_CSPACE_K:
-    case CUPS_CSPACE_SW:
-      if (doc->header.cupsBitsPerColor == 1) 
-      {
-        snprintf(command, sizeof(command),
-                 "pdftoppm -rx %d -ry %d -f %d -l %d -mono '%s' > '%s'",
-                 fakeres[0], fakeres[1], pageNo, pageNo, doc->input_filename, img_path);
-      } 
-      else 
-      {
-        snprintf(command, sizeof(command),
-                 "pdftoppm -rx %d -ry %d -f %d -l %d -gray '%s' > '%s'",
-                 fakeres[0], fakeres[1], pageNo, pageNo, doc->input_filename, img_path);
-      }
-      break;
-    default:
-      snprintf(command, sizeof(command),
-               "pdftoppm -rx %d -ry %d -f %d -l %d '%s' > '%s'",
-	       fakeres[0], fakeres[1], pageNo, pageNo, doc->input_filename, img_path);
-      break;
-  } 
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                   "Failed to fork process for pdftoppm");
+    unlink(img_path);
+    return;
+  }
 
-  int ret = system(command);
+  if (pid == 0)
+  {
+    // --- CHILD PROCESS ---
+
+    // We build argv for execve.
+    // First, convert numbers to strings.
+    char rx_str[16];
+    char ry_str[16];
+    char page_str[16];
+    snprintf(rx_str, sizeof(rx_str), "%d", fakeres[0]);
+    snprintf(ry_str, sizeof(ry_str), "%d", fakeres[1]);
+    snprintf(page_str, sizeof(page_str), "%d", pageNo);
+
+    // Open the output file
+    int out_fd = open(img_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (out_fd == -1)
+    {
+      // Use _exit() in child process for safety
+      perror("open(img_path) failed"); 
+      _exit(127);
+    }
+    
+    // Redirect stdout (file descriptor 1) to our file
+    if (dup2(out_fd, 1) == -1)
+    {
+      perror("dup2 failed");
+      _exit(127);
+    }
+    close(out_fd); // We don't need this descriptor anymore
+
+    // Building the argument list (argv)
+    // Needs to be NULL-terminated. Max 12 args:
+    // pdftoppm, -rx, N, -ry, N, -f, N, -l, N, [-mono|-gray], file, NULL
+    char *argv[12];
+    int arg_index = 0;
+
+    argv[arg_index++] = "pdftoppm";
+    argv[arg_index++] = "-rx";
+    argv[arg_index++] = rx_str;
+    argv[arg_index++] = "-ry";
+    argv[arg_index++] = ry_str;
+    argv[arg_index++] = "-f";
+    argv[arg_index++] = page_str;
+    argv[arg_index++] = "-l";
+    argv[arg_index++] = page_str;
+
+    // Add the dynamic color space argument
+    switch (doc->header.cupsColorSpace)
+    {
+      case CUPS_CSPACE_W:
+      case CUPS_CSPACE_K:
+      case CUPS_CSPACE_SW:
+        if (doc->header.cupsBitsPerColor == 1)
+        {
+          argv[arg_index++] = "-mono";
+        }
+        else
+        {
+          argv[arg_index++] = "-gray";
+        }
+        break;
+      default:
+        // No extra argument needed for color
+        break;
+    }
+
+    // Add the final arguments
+    argv[arg_index++] = doc->input_filename; // The input PDF
+    argv[arg_index++] = NULL;                // End of the array
+
+    // 3. Define the path and call execve
+    // NOTE: This path is hardcoded. If pdftoppm is elsewhere,
+    // this will fail. Using execvp() would search the PATH.
+    const char *pathname = "/usr/bin/pdftoppm";
+
+    execve(pathname, argv, environ);
+
+    // If execve returns, an error occurred
+    perror("execve pdftoppm");
+    _exit(127); 
+  }
+  else
+  {
+    // --- PARENT PROCESS ---
+    int status;
+
+    // Wait for the child process to finish
+    waitpid(pid, &status, 0);
+
+    // Get the child's exit status
+    if (WIFEXITED(status))
+    {
+      ret = WEXITSTATUS(status); // This is the equivalent of system()'s return
+    }
+    else
+    {
+      ret = -1; // Indicate abnormal termination
+    }
+  }
+  
   if (ret != 0) 
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-                                   "pdftoppm command failed (exit status %d): %s", ret, command);
+                                   "pdftoppm command failed (exit status %d)", ret);
     unlink(img_path);
     return;
   }
@@ -2282,7 +2369,6 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
   {
     for (i = 1; i <= npages; i ++)
     {
-      fprintf(stderr, "%ld %s all going well++++++++++\n", npages, name);
       if (out_page(&doc, i, data, raster, &convert, log, ld, iscanceled,
                    icd) == 1)
       {
