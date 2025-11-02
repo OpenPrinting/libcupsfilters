@@ -42,6 +42,7 @@ jobs:
       run: |
        sudo apt install libpoppler-cpp-dev libpython3-dev libdbus-1-dev
        sudo apt install mupdf-tools
+       sudo apt install -y poppler-utils
        
     - name: Install ghostscript
       run: sudo apt install ghostscript
