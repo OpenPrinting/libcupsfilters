@@ -1529,7 +1529,7 @@ write_page_image(cups_raster_t *raster,
   int ret;		// exit status
   pid_t pid = fork();	// child process
 
-  if (pid == -1)	// fork failedd
+  if (pid == -1)	// fork failed
   {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
                                    "Failed to fork process for pdftoppm");
