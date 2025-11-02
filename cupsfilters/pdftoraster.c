@@ -1554,6 +1554,7 @@ write_page_image(cups_raster_t *raster,
     int out_fd = open(img_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (out_fd == -1)
     {
+      // Use _exit() in child process for safety
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
                                      "pdftoraster: Failed to open output file %s", img_path);
       _exit(127);
@@ -1609,9 +1610,7 @@ write_page_image(cups_raster_t *raster,
     argv[arg_index++] = NULL;                // End of the array
 
     // Define the path and call execv
-    // NOTE: This path is hardcoded. If pdftoppm is elsewhere,
-    // this will fail. Using execv() would search the PATH.
-    const char *pathname = "/usr/bin/pdftoppm";
+    const char *pathname = PDFTOPPM_COMMAND;
     execv(pathname, argv);
 
     // If execv returns, an error occurred
