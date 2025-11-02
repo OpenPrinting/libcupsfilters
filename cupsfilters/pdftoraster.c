@@ -73,8 +73,6 @@
 #define MAX_CHECK_COMMENT_LINES 20
 #define MAX_BYTES_PER_PIXEL 32
 
-extern char **environ;		// need this to pass parent's environment to child
-
 typedef struct cms_profile_s
 {
   // for color profiles
@@ -1543,7 +1541,7 @@ write_page_image(cups_raster_t *raster,
   {
     // --- CHILD PROCESS ---
 
-    // We build argv for execve.
+    // We build argv for execv.
     // First, convert numbers to strings.
     char rx_str[16];
     char ry_str[16];
@@ -1556,15 +1554,16 @@ write_page_image(cups_raster_t *raster,
     int out_fd = open(img_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (out_fd == -1)
     {
-      // Use _exit() in child process for safety
-      perror("open(img_path) failed"); 
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                     "pdftoraster: Failed to open output file %s", img_path);
       _exit(127);
     }
     
     // Redirect stdout (file descriptor 1) to our file
     if (dup2(out_fd, 1) == -1)
     {
-      perror("dup2 failed");
+      if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                     "pdftoraster: Failed to redirect stdout (dup2)");
       _exit(127);
     }
     close(out_fd); // We don't need this descriptor anymore
@@ -1609,15 +1608,15 @@ write_page_image(cups_raster_t *raster,
     argv[arg_index++] = doc->input_filename; // The input PDF
     argv[arg_index++] = NULL;                // End of the array
 
-    // 3. Define the path and call execve
+    // Define the path and call execv
     // NOTE: This path is hardcoded. If pdftoppm is elsewhere,
-    // this will fail. Using execvp() would search the PATH.
+    // this will fail. Using execv() would search the PATH.
     const char *pathname = "/usr/bin/pdftoppm";
+    execv(pathname, argv);
 
-    execve(pathname, argv, environ);
-
-    // If execve returns, an error occurred
-    perror("execve pdftoppm");
+    // If execv returns, an error occurred
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                     "pdftoraster: Failed to execute %s", pathname); 
     _exit(127); 
   }
   else
