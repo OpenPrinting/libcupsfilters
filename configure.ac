@@ -388,7 +388,7 @@ AC_ARG_WITH([ippfind-path],
 
 CUPS_GHOSTSCRIPT=""
 AS_IF([test "x$enable_ghostscript" != "xyes"], [
-       with_gs_path=""
+      with_gs_path=""
 ], [
 	AS_IF([test "x$with_gs_path" != "xsystem"], [
 		CUPS_GHOSTSCRIPT="$with_gs_path"
@@ -406,6 +406,33 @@ AS_IF([test "x$enable_ghostscript" != "xyes"], [
 ])
 AM_CONDITIONAL(ENABLE_GHOSTSCRIPT, test "x$enable_ghostscript" = xyes)
 AC_SUBST(CUPS_GHOSTSCRIPT)
+
+# ====================
+# Check for pdftoppm
+# ====================
+AC_ARG_WITH([pdftoppm-path],
+	[AS_HELP_STRING([--with-pdftoppm-path=value], [Set path to pdftoppm binary (default: system).])],
+       	[with_pdftoppm_path="$withval"],
+       	[with_pdftoppm_path=system]
+)
+
+PDFTOPPM_COMMAND=""
+AS_IF([test "x$with_pdftoppm_path" != "xsystem"], [
+      PDFTOPPM_COMMAND="$with_pdftoppm_path"
+], [
+	AS_IF([test "x$cross_compiling" = "xyes"], [
+		PDFTOPPM_COMMAND="pdftoppm"
+	], [
+		AC_CHECK_PROG(PDFTOPPM_COMMAND, pdftoppm, pdftoppm) 
+	])
+])
+
+AS_IF([test "x$PDFTOPPM_COMMAND" = "x"], [
+	AC_MSG_ERROR([Required pdftoppm binary is missing. Please install poppler-utils package.])
+])
+
+AC_DEFINE_UNQUOTED([PDFTOPPM_COMMAND], ["$PDFTOPPM_COMMAND"], [Full path to pdftoppm executable])
+AC_SUBST(PDFTOPPM_COMMAND)
 
 # ================
 # Check for mutool
