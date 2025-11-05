@@ -1199,57 +1199,61 @@ finish_page(struct pdf_info *info,
   }
 
   // Draw it
-  char *content;
-  int content_size;
-  content_size = 768;  // Enough for 2 doubles and commands
-  content = (char*)malloc(content_size);
-    
   if(info->outformat == CF_FILTER_OUT_FORMAT_PDF)
   {
-    snprintf(content, 256, 
-             "q\n%.2f 0 0 %.2f 0 0 cm\n/I Do\niQ\n",
-              info->page_width, info->page_height);
+    char transform_cmd[256];
+    int bytes = snprintf(transform_cmd, sizeof(transform_cmd),
+                         "q\n%.2f 0 0 %.2f 0 0 cm\n/I Do\niQ\n",
+                         info->page_width, info->page_height);
+    if (bytes < 0 || bytes >= (int)sizeof(transform_cmd) ||
+        !pdfioStreamWrite(info->page_stream, transform_cmd, (size_t)bytes))
+      goto draw_error;
   }
   else if(info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
-    char *endptr;
-    long resolution_integer = strtol(info->pclm_source_resolution_default, &endptr, 10);
-    
-    double d = 72.0 / (double)resolution_integer;  // 72 points per inch
-    
-    char scale_cmd[256];
-    snprintf(scale_cmd, sizeof(scale_cmd), "%.2f 0 0 %.2f 0 0 cm\n", d, d);
-    strcat(content, scale_cmd);
-
-    unsigned yAnchor = info->height;
+    const char *resolution = info->pclm_source_resolution_default;
+    char scale_cmd[64];
     char strip_cmd[512];
-    
+    int id_width = num_digits(info->pclm_num_strips - 1);
+    unsigned yAnchor = info->height;
+    if (!resolution || !*resolution)
+      resolution = "300";
+    long resolution_integer = strtol(resolution, NULL, 10);
+    if (resolution_integer <= 0)
+      resolution_integer = 300;
+    double d = 72.0 / (double)resolution_integer;
+    int bytes = snprintf(scale_cmd, sizeof(scale_cmd), "%.2f 0 0 %.2f 0 0 cm\n", d, d);
+    if (bytes < 0 || bytes >= (int)sizeof(scale_cmd) ||
+        !pdfioStreamWrite(info->page_stream, scale_cmd, (size_t)bytes))
+      goto draw_error;
     for (unsigned i = 0; i < info->pclm_num_strips; i++)
     {
       yAnchor -= info->pclm_strip_height[i];
-        
-      snprintf(strip_cmd, sizeof(strip_cmd),
-               "/P <</MCID 0>> BDC q\n"
-	       "%u 0 0 %u 0 %u cm\n"
-	       "/Image%0*d Do Q\n",
-	       info->width,
-	       info->pclm_strip_height[i],
-	       yAnchor,
-	       num_digits(info->pclm_num_strips - 1),  // Number of padding digits
-	       i);
-            
-       strcat(content, strip_cmd);
+      bytes = snprintf(strip_cmd, sizeof(strip_cmd),
+                       "/P <</MCID 0>> BDC q\n%u 0 0 %u 0 %u cm\n/Image%0*d Do Q\n",
+                       info->width,
+                       info->pclm_strip_height[i],
+                       yAnchor,
+                       id_width, i);
+      if (bytes < 0 || bytes >= (int)sizeof(strip_cmd) ||
+          !pdfioStreamWrite(info->page_stream, strip_cmd, (size_t)bytes))
+        goto draw_error;
     }
-
   }
 
-  pdfioStreamWrite(info->page_stream, (unsigned char *)content, strlen(content));
   pdfioStreamClose(info->page_stream);
+  return 0;
 
-  free(content);
-  return 0; 
+draw_error:
+  if (doc->logfunc)
+    doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                 "cfFilterPWGToPDF: Failed to write page drawing commands.");
+  pdfioStreamClose(info->page_stream);
+  return 1;
 }
- 
+
+//
+// Perform modifications
 //
 // Perform modifications to PDF if color space conversions are needed
 //
@@ -1292,9 +1296,20 @@ prepare_pdf_page(struct pdf_info *info,
       (height % info->pclm_strip_height_preferred ? 1 : 0);
 
     info->pclm_strip_height = (unsigned *)realloc(info->pclm_strip_height,
-		    			  info->pclm_num_strips * sizeof(unsigned));
+						  info->pclm_num_strips * sizeof(unsigned));
     info->pclm_strip_data = (char **)realloc(info->pclm_strip_data,
-		    			  info->pclm_num_strips * sizeof(char *));
+					     info->pclm_num_strips * sizeof(char *));
+    info->pclm_strip_data_size = (size_t *)realloc(info->pclm_strip_data_size,
+						   info->pclm_num_strips * sizeof(size_t));
+    if (!info->pclm_strip_height || !info->pclm_strip_data || !info->pclm_strip_data_size)
+    {
+      if (doc->logfunc)
+        doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                     "cfFilterPWGToPDF: Unable to allocate strip metadata");
+      return (1);
+    }
+    memset(info->pclm_strip_data, 0, info->pclm_num_strips * sizeof(char *));
+    memset(info->pclm_strip_data_size, 0, info->pclm_num_strips * sizeof(size_t));
     for (size_t i = 0; i < info->pclm_num_strips; i ++)
     {
       info->pclm_strip_height[i] =
@@ -2015,7 +2030,6 @@ error:
 
   return (ret);
 }
-
 
 
 
