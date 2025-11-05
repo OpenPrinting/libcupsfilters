@@ -209,7 +209,7 @@ EOF
   -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -lppd -o "${HARNESS_BIN}" >/dev/null
+  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null
 
 : > "${RUN_LOG}"
 ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"
