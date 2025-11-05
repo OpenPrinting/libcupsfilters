@@ -26,6 +26,7 @@ EXTRA_DIST = \
 	pdf.utf-8.simple.in
 
 EXTRA_DIST += \
+	cupsfilters/test-pclm-overflow.sh \
 	data/makePDFfromPS.sh \
 	data/classified.ps \
 	data/confidential.ps \
@@ -93,7 +94,9 @@ pkgfiltersinclude_DATA = \
 
 lib_LTLIBRARIES = libcupsfilters.la
 
-check_SCRIPTS = cupsfilters/testfilters.sh
+check_SCRIPTS = \
+	cupsfilters/testfilters.sh \
+	cupsfilters/test-pclm-overflow.sh
 
 check_PROGRAMS = \
 	testcmyk \
@@ -115,7 +118,8 @@ TESTS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
-	cupsfilters/testfilters.sh
+	cupsfilters/testfilters.sh \
+	cupsfilters/test-pclm-overflow.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
