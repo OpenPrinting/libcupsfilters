@@ -1647,6 +1647,9 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
   FILE          	*outputfp;      // Output data stream
   cf_filter_out_format_t outformat;     // Output format
   int			Page, empty = 1;
+
+  // Initialize doc structure to prevent use of uninitialized memory
+  memset(&doc, 0, sizeof(doc));
   cf_cm_calibration_t	cm_calibrate;   // Status of CUPS color management
 					// ("on" or "off")
   struct pdf_info pdf;
