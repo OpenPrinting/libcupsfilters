@@ -41,6 +41,7 @@ _cfImageReadTIFF(
   TIFF		*tif;			// TIFF file
   uint32_t	width, height;		// Size of image
   uint16_t	photometric,		// Colorspace
+    planar,         // Color components in separate planes
 		compression,		// Type of compression
 		orientation,		// Orientation
 		resunit,		// Units for resolution
@@ -113,6 +114,15 @@ _cfImageReadTIFF(
     return (-1);
   }
 
+  if (TIFFGetField(tif, TIFFTAG_PLANARCONFIG, &planar) &&
+      planar == PLANARCONFIG_SEPARATE)
+  {
+    fputs("DEBUG: Images with planar color configuration are not supported!\n", stderr);
+    TIFFClose(tif);
+    fclose(fp);
+    return (1);
+  }
+
   if (!TIFFGetField(tif, TIFFTAG_COMPRESSION, &compression))
   {
     DEBUG_puts("DEBUG: No compression tag in the file!\n");
@@ -126,6 +136,15 @@ _cfImageReadTIFF(
 
   if (!TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bits))
     bits = 1;
+
+  if (bits == 1 && samples > 1)
+  {
+    fprintf(stderr, "ERROR: Color images with 1 bit per sample not supported! "
+                    "Samples per pixel: %d; Bits per sample: %d\n", samples, bits);
+    TIFFClose(tif);
+    fclose(fp);
+    return (1);
+  }
 
   //
   // Get the image orientation...
@@ -192,6 +211,23 @@ _cfImageReadTIFF(
     alpha = 1;
   else
     alpha = 0;
+
+  //
+  // Check whether number of samples per pixel corresponds with color space
+  //
+
+  if ((photometric == PHOTOMETRIC_RGB && (samples < 3 || samples > 4)) ||
+      (photometric == PHOTOMETRIC_SEPARATED && samples != 4))
+  {
+    fprintf(stderr, "DEBUG: Number of samples per pixel does not correspond to color space! "
+                    "Color space: %s; Samples per pixel: %d\n",
+                    (photometric == PHOTOMETRIC_RGB ? "RGB" :
+                     (photometric == PHOTOMETRIC_SEPARATED ? "CMYK" : "Unknown")),
+                    samples);
+    TIFFClose(tif);
+    fclose(fp);
+    return (1);
+  }
 
   //
   // Check the size of the image...
@@ -263,6 +299,14 @@ _cfImageReadTIFF(
     case ORIENTATION_RIGHTBOT :
         DEBUG_puts("DEBUG: orientation = right-bottom\n");
         break;
+  }
+
+  if (orientation >= ORIENTATION_LEFTTOP)
+  {
+    fputs("ERROR: TIFF files with vertical scanlines are not supported!\n", stderr);
+    TIFFClose(tif);
+    fclose(fp);
+    return (-1);
   }
 
   switch (orientation)
@@ -1493,7 +1537,7 @@ _cfImageReadTIFF(
 	      }
 
 	      if (lut)
-	        cfImageLut(out, img->xsize * 3, lut);
+	        cfImageLut(out, img->xsize * bpp, lut);
 
               _cfImagePutRow(img, 0, y, img->xsize, out);
             }
