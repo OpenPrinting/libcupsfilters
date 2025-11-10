@@ -1814,6 +1814,20 @@ out_page(pdftoraster_doc_t *doc,
     doc->header.cupsPageSize[0] = l;
   else
     doc->header.cupsPageSize[1] = l;
+
+  //
+  // Maximum allowed page size for PDF is 200x200 inches (~ 5x5 m), or 14400x14400 pt
+  // https://community.adobe.com/t5/indesign-discussions/maximum-width-of-a-pdf/td-p/9217372
+  //
+  if (doc->header.cupsPageSize[0] > 14400) {
+    fprintf(stderr, "ERROR: Page width is %.2fpt, too large, cropping to 14400pt\n", doc->header.cupsPageSize[0]);
+    doc->header.cupsPageSize[0] = 14400;
+  }
+  if (doc->header.cupsPageSize[1] > 14400) {
+    fprintf(stderr, "ERROR: Page height is %.2fpt, too large, cropping to 14400pt\n", doc->header.cupsPageSize[1]);
+    doc->header.cupsPageSize[1] = 14400;
+  }
+
   if (rotate == 90 || rotate == 270)
   {
     doc->header.cupsImagingBBox[0] =
