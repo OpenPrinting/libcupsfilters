@@ -653,7 +653,7 @@ cfImageCrop(cf_image_t* img,
   cf_ib_t *pixels = (cf_ib_t*)malloc(img->xsize * cfImageGetDepth(img));
 
   temp->cachefile = -1;
-  temp->max_ics = CF_TILE_MINIMUM;
+  temp->max_ics = img->max_ics;
   temp->colorspace = img->colorspace;
   temp->xppi = img->xppi;
   temp->yppi = img->yppi;
