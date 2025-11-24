@@ -353,9 +353,13 @@ _cfImageReadTIFF(
   // Allocate input and output buffers...
   //
 
+  int multi_pixel = (photometric != PHOTOMETRIC_MINISWHITE &&
+                    photometric != PHOTOMETRIC_MINISBLACK &&
+                    (samples > 1 || photometric == PHOTOMETRIC_PALETTE));
+
   if (orientation < ORIENTATION_LEFTTOP)
   {
-    if (samples > 1 || photometric == PHOTOMETRIC_PALETTE)
+    if (multi_pixel)
       pstep = xdir * 3;
     else
       pstep = xdir;
@@ -378,7 +382,7 @@ _cfImageReadTIFF(
   }
   else
   {
-    if (samples > 1 || photometric == PHOTOMETRIC_PALETTE)
+    if (multi_pixel)
       pstep = ydir * 3;
     else
       pstep = ydir;
