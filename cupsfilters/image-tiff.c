@@ -120,7 +120,7 @@ _cfImageReadTIFF(
     fputs("DEBUG: Images with planar color configuration are not supported!\n", stderr);
     TIFFClose(tif);
     fclose(fp);
-    return (1);
+    return (-1);
   }
 
   if (!TIFFGetField(tif, TIFFTAG_COMPRESSION, &compression))
@@ -143,7 +143,7 @@ _cfImageReadTIFF(
                     "Samples per pixel: %d; Bits per sample: %d\n", samples, bits);
     TIFFClose(tif);
     fclose(fp);
-    return (1);
+    return (-1);
   }
 
   //
@@ -243,7 +243,7 @@ _cfImageReadTIFF(
 		  (unsigned)samples));
     TIFFClose(tif);
     fclose(fp);
-    return (1);
+    return (-1);
   }
 
   //
@@ -365,7 +365,7 @@ _cfImageReadTIFF(
       DEBUG_puts("DEBUG: No enough memory.\n");
       TIFFClose(tif);
       fclose(fp);
-      return (1);
+      return (-1);
     }
     if ((out = (cf_ib_t*)calloc(img->xsize * bpp, sizeof(cf_ib_t))) == NULL)
     {
@@ -373,7 +373,7 @@ _cfImageReadTIFF(
       free(in);
       TIFFClose(tif);
       fclose(fp);
-      return (1);
+      return (-1);
     }
   }
   else
@@ -388,7 +388,7 @@ _cfImageReadTIFF(
       DEBUG_puts("DEBUG: No enough memory.\n");
       TIFFClose(tif);
       fclose(fp);
-      return (1);
+      return (-1);
     }
     if ((out = (cf_ib_t*)calloc(img->ysize * bpp, sizeof(cf_ib_t))) == NULL)
     {
@@ -396,7 +396,7 @@ _cfImageReadTIFF(
       free(in);
       TIFFClose(tif);
       fclose(fp);
-      return (1);
+      return (-1);
     }
   }
 
