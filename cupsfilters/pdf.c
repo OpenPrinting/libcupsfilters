@@ -2,7 +2,7 @@
 // Copyright 2012 Canonical Ltd.
 // Copyright 2013 ALT Linux, Andrew V. Stepanov <stanv@altlinux.com>
 // Copyright 2018 Sahil Arora <sahilarora.535@gmail.com>
-// Copyright 2024-2025 Uddhav Phatak <uddhavphatak@gmail.com>
+// Copyright 2024-2026 Uddhav Phatak <uddhavphatak@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
@@ -50,14 +50,16 @@ make_real_box(float values[4])  // I - Dimensions of the box in a float array
 // 'cfPDFLoadTemplate()' - Load an existing PDF file using PDFio.
 //
 
-cf_pdf_t*
-cfPDFLoadTemplate(const char *filename) 
+cf_pdf_t*					  // O - Pointer to cf_pdf_t struct
+cfPDFLoadTemplate(const char *filename) 	// I - Filename of the PDF file
 {
+  // open pdf file from filename
   pdfio_file_t *pdf = pdfioFileOpen(filename, NULL, NULL, NULL, NULL);
 
   if (!pdf) 
     return NULL;
 
+  // get number of pages, if it isn't 1; its invalid PDF file
   if (pdfioFileGetNumPages(pdf) != 1) 
   {
     pdfioFileClose(pdf);
@@ -71,8 +73,8 @@ cfPDFLoadTemplate(const char *filename)
 // 'cfPDFFree()' - Free pointer used by PDF object
 //
 
-void 
-cfPDFFree(cf_pdf_t *pdf) 
+void 				  // O - void
+cfPDFFree(cf_pdf_t *pdf) 	// I - pointer to the cf_pdf_t struct to free
 {
   if (pdf) 
   {
@@ -84,8 +86,8 @@ cfPDFFree(cf_pdf_t *pdf)
 // 'cfPDFPages()' - Count number of pages in file using PDFio.
 //
 
-int 
-cfPDFPages(const char *filename) 
+int 					  // O - Number of pages or -1 on error
+cfPDFPages(const char *filename) 	// I - Filename of PDF
 {
   pdfio_file_t *pdf = pdfioFileOpen(filename, NULL, NULL, NULL, NULL);
 
@@ -103,9 +105,10 @@ cfPDFPages(const char *filename)
 // 'cfPDFPagesFP()' - Count number of pages in file using PDFio.
 //
 
-int 
-cfPDFPagesFP(FILE *file) 
+int 				  // O - Number of pages or -1 on error
+cfPDFPagesFP(FILE *file) 	// I - File pointer of PDF
 {
+  // Convert the FILE to a temporary file, as PDFio doesn't open PDF without path
   char temp_filename[] = "/tmp/pdf-file-XXXXXX";
   int temp_fd = mkstemp(temp_filename);
 
@@ -124,6 +127,7 @@ cfPDFPagesFP(FILE *file)
     return 1;
   }
 
+  // Copy contents from input stream to temporary file
   char buffer[8192];
   size_t bytes_read;
   while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) 
@@ -131,6 +135,7 @@ cfPDFPagesFP(FILE *file)
     fwrite(buffer, 1, bytes_read, temp_fp);
   }
 
+  // Open the temp file with pdfio
   pdfio_file_t *pdf = pdfioFileOpen(temp_filename, NULL, NULL, NULL, NULL);
 
   if (!pdf)
@@ -141,6 +146,8 @@ cfPDFPagesFP(FILE *file)
   }
 
   int pages = pdfioFileGetNumPages(pdf);
+
+  // Cleanup
   fclose(temp_fp);
   unlink(temp_filename);
   pdfioFileClose(pdf);
@@ -152,23 +159,28 @@ cfPDFPagesFP(FILE *file)
 //                          page in PDF file.
 //
 
-int 
-cfPDFPrependStream(cf_pdf_t *pdf,
-	       	   unsigned page_num, 
-		   const char *buf, 
-		   size_t len) 
+int 						  // O - 0 on success, 1 on error
+cfPDFPrependStream(cf_pdf_t *pdf,		// I - Pointer to PDF file
+	       	   unsigned page_num, 		// I - page number to prepend to
+		   const char *buf, 		// I - Buffer containing stream data
+		   size_t len) 			// I - Length of Buffer
 {
-
+  // This is used to place content "underneath" existing page content, typically
+  // for adding backgrounds or forms
+	
   if(pdfioFileGetNumPages((pdfio_file_t *)pdf)==0)
     return 1;
 
+  // Get the target page object
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
 
+  // Open the existing content stream of the page
   pdfio_stream_t *existing_stream = pdfioPageOpenStream(page, 0, true);
   if (!existing_stream) 
     return 1;
 
+  // Create a new stream object to hold the content we want to prepend
   pdfio_obj_t *new_stream_obj = pdfioFileCreateObj((pdfio_file_t *)pdf, pageDict);
   if (!new_stream_obj) 
   {
@@ -176,6 +188,7 @@ cfPDFPrependStream(cf_pdf_t *pdf,
     return 1;
   }
 
+  // Write the new buffer (buf) into the new stream
   pdfio_stream_t *new_stream = pdfioObjCreateStream(new_stream_obj, PDFIO_FILTER_FLATE);
   if (!new_stream) 
   {
@@ -186,6 +199,9 @@ cfPDFPrependStream(cf_pdf_t *pdf,
   pdfioStreamWrite(new_stream, buf, len);
   pdfioStreamClose(new_stream);
 
+  // Create a combined stream on the page to merge new + existing
+  // NOTE :  This logic does overwriting/appending to the page content stream,
+  // 	     be cautious while making changes
   pdfio_stream_t *combined_stream = pdfioObjCreateStream(page, PDFIO_FILTER_FLATE);
   if (!combined_stream) 
   {
@@ -193,6 +209,7 @@ cfPDFPrependStream(cf_pdf_t *pdf,
     return 1;
   }
 
+  // Copy existing stream content to the combined stream
   char buffer[1024];
   size_t read_len;
   while ((read_len = pdfioStreamRead(existing_stream, buffer, sizeof(buffer))) > 0) 
@@ -209,16 +226,17 @@ cfPDFPrependStream(cf_pdf_t *pdf,
 //                         page in a PDF document.
 //
 
-int 
-cfPDFAddType1Font(cf_pdf_t *pdf, 
-		  unsigned page_num, 
-		  const char *name) 
+int 					  // O - 0 on success , 1 on error
+cfPDFAddType1Font(cf_pdf_t *pdf, 	// I - Pointer to PDF object
+		  unsigned page_num, 	// I - Page number to add font to
+		  const char *name) 	// I - Name of the font
 {
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num);
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
   if (!page) 
     return 1; 
 
+  // Locate or create the Resources dictionary
   pdfio_dict_t *resources = pdfioDictGetDict(pageDict, "Resources");
 
   if (!resources) 
@@ -227,6 +245,7 @@ cfPDFAddType1Font(cf_pdf_t *pdf,
     pdfioDictSetDict(pageDict, "Resources", resources);
   }
 
+  // Locate or create the Font dictionary within Resources
   pdfio_dict_t *fonts = pdfioDictGetDict(resources, "Font");
   if (!fonts) 
   {
@@ -234,6 +253,7 @@ cfPDFAddType1Font(cf_pdf_t *pdf,
     pdfioDictSetDict(resources, "Font", fonts);
   }
 
+  // Create the specific Font dictionary for this Type1 font
   pdfio_dict_t *font = pdfioDictCreate((pdfio_file_t *)pdf);
   if (!font) 
     return 1; 
@@ -244,6 +264,8 @@ cfPDFAddType1Font(cf_pdf_t *pdf,
   snprintf(basefont, sizeof(basefont), "/%s", name);
   pdfioDictSetName(font, "BaseFont", basefont);
 
+  // Register the font under the name "bannertopdf-font"
+  // Note: This fixed key name implies only one such font can be added per page via this function.
   pdfioDictSetDict(fonts, "bannertopdf-font", font);
 
   return 0;
@@ -255,7 +277,7 @@ cfPDFAddType1Font(cf_pdf_t *pdf,
 //                        an array and return true, else return false.
 //
 
-static bool
+static bool				 // O - true if found, false otherwise
 dict_lookup_rect(pdfio_obj_t *object,  // I - PDF dictionary object
                  const char *key,      // I - Key to lookup
                  float rect[4],        // O - Array to store values if key is found
@@ -312,11 +334,12 @@ fit_rect(float oldrect[4],  // I - Old media box
 // 'cfPDFResizePage()' - Resize page in a PDF with the given dimensions.
 //
 
-int cfPDFResizePage(cf_pdf_t *pdf,   // I - Pointer to PDFio file object
-                    unsigned page_num,   // I - Page number (1-based index)
-                    float width,         // I - New width of the page
-                    float length,        // I - New length of the page
-                    float *scale)        // O - Scale of the page to be updated
+int 					// O - 0 if success, 1 if error
+cfPDFResizePage(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
+                unsigned page_num,   // I - Page number (1-based index)
+                float width,         // I - New width of the page
+                float length,        // I - New length of the page
+                float *scale)        // O - Scale of the page to be updated
 {
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
   if (!page)
@@ -326,12 +349,14 @@ int cfPDFResizePage(cf_pdf_t *pdf,   // I - Pointer to PDFio file object
   float old_mediabox[4];
   pdfio_rect_t media_box;
 
+  // Get original dimensions to calculate scale
   if (!dict_lookup_rect(page, "MediaBox", old_mediabox, true))
     return (1);
   
   fit_rect(old_mediabox, new_mediabox, scale);
   media_box = make_real_box(new_mediabox);
   
+  // Set the new boxes
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
   if (pageDict)
   {
@@ -348,10 +373,10 @@ int cfPDFResizePage(cf_pdf_t *pdf,   // I - Pointer to PDFio file object
 // 'cfPDFDuplicatePage()' - Duplicate a specified pdf page in a PDF
 //
 
-int 
-cfPDFDuplicatePage(cf_pdf_t *pdf, 
-		   unsigned page_num,
-		   unsigned count) 
+int 					  // O - 0 if success, 1 if error
+cfPDFDuplicatePage(cf_pdf_t *pdf, 	// I - pointer to PDF file
+		   unsigned page_num,	// I - page number
+		   unsigned count) 	// I - number of copies to make
 {
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
 
@@ -374,6 +399,7 @@ void
 cfPDFWrite(cf_pdf_t *pdf, 
 	   FILE *file) 
 {
+// TODO
 //  pdfioFileCreateImageObjFromFile((pdfio_file_t *)pdf, file, false);
 }
 

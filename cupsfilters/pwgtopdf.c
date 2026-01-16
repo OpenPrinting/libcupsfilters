@@ -5,12 +5,11 @@
 // Copyright 2012 by Tobias Hoffmann
 // Copyright 2014-2022 by Till Kamppeter
 // Copyright 2017 by Sahil Arora
-// Copyright 2024-2025 by Uddhav Phatak <uddhavphatak@gmail.com>
+// Copyright 2024-2026 by Uddhav Phatak <uddhavphatak@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
 //
-
 
 #include <config.h>
 
@@ -115,7 +114,7 @@ typedef struct pwgtopdf_doc_s                  // **** Document information ****
 					       // function, can be NULL
 } pwgtopdf_doc_t;
 
-
+// PDF info structure
 struct pdf_info{
     pdfio_file_t *pdf;
     pdfio_dict_t *page_dict;
@@ -160,6 +159,10 @@ struct pdf_info{
     double page_height;
     cf_filter_out_format_t outformat;
 };
+
+//
+// 'init_pdf_info()' - initialise pwgtopdf conversion doc
+//
 
 void 
 init_pdf_info(struct pdf_info *info) 
@@ -212,7 +215,10 @@ init_pdf_info(struct pdf_info *info)
 typedef void (*pdf_convert_function)(struct pdf_info *info,
 				     pwgtopdf_doc_t *doc);
 
-// Freeing the dynamically allocated memory
+// 
+// 'free_pdf_info()' - Freeing the dynamically allocated memory
+//
+
 void free_pdf_info(struct pdf_info *info)
 {
   if (info->pclm_strip_height)
@@ -252,7 +258,6 @@ void free_pdf_info(struct pdf_info *info)
     info->render_intent = NULL;
   }
 
-
   if (info->page_data)
   {
     free(info->page_data);
@@ -264,10 +269,10 @@ void free_pdf_info(struct pdf_info *info)
 // Bit conversion functions
 //
 
-static unsigned char *
-invert_bits(unsigned char *src,
-	    unsigned char *dst,
-	    unsigned int pixels)
+static unsigned char*			  // O - output string of pixels
+invert_bits(unsigned char *src,		// I - source chars	
+	    unsigned char *dst,		// O - destination chars
+	    unsigned int pixels)	// I - pixels
 { 
   unsigned int i;
 
@@ -279,10 +284,10 @@ invert_bits(unsigned char *src,
 }	
 
 
-static unsigned char *
-no_bit_conversion(unsigned char *src,
-		  unsigned char *dst,
-		  unsigned int pixels)
+static unsigned char*			  // O - Output string of bits
+no_bit_conversion(unsigned char *src,	// I - Source chars
+		  unsigned char *dst,  	// O - destination chars	
+		  unsigned int pixels)	// I - Pixesl
 {
   return (src);
 }
@@ -292,7 +297,7 @@ no_bit_conversion(unsigned char *src,
 // Color conversion functions
 //
 
-static unsigned char *
+static unsigned char*			
 rgb_to_cmyk(unsigned char *src,
 	    unsigned char *dst,
 	    unsigned int pixels)
@@ -302,7 +307,7 @@ rgb_to_cmyk(unsigned char *src,
 }
 
 
-static unsigned char *
+static unsigned char*
 white_to_cmyk(unsigned char *src,
 	      unsigned char *dst,
 	      unsigned int pixels)
@@ -311,8 +316,7 @@ white_to_cmyk(unsigned char *src,
   return (dst);
 }
 
-
-static unsigned char *
+static unsigned char*
 cmyk_to_rgb(unsigned char *src,
 	    unsigned char *dst,
 	    unsigned int pixels)
@@ -322,7 +326,7 @@ cmyk_to_rgb(unsigned char *src,
 }
 
 
-static unsigned char *
+static unsigned char*
 white_to_rgb(unsigned char *src,
 	     unsigned char *dst,
 	     unsigned int pixels)
@@ -332,7 +336,7 @@ white_to_rgb(unsigned char *src,
 }
 
 
-static unsigned char *
+static unsigned char*
 rgb_to_white(unsigned char *src,
 	     unsigned char *dst,
 	     unsigned int pixels)
@@ -342,7 +346,7 @@ rgb_to_white(unsigned char *src,
 }
 
 
-static unsigned char *
+static unsigned char*
 cmyk_to_white(unsigned char *src,
 	      unsigned char *dst,
 	      unsigned int pixels)
@@ -352,7 +356,7 @@ cmyk_to_white(unsigned char *src,
 }
 
 
-static unsigned char *
+static unsigned char*
 no_color_conversion(unsigned char *src,
 		    unsigned char *dst,
 		    unsigned int pixels)
@@ -485,6 +489,10 @@ int_to_fwstring(int n,
   snprintf(result + num_zeroes, str_size - num_zeroes, "%d", n);
   return result;
 }
+
+//
+// 'create_pdf_file()' - create temporar PDF file for output
+//
 
 static int
 create_pdf_file(struct pdf_info *info,
