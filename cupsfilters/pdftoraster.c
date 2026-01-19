@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <pdfio.h>
 #include <pdfio-content.h>
@@ -72,6 +73,7 @@
 
 #define MAX_CHECK_COMMENT_LINES 20
 #define MAX_BYTES_PER_PIXEL 32
+extern int errno;
 
 typedef struct cms_profile_s
 {
@@ -1739,7 +1741,7 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
   int fd_img = mkstemp(img_path);
   close(fd_img); // We just need the filename
  
-  int ret;		// exit status
+  int ret = 0;		// exit status
   pid_t pid = fork();	// child process
 
   if (pid == -1)	// fork failed
@@ -1752,10 +1754,10 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
 
   if (pid == 0)
   {
-    // --- CHILD PROCESS ---
+    // ----CHILD----
 
-    // We build argv for execv.
-    // First, convert numbers to strings.
+    // build argv for execv.
+    // convert the numbers into strings.
     char rx_str[16];
     char ry_str[16];
     char page_str[16];
@@ -1767,25 +1769,22 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
     int out_fd = open(img_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (out_fd == -1)
     {
-      // Use _exit() in child process for safety
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
                                      "pdftoraster: Failed to open output file %s", img_path);
-      _exit(127);
+      exit(1);
     }
     
-    // Redirect stdout (file descriptor 1) to our file
+    // Redirect stdout(file descriptor 1) to our file
     if (dup2(out_fd, 1) == -1)
     {
       if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
                                      "pdftoraster: Failed to redirect stdout (dup2)");
-      _exit(127);
+      exit(1);
     }
     close(out_fd); // We don't need this descriptor anymore
 
-    // Building the argument list (argv)
-    // Needs to be NULL-terminated. Max 12 args:
     // pdftoppm, -rx, N, -ry, N, -f, N, -l, N, [-mono|-gray], file, NULL
-    char *argv[12];
+    char *argv[16];
     int arg_index = 0;
 
     argv[arg_index++] = "pdftoppm";
@@ -1814,7 +1813,6 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
         }
         break;
       default:
-        // No extra argument needed for color
         break;
     }
 
@@ -1822,45 +1820,72 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
     argv[arg_index++] = doc->input_filename; // The input PDF
     argv[arg_index++] = NULL;                // End of the array
 
-    // Define the path and call execv
-    const char *pathname = PDFTOPPM_COMMAND;
-    execv(pathname, argv);
+    // Define the path and call execvp
+    execvp(PDFTOPPM_COMMAND, argv);
 
-    // If execv returns, an error occurred
+    // If execvp returns, an error occurred
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-                                     "pdftoraster: Failed to execute %s", pathname); 
-    _exit(127); 
+                                     "pdftoraster: Failed to execute %s", PDFTOPPM_COMMAND); 
+    exit(1); 
   }
   else
   {
-    // --- PARENT PROCESS ---
-    int status;
+    // ---- PARENT ----
+    int wstatus;
+    pid_t wpid;
 
-    // Wait for the child process to finish
-    waitpid(pid, &status, 0);
+    int ret = 65536; // Default to error
 
-    // Get the child's exit status
-    if (WIFEXITED(status))
+    while (pid > 0)
     {
-      ret = WEXITSTATUS(status); // This is the equivalent of system()'s return
-    }
-    else
-    {
-      ret = -1; // Indicate abnormal termination
+      if ((wpid = wait(&wstatus)) < 0)
+      {
+ 	if (errno == EINTR && iscanceled && iscanceled(icd))
+        {
+          if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_DEBUG,
+            "pdftoraster: Job canceled, killing pdftoppm ...");
+          kill(pid, SIGTERM);
+          pid = -1;
+          break;
+        }
+        else
+        {
+          continue;
+        }
+      }
+      if (wpid == pid)
+      {
+        if (WIFEXITED(wstatus))
+        {
+          ret = WEXITSTATUS(wstatus);
+          if (ret != 0 && doc->logfunc)
+             doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                          "pdftoraster: pdftoppm (PID %d) stopped with status %d",
+                          pid, ret);
+        }
+        else
+        {
+          if (doc->logfunc)
+             doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                          "pdftoraster: pdftoppm (PID %d) crashed on signal %d",
+                          pid, WTERMSIG(wstatus));
+          ret = 256 * WTERMSIG(wstatus);
+        }
+        pid = -1;
+      }
     }
   }
-  
-  if (ret != 0) 
+
+  if (ret != 0)
   {
-    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
-                                   "pdftoppm command failed (exit status %d)", ret);
     unlink(img_path);
     return;
   }
 
   // Read image file
   FILE *img = fopen(img_path, "rb");
-  if (!img) {
+  if (!img) 
+  {
     if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
                                    "Failed to open image file: %s", img_path);
     unlink(img_path);
@@ -1933,43 +1958,76 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
     convertLine = convert->convertLineEven;
   else
     convertLine = convert->convertLineOdd;
+
+  // This will be the safe copy limit; 
+  // In some cases, the PDFtoppm might output where image sizes are 
+  // smaller than expected page size.
+  // copy_height and copy_width act as safe copy limit in this.
+  unsigned int copy_height = (height < doc->header.cupsHeight) ? height : doc->header.cupsHeight;
+  unsigned int copy_width = (width < doc->header.cupsWidth) ? width : doc->header.cupsWidth;
+
   if (doc->header.Duplex && (pageNo & 1) == 0 && doc->swap_image_y)
   {
     for (unsigned int plane = 0; plane < doc->nplanes; plane ++)
     {
-      unsigned char *bp = colordata + (doc->header.cupsHeight - 1) * image_rowsize;
+      unsigned char *bp = colordata + (copy_height - 1) * image_rowsize;
+      
       for (unsigned int h = doc->header.cupsHeight; h > 0; h--)
       {
-        for (unsigned int band = 0; band < doc->nbands; band ++)
-        {
-          dp = convertLine(bp, lineBuf, h - 1, plane + band,
-                           doc->header.cupsWidth,
-                           doc->bytesPerLine, doc, convert->convertCSpace);
-          cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+        if (h <= copy_height) 		// inside valid page/image area
+	{
+          for (unsigned int band = 0; band < doc->nbands; band ++)
+          {
+            dp = convertLine(bp, lineBuf, h - 1, plane + band,
+                            copy_width, 
+                            doc->bytesPerLine, doc, convert->convertCSpace);
+            cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+          }
+          bp -= image_rowsize;
         }
-        bp -= image_rowsize;
+	else				// Image shorter than page, thus whitespace
+	{
+          if (doc->allocLineBuf) 
+	  {
+            // lineBuf is already white/padded
+            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
+          }
+	}
       }
     }
   }
   else
   {
-    for (unsigned int plane = 0; plane < doc->nplanes; plane ++)
+    for (unsigned int plane = 0; plane < doc->nplanes; plane++)
     {
       unsigned char *bp = colordata;
-      for (unsigned int h = 0; h < doc->header.cupsHeight; h ++)
+      for (unsigned int h = 0; h < doc->header.cupsHeight; h++)
       {
-        for (unsigned int band = 0; band < doc->nbands; band ++)
-        {
-          dp = convertLine(bp, lineBuf, h, plane + band, doc->header.cupsWidth,
-                           doc->bytesPerLine, doc, convert->convertCSpace);
-          cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
-        }
-        bp += image_rowsize;
+        if (h < copy_height) 		// inside valid page/image area
+	{
+          for (unsigned int band = 0; band < doc->nbands; band++)
+          {
+            dp = convertLine(bp, lineBuf, h, plane + band, doc->header.cupsWidth,
+                             doc->bytesPerLine, doc, convert->convertCSpace);
+            cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+          }
+          bp += image_rowsize;
+	}
+	else				// Image shorter than page, thus whitespace
+	{
+	  if (doc->allocLineBuf) 
+	  {
+           // lineBuf is already white/padded
+           cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
+          }
+	}
       }
     }
   }
 
   free(colordata);
+  if (lineBuf) 
+    free(lineBuf);
 }
 
 //
@@ -2009,7 +2067,7 @@ out_page(pdftoraster_doc_t *doc,		// I - conversion attributes
   rotate = pdfioDictGetNumber(pdf_Page_dict, "Rotate");
 
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
-               "cfFilterPDFToRaster: cropbox = [ %f %f %f %f ]; rotate = %d",
+               "cfFilterPDFToRaster: cropbox = [ %f %f %f %f ]; rotate = %f",
                cropBox.x1, cropBox.x2, cropBox.y1, cropBox.y2,
                rotate);
   
@@ -2038,12 +2096,17 @@ out_page(pdftoraster_doc_t *doc,		// I - conversion attributes
   //
   if (doc->header.cupsPageSize[0] > 14400) 
   {
-    fprintf(stderr, "ERROR: Page width is %.2fpt, too large, cropping to 14400pt\n", doc->header.cupsPageSize[0]);
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+               "ERROR: Page width is %.2fpt, too large, cropping to 14400pt\n",
+	       doc->header.cupsPageSize[0]);
+  
     doc->header.cupsPageSize[0] = 14400;
   }
   if (doc->header.cupsPageSize[1] > 14400) 
   {
-    fprintf(stderr, "ERROR: Page height is %.2fpt, too large, cropping to 14400pt\n", doc->header.cupsPageSize[1]);
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+               "ERROR: Page height is %.2fpt, too large, cropping to 14400pt\n",
+	       doc->header.cupsPageSize[1]);
     doc->header.cupsPageSize[1] = 14400;
   }
 
@@ -2587,6 +2650,7 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
     ret = 1;
     goto out;
   }
+
   memset(&convert, 0, sizeof(pdf_conversion_function_t));
   if (select_convert_func(raster, &doc, &convert, log, ld) == 1)
   {
@@ -2596,14 +2660,6 @@ cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
     goto out;
   }
    
-  memset(&convert, 0, sizeof(pdf_conversion_function_t));
-  if (select_convert_func(raster, &doc, &convert, log, ld) == 1)
-  {
-    if (log) log(ld, CF_LOGLEVEL_ERROR,
-                 "cfFilterPDFToRaster: Unable to select color conversion function.");
-    ret = 1;
-    goto out;
-  }
   if (doc.pdf_doc != NULL)
   {
     for (i = 1; i <= npages; i ++)
