@@ -1729,6 +1729,7 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
   unsigned char *dp;
   unsigned int image_rowsize = 0;
   int fakeres[2];
+  int bg_color = 255;
   
   for (i = 0; i < 2; i ++)
     fakeres[i] = doc->header.HWResolution[i];
@@ -1802,6 +1803,9 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
     {
       case CUPS_CSPACE_W:
       case CUPS_CSPACE_K:
+	bg_color = 0;
+      case CUPS_CSPACE_CMYK:
+	bg_color = 0;
       case CUPS_CSPACE_SW:
         if (doc->header.cupsBitsPerColor == 1)
         {
@@ -1976,20 +1980,21 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
       {
         if (h <= copy_height) 		// inside valid page/image area
 	{
+          memset(lineBuf, bg_color, doc->bytesPerLine);
           for (unsigned int band = 0; band < doc->nbands; band ++)
           {
             dp = convertLine(bp, lineBuf, h - 1, plane + band,
-                            copy_width, 
-                            doc->bytesPerLine, doc, convert->convertCSpace);
-            cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
-          }
-          bp -= image_rowsize;
+                             copy_width, 
+                             doc->bytesPerLine, doc, convert->convertCSpace);
+	    cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+	  }
+	  bp -= image_rowsize;
         }
 	else				// Image shorter than page, thus whitespace
 	{
           if (doc->allocLineBuf) 
 	  {
-            // lineBuf is already white/padded
+	    memset(lineBuf, bg_color, doc->bytesPerLine);
             cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
           }
 	}
@@ -2003,11 +2008,13 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
       unsigned char *bp = colordata;
       for (unsigned int h = 0; h < doc->header.cupsHeight; h++)
       {
-        if (h < copy_height) 		// inside valid page/image area
+        if (h <= copy_height) 		// inside valid page/image area
 	{
+          memset(lineBuf, bg_color, doc->bytesPerLine);
+
           for (unsigned int band = 0; band < doc->nbands; band++)
           {
-            dp = convertLine(bp, lineBuf, h, plane + band, doc->header.cupsWidth,
+            dp = convertLine(bp, lineBuf, h, plane + band, copy_width,
                              doc->bytesPerLine, doc, convert->convertCSpace);
             cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
           }
@@ -2017,8 +2024,8 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
 	{
 	  if (doc->allocLineBuf) 
 	  {
-           // lineBuf is already white/padded
-           cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
+	    memset(lineBuf, bg_color, doc->bytesPerLine);
+            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
           }
 	}
       }
