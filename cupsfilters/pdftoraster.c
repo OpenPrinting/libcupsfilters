@@ -2075,7 +2075,7 @@ out_page(pdftoraster_doc_t *doc,		// I - conversion attributes
 
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
                "cfFilterPDFToRaster: cropbox = [ %f %f %f %f ]; rotate = %f",
-               cropBox.x1, cropBox.x2, cropBox.y1, cropBox.y2,
+               cropBox.x1, cropBox.y1, cropBox.x2, cropBox.y2,
                rotate);
   
   // Enter input page dimensions in header, so that if no page size got
