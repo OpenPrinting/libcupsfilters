@@ -19,3 +19,8 @@ cupsfilters/test_files/test_file_4pg.pdf	application/pdf	cupsfilters/test_files/
 cupsfilters/test_files/test_file_4pg.pdf	application/pdf	cupsfilters/test_files/output_files/test_file_op.pwg	image/pwg-raster	Generic	PDF Color 2	1	1	image/pwg-raster,application/pdf	13	new-user	custom-print	5	sides=two-sided-short-edge media-size=A4 printer-resolution=300dpi
 cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg	image/pwg-raster	cupsfilters/test_files/output_files/test_pwgtoraster.pdf	application/pdf	Generic	PDF Color 2	1 	1	application/pdf,image/pwg-raster	13	new-user	custom-print	5	sides=two-sided-short-edge media-size=A4 printer-resolution=300dpi
 cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg	image/pwg-raster	cupsfilters/test_files/output_files/test_pwgtoraster.pclm	application/pclm	Generic	PDF Color 2	1 	1	application/pclm,image/pwg-raster	13	new-user	custom-print	5	sides=two-sided-short-edge media-size=A4 printer-resolution=300dpi
+# === PoC testcases added for CI expansion ===
+# 1. text/plain → PDF (tests texttopdf)
+# 2. malformed PDF → PDF (currently pass-through; does not yet trigger Ghostscript(although I expected it to))
+cupsfilters/test_files/test_text_simple.txt	text/plain	cupsfilters/test_files/output_files/output_text_simple.pdf	application/pdf	Generic	PDF Color 2	1	1	text/plain,application/pdf	201	poc-user	poc-print	1
+cupsfilters/test_files/malformed.pdf	application/pdf	cupsfilters/test_files/output_files/output_malformed_should_fail.pdf	application/pdf	Generic	PDF Color 2	1	1	application/pdf	202	poc-user-malformed	expect-fail	1
