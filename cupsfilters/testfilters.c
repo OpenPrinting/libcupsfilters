@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /*
  * 'remove_white_space()' - Remove white spaces from beginning and end of a string
