@@ -1958,6 +1958,14 @@ write_prolog(const char *title,		// I - Title of job
   // Get the output character set...
   //
 
+  //
+  // If no charset was provided by the filter framework, or metadata,
+  // default to UTF-8 so that Unicode charsets can be resolved, as this value
+  // is directly used in charset value to activate UTF-8 path.
+  //
+  if (!doc->env_vars.char_set)
+    doc->env_vars.char_set = "utf-8";
+
   charset = doc->env_vars.char_set;
   if (charset != NULL && strcmp(charset, "us-ascii") != 0) // {{{
   {
