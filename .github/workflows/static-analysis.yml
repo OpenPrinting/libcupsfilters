@@ -1,0 +1,94 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ master, 2.0.x ]
+  pull_request:
+    branches: [ master, 2.0.x ]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Update build environment
+        run: sudo apt-get update --fix-missing -y
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get install -y \
+            avahi-daemon \
+            libavahi-client-dev \
+            libssl-dev \
+            libpam-dev \
+            libusb-1.0-0-dev \
+            zlib1g-dev \
+            autotools-dev \
+            autopoint \
+            cmake \
+            libtool \
+            pkg-config \
+            libcups2-dev \
+            libexif-dev \
+            liblcms2-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            build-essential \
+            qtbase5-dev \
+            qtchooser \
+            libcairo2-dev \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libopenjp2-7-dev \
+            libjpeg-dev \
+            libjxl-dev \
+            libpoppler-cpp-dev \
+            libpython3-dev \
+            libdbus-1-dev \
+            mupdf-tools \
+            poppler-utils \
+            ghostscript \
+            cppcheck
+
+      - name: Install pdfio >= 1.6.0
+        run: |
+          cd ..
+          mkdir -p pdfio
+          cd pdfio
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.0/pdfio-1.6.0.tar.gz
+          tar -xzf pdfio-1.6.0.tar.gz
+          cd pdfio-1.6.0
+          ./configure --prefix=/usr --enable-shared
+          make all
+          make test
+          sudo make install
+          cd "$GITHUB_WORKSPACE"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
