@@ -209,40 +209,55 @@ extern int cfFilterPClose(int fd,
 			  cf_filter_data_t *data);
 
 
+//
+// 'cfFilterChain()' - Execute a chain of filter functions.
+//
+// Executes multiple filters in sequence. The output of one
+// filter becomes the input of the next filter. All filters
+// receive the same cf_filter_data_t structure.
+//
+// Parameters:
+//   inputfd       - Input file descriptor.
+//   outputfd      - Output file descriptor.
+//   inputseekable - Non-zero if input supports seeking.
+//   data          - Job and printer data.
+//   parameters    - Unsorted CUPS array of
+//                   cf_filter_filter_in_chain_t* entries.
+//
+// Returns 0 on success and non-zero on error.
+//
+
 extern int cfFilterChain(int inputfd,
 			 int outputfd,
 			 int inputseekable,
 			 cf_filter_data_t *data,
 			 void *parameters);
 
-// Parameters: Unsorted (!) CUPS array of cf_filter_filter_in_chain_t*
-// List of filters to execute in a chain, next filter takes output of
-// previous filter as input, all get the same filter data, parameters
-// are supplied individually in the array
 
+//
+// 'cfFilterExternal()' - Execute an external CUPS filter,
+// backend, or System V interface script.
+//
+// This function runs an external program as part of the filter
+// chain. It can call a CUPS filter, a CUPS backend (including
+// device discovery mode), or a System V interface script.
+//
+// Parameters:
+//   inputfd       - Input file descriptor.
+//   outputfd      - Output file descriptor.
+//   inputseekable - Non-zero if input supports seeking.
+//   data          - Job and printer data.
+//   parameters    - Pointer to a cf_filter_external_t structure
+//                   describing the external program to execute.
+//
+// Returns 0 on success and non-zero on error.
+//
 
 extern int cfFilterExternal(int inputfd,
 			    int outputfd,
 			    int inputseekable,
 			    cf_filter_data_t *data,
 			    void *parameters);
-
-// Parameters: cf_filter_external_t*
-//
-// Path/Name of the external CUPS/System V filter or backend to be
-// called by this filter function, specification whether we call a
-// filter or a backend, and in case of backend, whether in job
-// processing or discovery mode, extra options for the 5th command
-// line argument, and extra environment variables
-//
-// CUPS filter:
-// See "man filter"
-//
-// CUPS Backend:
-// See "man backend"
-//
-// System V interface script:
-// https://www.ibm.com/docs/en/aix/7.2?topic=configuration-printer-interface-scripts
 
 
 extern int cfFilterOpenBackAndSidePipes(cf_filter_data_t *data);
@@ -251,26 +266,27 @@ extern int cfFilterOpenBackAndSidePipes(cf_filter_data_t *data);
 extern void cfFilterCloseBackAndSidePipes(cf_filter_data_t *data);
 
 
+
+//
+// 'cfFilterGhostscript()' - Convert input data using Ghostscript.
+//
+// Uses Ghostscript to convert the input data to the desired
+// output format. The output format must be specified via
+// data->final_content_type or by passing a
+// cf_filter_out_format_t parameter.
+//
+// Supported output formats include PDF, raster-only PDF,
+// PCLm, CUPS Raster, PWG Raster, Apple Raster, and PCL-XL.
+//
+// Returns 0 on success and non-zero on error.
+//
+
+
 extern int cfFilterGhostscript(int inputfd,
 			       int outputfd,
 			       int inputseekable,
 			       cf_filter_data_t *data,
 			       void *parameters);
-
-// Requires specification of output format via data->final_content_type
-// or alternatively as parameter of type cf_filter_out_format_t.
-//
-// Output formats: PDF, raster-only PDF, PCLm, PostScript, CUPS Raster,
-// PWG Raster, Apple Raster, PCL-XL
-//
-// Note: With the Apple Raster selection and a Ghostscript version
-// without "appleraster" output device (9.55.x and older) the output
-// is actually CUPS Raster but information about available color
-// spaces and depths is taken from the urf-supported printer IPP
-// attribute. This mode is for further processing with
-// rastertopwg. With Ghostscript supporting Apple Raster output
-// (9.56.0 and newer), we actually produce Apple Raster and no further
-// filter is required.
 
 
 extern int cfFilterBannerToPDF(int inputfd,
@@ -432,6 +448,26 @@ extern int cfFilterTextToText(int inputfd,
 			      cf_filter_data_t *data,
 			      void *parameters);
 
+
+//
+// 'cfFilterUniversal()' - Automatically select and execute
+// the appropriate filter conversion pipeline.
+//
+// Determines the required data conversion based on the job's
+// input content type (data->content_type) and the desired
+// final output type (data->final_content_type).
+//
+// Parameters:
+//   inputfd       - Input file descriptor.
+//   outputfd      - Output file descriptor.
+//   inputseekable - Non-zero if input supports seeking.
+//   data          - Job and printer data.
+//   parameters    - Pointer to a
+//                   cf_filter_universal_parameter_t structure
+//                   providing additional conversion settings.
+//
+// Returns 0 on success and non-zero on error.
+//
   
 extern int cfFilterUniversal(int inputfd,
 			     int outputfd,
@@ -439,16 +475,6 @@ extern int cfFilterUniversal(int inputfd,
 			     cf_filter_data_t *data,
 			     void *parameters);
 
-// Requires specification of input format via data->content_type and 
-// job's final output format via data->final_content_type
-//
-// Parameters: cf_filter_universal_parameter_t
-//
-// Contains: actual_output_type: Format which the filter should
-//           actually produce if different from job's final output
-//           format, otherwise NULL to produce the job's final output
-//           format
-//	     texttopdf_params: parameters for texttopdf
 
 
 #  ifdef __cplusplus
