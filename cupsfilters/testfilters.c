@@ -1223,14 +1223,6 @@ run_test(
       }
       continue;
      }
-     else if (globalFlag == 9) 
-     {
-            filter_chain_str = token;
-            filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
-            globalFlag++;
-        }
-
-
 
      clargs = realloc(clargs, (token_index+1)*sizeof(char*));
      char* tmp_token = (char*)malloc(100*sizeof(char*));
@@ -1239,7 +1231,14 @@ run_test(
      clargs[token_index] = tmp_token;
      token_index++;
    }  
-  
+   // Optional FilterChain support
+    if (token_index > 5) {
+        filter_chain_str = clargs[token_index-1];
+        if (filter_chain_str && strlen(filter_chain_str) > 0) {
+            filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
+        }
+    }
+
    ipp_t* emulated_ipp = load_legacy_attributes(make, model, ppm, ppm_color, duplex, docformats);
 //   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp, inputContentType, outputContentType, inputFileName, outputFileName);
 
