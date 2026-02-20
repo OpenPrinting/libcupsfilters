@@ -46,10 +46,19 @@ extern "C" {
 
 
 //
-// Prototypes...
+// 'cfRasterColorSpaceString()' - Return a human-readable
+//  name for the given raster color space.
 //
 
 extern const char       *cfRasterColorSpaceString(cups_cspace_t cspace);
+
+//
+// 'cfRasterPrepareHeader()' - Prepare a CUPS/PWG raster page
+// 	header based on job and printer data.
+//
+// Returns 0 on success and non-zero on error.
+//
+
 extern int              cfRasterPrepareHeader(cups_page_header_t *h,
 					      cf_filter_data_t *data,
 					      cf_filter_out_format_t
@@ -58,6 +67,15 @@ extern int              cfRasterPrepareHeader(cups_page_header_t *h,
 					      header_outformat,
 					      int no_high_depth,
 					      cups_cspace_t *cspace);
+
+//
+// 'cfRasterSetColorSpace()' - Update a raster header with the
+// appropriate color space and color depth based on printer
+// capabilities and job settings.
+//
+// Returns 0 on success and -1 on error.
+//
+
 extern int              cfRasterSetColorSpace(cups_page_header_t *h,
 					      const char *available,
 					      const char *color_mode,
