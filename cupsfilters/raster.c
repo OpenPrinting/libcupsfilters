@@ -419,10 +419,30 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 				    options)) == NULL)
       color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
 					      "print-color-mode");
+    if (!color_mode)
+      if ((color_mode = cupsGetOption("ColorModel", num_options,
+				    options)) == NULL)
+      color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
+					      "output-mode");
+    if (!color_mode)
+    {
+      color_mode = "auto";
+      if (log)
+	log(ld, CF_LOGLEVEL_ERROR,
+	    "Unable to detect color mode, using 'auto'!");
+    }
+
     if ((quality = cupsGetOption("print-quality", num_options,
 				 options)) == NULL)
       quality = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
 					   "print-quality");
+    if (!quality)
+    {
+      quality = "normal";
+      if (log)
+	log(ld, CF_LOGLEVEL_ERROR,
+	    "Unable to detect print-quality, using 'normal'!");
+    }
     hi_depth = (!no_high_depth && quality &&
 		(!strcasecmp(quality, "high") || !strcmp(quality, "5"))) ?
       1 : 0;
