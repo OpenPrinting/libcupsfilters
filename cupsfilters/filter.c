@@ -69,14 +69,14 @@ fcntl_add_nonblock(int fd) // File descriptor to add O_NONBLOCK to
 // 'cfCUPSLogFunc()' - Output log messages on stderr, compatible to
 //                     CUPS, meaning that the debug level is
 //                     represented by a prefix like "DEBUG: ", "INFO:
-//                     ", ...
+//                     ", ....
 //
 
-void
-cfCUPSLogFunc(void *data,
-	     cf_loglevel_t level,
-	     const char *message,
-	     ...)
+void                                 // O - None
+cfCUPSLogFunc(void *data,            // I - User data (not used)
+	     cf_loglevel_t level,          // I - Log level
+	     const char *message,          // I - Message format string
+	     ...)                          // I - Additional arguments
 {
   va_list arglist;
 
@@ -117,8 +117,8 @@ cfCUPSLogFunc(void *data,
 //                            by data is not zero.
 //
 
-int
-cfCUPSIsCanceledFunc(void *data)
+int                                       // O - 1 if canceled, 0 otherwise
+cfCUPSIsCanceledFunc(void *data)          // I - Pointer to canceled flag (int *)
 {
   return (*((int *)data) != 0 ? 1 : 0);
 }
@@ -143,17 +143,14 @@ get_filter_data_ext_entry(cups_array_t *ext_array,
 }
 
 
-void *                                     // O - Extension record which got
-                                           //     replaced, NULL if there was
-                                           //	  no record under this name,
-                                           //	  the added record is the one
-                                           //     there, or no record was
-                                           //     added. If not NULL the
-                                           //     returned record should usually
-                                           //     be deleted or freed.
+//
+// 'cfFilterDataAddExt()' - Add or replace an extension record in the filter data.
+//
+
+void *                                     //  O - Replaced extension record, or NULL if none was replaced
 cfFilterDataAddExt(cf_filter_data_t *data, // I - Filter data record
-		   const char *name,       // I - Name of extension
-		   void *ext)              // I - Extension record to be added
+		   const char *name,                   // I - Name of extension
+		   void *ext)                          // I - Extension record to be added
 {
   cf_filter_data_ext_t *entry;
   void *old_ext = NULL;
@@ -187,9 +184,13 @@ cfFilterDataAddExt(cf_filter_data_t *data, // I - Filter data record
 }
 
 
-void *
-cfFilterDataGetExt(cf_filter_data_t *data,
-		   const char *name)
+//
+// 'cfFilterDataGetExt()' - Get an extension record from the filter data.
+//
+
+void *                                             // O - Extension record, or NULL 
+cfFilterDataGetExt(cf_filter_data_t *data,         // I - Filter data record
+		   const char *name)                           // I - Name of extension
 {
   cf_filter_data_ext_t *entry;
 
@@ -203,9 +204,13 @@ cfFilterDataGetExt(cf_filter_data_t *data,
 }
 
 
-void *
-cfFilterDataRemoveExt(cf_filter_data_t *data,
-		      const char *name)
+//
+// 'cfFilterDataRemoveExt()' - Remove an extension record from the filter data and return it.
+//
+
+void *                                             // O - Extension record, or NULL
+cfFilterDataRemoveExt(cf_filter_data_t *data,      // I - Filter data record
+		      const char *name)                        // I - Name of extension
 {
   cf_filter_data_ext_t *entry;
   void *ext = NULL;
@@ -232,16 +237,13 @@ cfFilterDataRemoveExt(cf_filter_data_t *data,
 
 
 //
-// 'cfFilterGetEnvVar()' - Auxiliary function for cfFilterExternal(),
-//                         gets value of an environment variable in a
-//                         list of environment variables as used by
-//                         the execve() function
+// 'cfFilterGetEnvVar()' - Get the value of an environment variable from the 
+//                         supplied environment list.
 //
 
-char *				// O - The value, NULL if variable is not in
-				//     list
+char *				                 // O - Value of variable, or NULL
 cfFilterGetEnvVar(char *name,	// I - Name of environment variable to read
-		  char **env)	// I - List of environment variable serttings
+		  char **env)	            // I - List of environment variable 
 {
   int i = 0;
 
@@ -258,17 +260,13 @@ cfFilterGetEnvVar(char *name,	// I - Name of environment variable to read
 
 
 //
-// 'cfFilterAddEnvVar()' - Auxiliary function for cfFilterExternal(),
-//                   adds/sets an environment variable in a list of
-//                   environment variables as used by the execve()
-//                   function
+// 'cfFilterAddEnvVar()' - Add or replace an environment variable in an environment list.
 //
 
-int				// O - Index of where the new value got
-				//     inserted in the list
-cfFilterAddEnvVar(char *name,   // I - Name of environment variable to set
-		  char *value,  // I - Value of environment variable to set
-		  char ***env)  // I - List of environment variable serttings
+int				                         // O - Index of inserted entry, or -1 on error
+cfFilterAddEnvVar(char *name,      // I - Name of environment variable to set
+		  char *value,                 // I - Value of environment variable to set
+		  char ***env)                 // I - List of environment variable
 {
   char *p;
   int i = 0,
@@ -316,28 +314,15 @@ cfFilterAddEnvVar(char *name,   // I - Name of environment variable to set
 
 
 //
-// 'cfFilterTee()' - This filter function is mainly for debugging. it
-//                   resembles the "tee" utility, passing through the
-//                   data unfiltered and copying it to a file. The
-//                   file name is simply given as parameter. This
-//                   makes using the function easy (add it as item of
-//                   a filter chain called via cfFilterChain()) and
-//                   can even be used more than once in the same
-//                   filter chain (using different file names). In
-//                   case of write error to the copy file, copying is
-//                   stopped but the rest of the job is passed on to
-//                   the next filter. If NULL is supplied as file
-//                   name, the data is simply passed through without
-//                   getting copied.
-//
+// 'cfFilterTee()' - Copy input data to a file (for debugging) while 
+//                    passing it unchanged to the output.
 
-int                                 // O - Error status
+int                                 // O - 0 on success, -1 on error
 cfFilterTee(int inputfd,            // I - File descriptor input stream
-	    int outputfd,           // I - File descriptor output stream
-	    int inputseekable,      // I - Is input stream seekable? (unused)
-	    cf_filter_data_t *data, // I - Job and printer data
-	    void *parameters)       // I - Filter-specific parameters (File
-                                    //     name)
+	    int outputfd,                 // I - File descriptor output stream
+	    int inputseekable,            // I - Is input stream seekable? (unused)
+	    cf_filter_data_t *data,       // I - Job and printer data
+	    void *parameters)            // I - File name (const char *) 
 {
   const char           *filename = (const char *)parameters;
   ssize_t	       bytes, total = 0;      // Bytes read/written
@@ -396,12 +381,11 @@ cfFilterTee(int inputfd,            // I - File descriptor input stream
 
 
 //
-// 'cfFilterPOpen()' - Pipe a stream to or from a filter function Can
-//                     be the input to or the output from the filter
-//                     function.
+// 'cfFilterPOpen()' - Create a pipe to a filter function and
+//                     return a file descriptor for communicating with it.
 //
 
-int                                   // O - File decriptor
+int                                   // O - File descriptor
 cfFilterPOpen(cf_filter_function_t filter_func,
 	                              // I - Filter function
 	      int inputfd,            // I - File descriptor input stream or -1
@@ -542,13 +526,13 @@ cfFilterPOpen(cf_filter_function_t filter_func,
 
 //
 // 'cfFilterPClose()' - Close a piped stream created with
-//                      cfFilterPOpen().
+//                      cfFilterPOpen() and wait for the filter process to finish.
 //
 
-int                                // O - Error status
+int                                // O - 0 on success, -1 on error
 cfFilterPClose(int fd,             // I - Pipe file descriptor
-	       int filter_pid,     // I - PID of forked filter process
-	       cf_filter_data_t *data)
+	       int filter_pid,           // I - PID of forked filter process
+	       cf_filter_data_t *data)   // O - Job and printer data
 {
   int		status,		 // Exit status
                 retval;		 // Return value
@@ -610,12 +594,12 @@ compare_filter_pids(filter_function_pid_t *a,	// I - First filter
 
 
 //
-// 'cfFilterChain()' - Call filter functions in a chain to do a data
-//                     format conversion which non of the individual
-//                     filter functions does
+// 'cfFilterChain()' - Call filter functions in a chain to perform a data
+//                     format conversion which none of the individual
+//                     filter functions can do alone.
 //
 
-int                                // O - Error status
+int                                // O - 0 on success, -1 on error
 cfFilterChain(int inputfd,         // I - File descriptor input stream
 	      int outputfd,        // I - File descriptor output stream
 	      int inputseekable,   // I - Is input stream seekable?
@@ -955,16 +939,12 @@ sanitize_device_uri(const char *uri,	// I - Device URI
 
 
 //
-// 'cfFilterExternal()' - Filter function which calls an external
-//                        classic CUPS filter or System V interface
-//                        script, for example a (proprietary) printer
-//                        driver which cannot be converted to a filter
-//                        function or if it is too awkward or risky to
-//                        convert for example when the printer
-//                        hardware is not available for testing
+// 'cfFilterExternal()' - Filter function that executes an ezternal CUPS filter
+//                        or System V interface script, typically used when conversion
+//                        to a native filter function is not possible.
 //
 
-int                                        // O - Error status
+int                                        // O - 0 on success, -1 on error
 cfFilterExternal(int inputfd,              // I - File descriptor input stream
 		 int outputfd,             // I - File descriptor output stream
 		 int inputseekable,        // I - Is input stream seekable?
@@ -1603,24 +1583,14 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
 
 
 //
-// 'cfFilterOpenBackAndSidePipes()' - Open the pipes for the back
-//                                    channel and the side channel, so
-//                                    that the filter functions can
-//                                    communicate with a backend. Only
-//                                    needed if a CUPS backend (either
-//                                    implemented as filter function
-//                                    or called via
-//                                    cfFilterExternal()) is called
-//                                    with the same filter_data record
-//                                    as the filters. Usually to be
-//                                    called when populating the
-//                                    filter_data record.
+// 'cfFilterOpenBackAndSidePipes()' - Open the pipes for the back and side channels
+//                                    to allow communication between filter functions and a
+//                                    backend. Used when a CUPS backend runs with the same filter_data.
+//                                    
 //
 
-int                                                  // O - 0 on success,
-                                                     //     -1 on error
-cfFilterOpenBackAndSidePipes(cf_filter_data_t *data) // O - FDs in filter_data
-                                                     //     record
+int                                                  // O - 0 on success, -1 on error
+cfFilterOpenBackAndSidePipes(cf_filter_data_t *data) // O - FDs in filter_data record
 {
   cf_logfunc_t log = data->logfunc;
   void         *ld = data->logdata;
@@ -1699,14 +1669,13 @@ cfFilterOpenBackAndSidePipes(cf_filter_data_t *data) // O - FDs in filter_data
 
 //
 // 'cfFilterCloseBackAndSidePipes()' - Close the pipes for the back
-//                                     hannel and the side channel.
-//                                     sually to be called when done
+//                                     channel and the side channel.
+//                                     Usually to be called when done
 //                                     with the filter chain .
 //
 
 void
-cfFilterCloseBackAndSidePipes(cf_filter_data_t *data) // I - FDs in filter_data
-                                                      //     record
+cfFilterCloseBackAndSidePipes(cf_filter_data_t *data) // I - FDs in filter_data record
 {
   cf_logfunc_t log = data->logfunc;
   void         *ld = data->logdata;
