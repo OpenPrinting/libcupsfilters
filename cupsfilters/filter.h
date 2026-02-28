@@ -159,31 +159,85 @@ typedef struct cf_filter_universal_parameter_s // Contains input and output
 //
 // Prototypes...
 //
+//'cfCUPSLogFunc()' - Logging callback functions used by filters.
+//
+// data: User-defined logging context.
+// level: Log level of the message.
+// message: printf-style format string.
+// ...: Optional arguments for the format string.
+//
+// This function is used by filters to report status, debug
+// information, warnings, and errors. 
+//
 
 extern void cfCUPSLogFunc(void *data,
 			  cf_loglevel_t level,
 			  const char *message,
 			  ...);
 
+//
+// 'cfCUPSIsCanceledFunc()' - Check whether the current job has been canceled.
+//
+// data: User-defined job context.
+// Returns 1 if canceled, 0 otherwise.
+//
 
 extern int cfCUPSIsCanceledFunc(void *data);
 
 
+// 'cfFilterDataAddExt()' - Add an extension to the filter data.
+//
+// data: Filter data structure.
+// name: Name of the extension.
+// ext: Pointer to the extension data.
+// 
+
 extern void *cfFilterDataAddExt(cf_filter_data_t *data, const char *name,
 				void *ext);
 
+//
+// '*cfFilterDataGetExt()' - Retrieve an extension from the filter data.
+//
 
 extern void *cfFilterDataGetExt(cf_filter_data_t *data, const char *name);
 
+//
+// '*cfFilterDataRemoveExt()'- Remove an extension from the filter data.
+//
 
 extern void *cfFilterDataRemoveExt(cf_filter_data_t *data, const char *name);
+
+//
+// '*cfFilterGetEnvVar()' - Get the value of an environment variable from a given
+//                       environment array.
+// name: Name of the variable.
+// env: Environment array.
+//
+// Returns a pointer to value string, or NULL if not found.
+//
 
 
 extern char *cfFilterGetEnvVar(char *name, char **env);
 
+//
+// 'cfFilterAddEnvVar()' - Add or update an environment variable.
+//
+// name: Name of the variable.
+// value: Value of the variable.
+// env: Environment array.
+//
+// Returns 0 on success, -1 on failure. 
+//
 
 extern int cfFilterAddEnvVar(char *name, char *value, char ***env);
 
+
+//
+// 'cfFilterTee()' - Filter function that copies input to output and optionally to a file.
+//
+// Parameters: parameters points to a const char* specifying the
+// filename/path to copy the data to. 
+//
 
 extern int cfFilterTee(int inputfd,
 		       int outputfd,
@@ -191,11 +245,15 @@ extern int cfFilterTee(int inputfd,
 		       cf_filter_data_t *data,
 		       void *parameters);
 
-// Parameters: Filename/path (const char *) to copy the data to
+//
+// 'cfFilterPOpen()' - Start a filter function in a separate process.
+//
+// filter_func: Filter function to execute.
+// parameters: Filter-specific parameters passed to the filter.
+// filter_pid: Receives the process ID of the started filter.
+//
 
-
-extern int cfFilterPOpen(cf_filter_function_t filter_func, // I - Filter
-							   //     function
+extern int cfFilterPOpen(cf_filter_function_t filter_func, 
 			 int inputfd,
 			 int outputfd,
 			 int inputseekable,
@@ -203,6 +261,15 @@ extern int cfFilterPOpen(cf_filter_function_t filter_func, // I - Filter
 			 void *parameters,
 			 int *filter_pid);
 
+
+// 
+// 'cfFilterPClose()' - Wait for a filter process started by cfFilterPOpen().
+//
+// fd: Input pipe file descriptor.
+// filter_pid: Process ID of the filter.
+// data: Job and printer.
+// Return: 0 on success, -1 on failure.
+//
 
 extern int cfFilterPClose(int fd,
 			  int filter_pid,
@@ -212,20 +279,10 @@ extern int cfFilterPClose(int fd,
 //
 // 'cfFilterChain()' - Execute a chain of filter functions.
 //
-// Executes multiple filters in sequence. The output of one
-// filter becomes the input of the next filter. All filters
-// receive the same cf_filter_data_t structure.
-//
-// Parameters:
-//   inputfd       - Input file descriptor.
-//   outputfd      - Output file descriptor.
-//   inputseekable - Non-zero if input supports seeking.
-//   data          - Job and printer data.
-//   parameters    - Unsorted CUPS array of
-//                   cf_filter_filter_in_chain_t* entries.
-//
-// Returns 0 on success and non-zero on error.
-//
+// Parameters: Pointer to an array of cf_filter_filter_in_chain_t defining the
+//             list of filters to execute. Each filter receives the previous filter's
+//             output as input.
+//             
 
 extern int cfFilterChain(int inputfd,
 			 int outputfd,
@@ -233,25 +290,18 @@ extern int cfFilterChain(int inputfd,
 			 cf_filter_data_t *data,
 			 void *parameters);
 
+//
+// 'cfFilterExternal()' - Executes an external filter or backend.
+//
+// This function runs a CUPS/System V filter or backend based on the input and output types
+// specified in the parameters.
+//
+// See "man filter" and "man backend" for more information on CUPS filters and backends.
+//
+// System V interface script:
+// https://www.ibm.com/docs/en/aix/7.2?topic=configuration-printer-interface-scripts
+//
 
-//
-// 'cfFilterExternal()' - Execute an external CUPS filter,
-// backend, or System V interface script.
-//
-// This function runs an external program as part of the filter
-// chain. It can call a CUPS filter, a CUPS backend (including
-// device discovery mode), or a System V interface script.
-//
-// Parameters:
-//   inputfd       - Input file descriptor.
-//   outputfd      - Output file descriptor.
-//   inputseekable - Non-zero if input supports seeking.
-//   data          - Job and printer data.
-//   parameters    - Pointer to a cf_filter_external_t structure
-//                   describing the external program to execute.
-//
-// Returns 0 on success and non-zero on error.
-//
 
 extern int cfFilterExternal(int inputfd,
 			    int outputfd,
@@ -260,25 +310,38 @@ extern int cfFilterExternal(int inputfd,
 			    void *parameters);
 
 
+//
+// 'cfFilterOpenBackAndSidePipes()' - Open the back and side pipes for communication with filters.
+//	
+
+
 extern int cfFilterOpenBackAndSidePipes(cf_filter_data_t *data);
+
+//
+// 'cfFilterCloseBackAndSidePipes()' - Close the back and side pipes for communication with filters.
+//
 
 
 extern void cfFilterCloseBackAndSidePipes(cf_filter_data_t *data);
 
-
-
 //
-// 'cfFilterGhostscript()' - Convert input data using Ghostscript.
+// 'cfFilterGhostscript()' - Run Ghostscript to generate printer output.
+// 
+// Converts input data using Ghostscript to the specified output format.
+// The output format must be set via data->final_content_type or alternatively as parameter of type 
+// cf_filter_out_format_t. 
 //
-// Uses Ghostscript to convert the input data to the desired
-// output format. The output format must be specified via
-// data->final_content_type or by passing a
-// cf_filter_out_format_t parameter.
+// Output formats: PDF, raster-only PDF, PCLm, PostScript, CUPS Raster,
+// PWG Raster, Apple Raster, PCL-XL
 //
-// Supported output formats include PDF, raster-only PDF,
-// PCLm, CUPS Raster, PWG Raster, Apple Raster, and PCL-XL.
-//
-// Returns 0 on success and non-zero on error.
+// Note: With the Apple Raster selection and a Ghostscript version
+// without "appleraster" output device (9.55.x and older) the output
+// is actually CUPS Raster but information about available color
+// spaces and depths is taken from the urf-supported printer IPP
+// attribute. This mode is for further processing with
+// rastertopwg. With Ghostscript supporting Apple Raster output
+// (9.56.0 and newer), we actually produce Apple Raster and no further
+// filter is required.
 //
 
 
@@ -288,6 +351,16 @@ extern int cfFilterGhostscript(int inputfd,
 			       cf_filter_data_t *data,
 			       void *parameters);
 
+//
+// 'cfFilterBannerToPDF()' - Generate a PDF banner page.
+//
+// Creates a banner or test page in PDF format.
+// The parameter is a const char* specifying the template directory.
+// CUPS uses /usr/share/cups/data/ by default.
+// If a PDF file with added banner instructions is provided as input,
+// the template directory is not required.
+//
+
 
 extern int cfFilterBannerToPDF(int inputfd,
 			       int outputfd,
@@ -295,12 +368,9 @@ extern int cfFilterBannerToPDF(int inputfd,
 			       cf_filter_data_t *data,
 			       void *parameters);
 
-// Parameters: const char*
-// Template directory: In this directory there are the PDF template files
-// for the banners and test pages. CUPS uses /usr/share/cups/data/ for that.
-// If you submit a PDF file with added banner instructions as input file
-// the template directory is not needed as the PDF input file itself is used
-// as template.
+//
+// 'cfFilterImageToPDF()' - Convert an image to PDF format.		
+//
 
 
 extern int cfFilterImageToPDF(int inputfd,
@@ -309,13 +379,9 @@ extern int cfFilterImageToPDF(int inputfd,
 			      cf_filter_data_t *data,
 			      void *parameters);
 
-
-extern int cfFilterImageToRaster(int inputfd,
-				 int outputfd,
-				 int inputseekable,
-				 cf_filter_data_t *data,
-				 void *parameters);
-
+//
+// 'cfFilterImageToRaster()' - Convert an image to raster format.
+//
 // Requires specification of output format via data->final_content_type
 //
 // Output formats: CUPS Raster, PWG Raster, Apple Raster, PCLM
@@ -328,6 +394,30 @@ extern int cfFilterImageToRaster(int inputfd,
 // processing with rastertopwg and/or pwgtopclm. This can change in the
 // future when we add Apple Raster and PWG Raster output support to
 // this filter function.
+//
+
+
+extern int cfFilterImageToRaster(int inputfd,
+				 int outputfd,
+				 int inputseekable,
+				 cf_filter_data_t *data,
+				 void *parameters);
+
+//
+// 'cfFilterMuPDFToPWG()' - Convert PDF or XPS input to PWG Raster format using MuPDF.
+//	
+// Requires specification of output format via data->final_content_type.
+//
+// Output formats: CUPS Raster, PWG Raster, Apple Raster, PCLm
+//
+// Note: With CUPS Raster, Apple Raster, or PCLm selections the output
+// is actually PWG Raster but information about available color spaces
+// and depths is taken from the urf-supported printer IPP attribute, the
+// pclm- attributes, or from a supplied CUPS Raster sample header
+// (PCLM is always sGray/sRGB 8-bit). These modes are for further processing
+// with pwgtoraster or pwgtopclm. This can change in the future when
+// MuPDF adds further output formats.
+//
 
 
 extern int cfFilterMuPDFToPWG(int inputfd,
@@ -336,18 +426,13 @@ extern int cfFilterMuPDFToPWG(int inputfd,
 			      cf_filter_data_t *data,
 			      void *parameters);
 
+//
+// 'cfFilterPCLmToRaster()' - Convert PCLm input to raster format.
+//
 // Requires specification of output format via data->final_content_type
 //
-// Output formats: CUPS Raster, PWG Raster, Apple Raster, PCLm
+// Output formats: CUPS Raster, Apple Raster, PWG Raster
 //
-// Note: With CUPS Raster, Apple Raster, or PCLm selections the output
-// is actually PWG Raster but information about available color spaces
-// and depths is taken from the urf-supported printer IPP attribute,
-// the pclm- attributes, or from a supplied CUPS Raster sample header
-// (PCLM is always sGray/sRGB 8-bit). These modes are for further
-// processing with pwgtoraster or pwgtopclm. This can change in the
-// future when MuPDF adds further output formats.
-
 
 extern int cfFilterPCLmToRaster(int inputfd,
 				int outputfd,
@@ -355,9 +440,18 @@ extern int cfFilterPCLmToRaster(int inputfd,
 				cf_filter_data_t *data,
 				void *parameters);
 
-// Requires specification of output format via data->final_content_type
 //
-// Output formats: CUPS Raster, Apple Raster, or PWG Raster
+// 'cfFilterPDFToPDF()' - Process PDF input and produce PDF output.
+//
+// (Optional) Specification of output format via
+// data->final_content_type is used for determining whether this
+// filter function does page logging for CUPS (output of "PAGE: XX YY" 
+// log messages) or not and also to determine whether the printer or
+// driver generates copies or whether we have to send the pages
+// repeatedly.
+// Alternatively, the options "pdf-filter-page-logging",
+// "hardware-copies", and "hardware-collate" can be used to manually do these selections.
+//	
 
 
 extern int cfFilterPDFToPDF(int inputfd,
@@ -366,16 +460,17 @@ extern int cfFilterPDFToPDF(int inputfd,
 			    cf_filter_data_t *data,
 			    void *parameters);
 
-// (Optional) Specification of output format via
-// data->final_content_type is used for determining whether this
-// filter function does page logging for CUPS (output of "PAGE: XX YY"
-// log messages) or not and also to determine whether the printer or
-// driver generates copies or whether we have to send the pages
-// repeatedly.
 //
-// Alternatively, the options "pdf-filter-page-logging",
-// "hardware-copies", and "hardware-collate" can be used to manually
-// do these selections.
+// 'cfFilterPDFToRaster()' - Convert PDF input to raster format.
+//
+// Requires specification of output format via data->final_content_type
+//
+// Output formats: CUPS Raster, PWG Raster, Apple Raster, PCLm
+//
+// Note: With PCLm selection the output is actually PWG Raster but color space and
+// depth will be 8-bit sRGB or SGray, the only color spaces supported by PCLm. 
+// This mode is for further processing with pwgtopclm.
+//
 
 
 extern int cfFilterPDFToRaster(int inputfd,
@@ -384,15 +479,14 @@ extern int cfFilterPDFToRaster(int inputfd,
 			       cf_filter_data_t *data,
 			       void* parameters);
 
+//
+// 'cfFilterPWGToRaster()' - Convert PWG Raster input to raster format.
+//
 // Requires specification of output format via data->final_content_type
 //
-// Output formats: CUPS Raster, PWG Raster, Apple Raster, PCLm
+// Output formats: CUPS Raster, Apple Raster, PWG Raster
 //
-// Note: With PCLm selection the output is actually PWG Raster but
-// color space and depth will be 8-bit sRGB or SGray, the only color
-// spaces supported by PCLm. This mode is for further processing with
-// pwgtopclm.
-
+//
 
 extern int cfFilterPWGToRaster(int inputfd,
 			       int outputfd,
@@ -400,9 +494,14 @@ extern int cfFilterPWGToRaster(int inputfd,
 			       cf_filter_data_t *data,
 			       void *parameters);
 
-// Requires specification of output format via data->final_content_type
 //
-// Output formats: CUPS Raster, PWG Raster, Apple Raster
+// 'cfFilterPWGToPDF()' - Convert PWG Raster input to PDF format.
+//
+// Requires specification of output format via data->final_content_type
+// or alternatively as parameter of type cf_filter_out_format_t.
+//
+// Output formats: PDF, PCLm
+//	
 
 
 extern int cfFilterPWGToPDF(int inputfd,
@@ -411,11 +510,13 @@ extern int cfFilterPWGToPDF(int inputfd,
 			       cf_filter_data_t *data,
 			       void *parameters);
 
-// Requires specification of output format via data->final_content_type
-// or alternatively as parameter of type cf_filter_out_format_t.
+// 'cfFilterRasterToPWG()' - Convert raster input to PWG Raster format.
 //
-// Output formats: PDF, PCLm
-
+// Requires specification of output format via data->final_content_type.
+//
+// Output formats: Apple Raster or PWG Raster, if PCLM is specified PWG
+// Raster is produced to feed into the cfFilterPWGToPDF() filter function
+//
 
 extern int cfFilterRasterToPWG(int inputfd,
 			       int outputfd,
@@ -423,12 +524,14 @@ extern int cfFilterRasterToPWG(int inputfd,
 			       cf_filter_data_t *data,
 			       void *parameters);
 
-// Requires specification of output format via data->final_content_type
 //
-// Output formats: Apple Raster or PWG Raster, if PCLM is specified
-// PWG Raster is produced to feed into the cfFilterPWGToPDF() filter
-// function.
-
+// 'cfFilterTextToPDF()' - Convert text input to PDF format.
+//
+// Parameters: cf_filter_texttopdf_parameter_t*
+//
+// Data directory (fonts, charsets), charset, content type (for prettyprint),
+// classification (for overprint/watermark)
+//
 
 extern int cfFilterTextToPDF(int inputfd,
 			     int outputfd,
@@ -436,11 +539,9 @@ extern int cfFilterTextToPDF(int inputfd,
 			     cf_filter_data_t *data,
 			     void *parameters);
 
-// Parameters: cf_filter_texttopdf_parameter_t*
 //
-// Data directory (fonts, charsets), charset, content type (for prettyprint),
-// classification (for overprint/watermark)
-
+// 'cfFilterTextToText()' - Process plain text input and produce plain text output.
+//
 
 extern int cfFilterTextToText(int inputfd,
 			      int outputfd,
@@ -448,33 +549,26 @@ extern int cfFilterTextToText(int inputfd,
 			      cf_filter_data_t *data,
 			      void *parameters);
 
+//
+// 'cfFilterUniversal()' - Universal filter function for various conversions.
+//
+// Requires specification of input format via data->content_type and 
+// job's final output format via data->final_content_type.
+//
+// Parameters: cf_filter_universal_parameter_t*
+//
+// Contains: actual_output_type: Format which the filter should
+//           actually produce if different from job's final output
+//           format, otherwise NULL to produce the job's final output
+//           format
+//	     texttopdf_params: parameters for texttopdf
+//
 
-//
-// 'cfFilterUniversal()' - Automatically select and execute
-// the appropriate filter conversion pipeline.
-//
-// Determines the required data conversion based on the job's
-// input content type (data->content_type) and the desired
-// final output type (data->final_content_type).
-//
-// Parameters:
-//   inputfd       - Input file descriptor.
-//   outputfd      - Output file descriptor.
-//   inputseekable - Non-zero if input supports seeking.
-//   data          - Job and printer data.
-//   parameters    - Pointer to a
-//                   cf_filter_universal_parameter_t structure
-//                   providing additional conversion settings.
-//
-// Returns 0 on success and non-zero on error.
-//
-  
 extern int cfFilterUniversal(int inputfd,
 			     int outputfd,
 			     int inputseekable,
 			     cf_filter_data_t *data,
 			     void *parameters);
-
 
 
 #  ifdef __cplusplus
