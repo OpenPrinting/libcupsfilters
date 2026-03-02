@@ -2467,7 +2467,7 @@ prepare_documents(
       }
     }
 
-    if (p.has_form || p.has_annotations)
+    if (p.has_form && p.has_annotations)
     {
       if ((flattened_pdf = pdfioFileCreateTemporary(flattened_pdf_file, sizeof(flattened_pdf_file), "1.7", &p.media, &p.media, pdfio_error_cb, &p)) == NULL)
 	return (false);

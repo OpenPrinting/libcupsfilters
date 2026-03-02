@@ -25,13 +25,13 @@ jobs:
        sudo apt install autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev
        sudo apt install libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev libopenjp2-7-dev liblcms2-dev libjpeg-dev
        sudo apt install -y libjxl-dev
-    - name: Install pdfio >= 1.6.0
+    - name: Install pdfio >= 1.6.2
       run: |
         cd ..
         mkdir pdfio
-        wget https://github.com/michaelrsweet/pdfio/releases/download/v1.6.0/pdfio-1.6.0.tar.gz
-        tar -xzf pdfio-1.6.0.tar.gz
-        cd pdfio-1.6.0
+        wget https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+        tar -xzf pdfio-1.6.2.tar.gz
+        cd pdfio-1.6.2
         ./configure --prefix=/usr --enable-shared
         make all
         make test
