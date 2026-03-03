@@ -595,7 +595,7 @@ generate_banner_pdf(banner_t *banner,
   char *buf;
   size_t len;
   FILE *s;
-  cf_pdf_t *doc;
+  cf_pdf_t *input_doc, *output_doc;
   float page_width = 0.0, page_length = 0.0;
   float media_limits[4];
   float page_scale;
@@ -608,13 +608,16 @@ generate_banner_pdf(banner_t *banner,
   struct stat st;
 #endif
 
-  if (!(doc = cfPDFLoadTemplate(banner->template_file)))
+  if (!(input_doc = cfPDFLoadTemplate(banner->template_file)))
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "PDF template must exist and contain exactly 1 page: %s",
 		 banner->template_file);
     return (1);
   }
+
+  iterate_data_t *iterate_helper = (iterate_data_t *)malloc(sizeof(iterate_data_t));
+  output_doc = cfCopyPDFdoc(input_doc, outputfp, iterate_helper);
 
   for (i = 0; i < 4; i ++)
     media_limits[i] = -1.0;
@@ -637,19 +640,21 @@ generate_banner_pdf(banner_t *banner,
     media_limits[3] = page_length - media_limits[3];
   }
 
-  if (cfPDFResizePage(doc, 1, page_width, page_length, &page_scale) != 0)
+  if (cfPDFResizePage1(output_doc, iterate_helper, 1, page_width, page_length, &page_scale) != 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "Unable to resize requested PDF page");
-    cfPDFFree(doc);
+    cfPDFFree(input_doc);
+    cfPDFFree(output_doc);
     return (1);
   }
 
-  if (cfPDFAddType1Font(doc, 1, "Courier") != 0)
+  if (cfPDFAddType1Font1(output_doc, iterate_helper, 1, "Courier") != 0)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "Unable to add type1 font to requested PDF page");
-    cfPDFFree(doc);
+    cfPDFFree(input_doc);
+    cfPDFFree(output_doc);
     return (1);
   }
 
@@ -660,7 +665,8 @@ generate_banner_pdf(banner_t *banner,
   {
     if (log)
       log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Cannot create temp file: %s\n", strerror(errno));
-    cfPDFFree(doc);
+    cfPDFFree(input_doc);
+    cfPDFFree(output_doc);
     return (1);
   }
 #endif
@@ -832,13 +838,13 @@ generate_banner_pdf(banner_t *banner,
   // Try to find a PDF form in PDF template and fill it.
   //
 
-  if (cfPDFFillForm(doc, known_opts) != 0)
+  if (cfPDFFillForm(output_doc, known_opts) != 0)
   {
     //
     // Could we fill a PDF form? If no, just add PDF stream.
     //
 
-    if (cfPDFPrependStream(doc, 1, buf, len) != 0)
+    if (cfPDFPrependStream1(input_doc, iterate_helper, 1, buf, len) != 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "Unable to prepend stream to requested PDF page");
@@ -852,14 +858,14 @@ generate_banner_pdf(banner_t *banner,
 
   if (copies > 1)
   {
-    if (cfPDFDuplicatePage(doc, 1, copies - 1) != 0)
+    if (cfPDFDuplicatePage(output_doc, 1, copies - 1) != 0)
     {
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "Unable to duplicate requested PDF page");
     }
   }
 
-  cfPDFWrite(doc, outputfp);
+  cfPDFWrite(output_doc, outputfp);
 
   cf_opt_t *opt_current = known_opts;
   cf_opt_t *opt_next = NULL;
@@ -871,7 +877,9 @@ generate_banner_pdf(banner_t *banner,
   }
 
   free(buf);
-  cfPDFFree(doc);
+  free(iterate_helper);
+  cfPDFFree(input_doc);
+  cfPDFFree(output_doc);
   return (0);
 }
 

@@ -11,6 +11,7 @@
 #define _CUPS_FILTERS_PDF_H_
 
 #include <stdio.h>
+#include <pdfio.h>
 
 // cf_pdf_t is an opaque data type. It is supposed to be only used with the
 // functions of the cfPDF... API which is defined in this file (pdf.h). Its
@@ -20,7 +21,7 @@
 // to satisfy automatic checkers of the API used by the packaging and build
 // server infrastructure of operating system distributions. This way we do not
 // need to bump the soname for this meaningless symbol.
-typedef struct QPDF cf_pdf_t;
+typedef struct pdfio_file_t cf_pdf_t;
 
 typedef struct _cf_opt cf_opt_t;
 
@@ -35,7 +36,17 @@ struct _cf_opt
   cf_opt_t *next;
 };
 
-cf_pdf_t *cfPDFLoadTemplate(const char *filename);
+typedef struct iterate_data_s
+{
+  cf_pdf_t 	*pdf;
+  pdfio_dict_t	*page_dict;
+  pdfio_dict_t  *page_resdict;
+}iterate_data_t;
+
+cf_pdf_t* cfPDFLoadTemplate(const char *filename);
+
+cf_pdf_t* cfCopyPDFdoc(cf_pdf_t *input_doc, FILE *output_file, iterate_data_t *iterate_helper );
+
 void cfPDFFree(cf_pdf_t *pdf);
 
 void cfPDFWrite(cf_pdf_t *doc, 
@@ -46,15 +57,33 @@ int cfPDFPrependStream(cf_pdf_t *doc,
 		       const char *buf, 
 		       size_t len);
 
+int cfPDFPrependStream1(cf_pdf_t *doc, 
+		        iterate_data_t *iterate_helper,
+		       	unsigned page, 
+			const char *buf, 
+			size_t len);
+
 int cfPDFAddType1Font(cf_pdf_t *doc, 
 		      unsigned page, 
 		      const char *name);
+
+int cfPDFAddType1Font1(cf_pdf_t *doc, 
+		       iterate_data_t *iterate_helper,
+		       unsigned page, 
+		       const char *name);
 
 int cfPDFResizePage(cf_pdf_t *doc, 
 		    unsigned page, 
 		    float width, 
 		    float length, 
 		    float *scale);
+
+int cfPDFResizePage1(cf_pdf_t *doc, 
+		     iterate_data_t *iterate_helper,
+		     unsigned page, 
+		     float width, 
+		     float length, 
+		     float *scale);
 
 int cfPDFDuplicatePage(cf_pdf_t *doc, 
 		       unsigned page, 
