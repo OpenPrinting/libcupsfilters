@@ -70,10 +70,7 @@ cfPDFLoadTemplate(const char *filename) 	// I - Filename of the PDF file
 }
 
 //
-// 'resource_dict_cb()' - Merge resource dictionaries from multiple input pages.
-//
-// This function detects resource conflicts and maps conflicting names as
-// needed.
+// 'cf_pdf_write()' - helper which writes the PDF file to a FILE*
 //
 
 ssize_t
@@ -81,181 +78,6 @@ cf_pdf_write_cb(void *context, const void *buffer, size_t bytes)
 {
   return (ssize_t)fwrite(buffer, 1, bytes, (FILE *)context);
 }
-
-/*
-static bool
-resource_dict_cb(
-    pdfio_dict_t *dict,			// I - Dictionary
-    const char   *key,			// I - Dictionary key
-    iterate_data_t *helper)		// I - Output page
-{
-  pdfio_array_t	*arrayval;		// Array value
-  pdfio_dict_t	*dictval;		// Dictionary value
-  const char	*nameval,		// Name value
-		*curname;		// Current name value
-  pdfio_obj_t	*objval;		// Object value
-  char		mapname[256];		// Mapped resource name
-
-
-  fprintf(stderr, "DEBUG: resource_dict_cb(dict=%p, key=\"%s\", helper=%p)\n", (void *)dict, key, (void *)helper);
-
-  snprintf(mapname, sizeof(mapname), "%c%s", (int)('a' + 1), key);
-
-  switch (pdfioDictGetType(dict, key))
-  {
-    case PDFIO_VALTYPE_ARRAY : // Array
-        arrayval = pdfioDictGetArray(dict, key);
-        if (pdfioDictGetArray(outpage->restype, key))
-        {
-	  if (!outpage->resmap[outpage->layout])
-	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
-
-	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
-	  key = mapname;
-	}
-
-        pdfioDictSetArray(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval));
-        break;
-
-    case PDFIO_VALTYPE_DICT : // Dictionary
-        dictval = pdfioDictGetDict(dict, key);
-        if (pdfioDictGetDict(outpage->restype, key))
-        {
-	  if (!outpage->resmap[outpage->layout])
-	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
-
-	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
-	  key = mapname;
-	}
-
-        pdfioDictSetDict(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
-        break;
-
-    case PDFIO_VALTYPE_NAME : // Name
-        nameval = pdfioDictGetName(dict, key);
-        if ((curname = pdfioDictGetName(outpage->restype, key)) != NULL)
-        {
-          if (!strcmp(nameval, curname))
-            break;
-
-	  if (!outpage->resmap[outpage->layout])
-	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
-
-	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
-	  key = mapname;
-	}
-
-        pdfioDictSetName(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, nameval));
-        break;
-
-    case PDFIO_VALTYPE_INDIRECT : // Object reference
-        objval = pdfioDictGetObj(dict, key);
-        if (pdfioDictGetObj(outpage->restype, key))
-        {
-	  if (!outpage->resmap[outpage->layout])
-	    outpage->resmap[outpage->layout] = pdfioDictCreate(outpage->pdf);
-
-	  pdfioDictSetName(outpage->resmap[outpage->layout], pdfioStringCreate(outpage->pdf, key), pdfioStringCreate(outpage->pdf, mapname));
-	  key = mapname;
-	}
-
-        pdfioDictSetObj(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioObjCopy(outpage->pdf, objval));
-        break;
-
-    default :
-        break;
-  }
-
-  return (true);
-}
-*/
-
-static bool                             // O - `true` to continue, `false` to stop
-page_dict_cb(pdfio_dict_t *dict,    	// I - Dictionary
-             const char   *key,         // I - Dictionary key
-	     iterate_data_t *helper) 	// I - Output page
-{
-  pdfio_array_t	*arrayres;		// Array resource
-  pdfio_array_t	*arrayval = NULL;	// Array value
-  pdfio_dict_t	*dictval = NULL;	// Dictionary value
-  pdfio_obj_t	*objval;		// Object value
-
-
-  fprintf(stderr, "DEBUG: page_dict_cb(dict=%p, key=\"%s\", helper=%p), type=%d\n", (void *)dict, key, (void *)helper, pdfioDictGetType(dict, key));
-
-  if (strcmp(key, "ColorSpace") && strcmp(key, "ExtGState") && strcmp(key, "Font") && strcmp(key, "Pattern") && strcmp(key, "ProcSet") && strcmp(key, "Properties") && strcmp(key, "Shading") && strcmp(key, "XObject"))
-    return (true);
-
-  switch (pdfioDictGetType(dict, key))
-  {
-    case PDFIO_VALTYPE_ARRAY : // Array resource
-        arrayval = pdfioDictGetArray(dict, key);
-        break;
-
-    case PDFIO_VALTYPE_DICT : // Dictionary resource
-        dictval = pdfioDictGetDict(dict, key);
-        break;
-
-    case PDFIO_VALTYPE_INDIRECT : // Object reference to dictionary
-        objval   = pdfioDictGetObj(dict, key);
-        arrayval = pdfioObjGetArray(objval);
-        dictval  = pdfioObjGetDict(objval);
-
-        fprintf(stderr, "DEBUG: page_dict_cb: objval=%p(%u), arrayval=%p, dictval=%p\n", (void *)objval, (unsigned)pdfioObjGetNumber(objval), (void *)arrayval, (void *)dictval);
-        break;
-
-    default :
-        break;
-  }
-
-  if (arrayval)
-  {
-    // Copy/merge an array resource...
-    if ((arrayres = pdfioDictGetArray(helper->page_resdict, key)) == NULL)
-    {
-      // Copy array
-      pdfioDictSetArray(helper->page_resdict, pdfioStringCreate((pdfio_file_t*)helper->pdf, key), pdfioArrayCopy((pdfio_file_t*)helper->pdf, arrayval));
-    }
-    else if (!strcmp(key, "ProcSet"))
-    {
-      // Merge ProcSet array
-      size_t		i, j,		// Looping var
-			ic, jc;		// Counts
-      const char	*iv, *jv;	// Values
-
-      for (i = 0, ic = pdfioArrayGetSize(arrayval); i < ic; i ++)
-      {
-	if ((iv = pdfioArrayGetName(arrayval, i)) == NULL)
-	  continue;
-
-	for (j = 0, jc = pdfioArrayGetSize(arrayres); j < jc; j ++)
-	{
-	  if ((jv = pdfioArrayGetName(arrayres, j)) == NULL)
-	    continue;
-
-	  if (!strcmp(iv, jv))
-	    break;
-	}
-
-	if (j >= jc)
-	  pdfioArrayAppendName(arrayres, pdfioStringCreate((pdfio_file_t*)helper->pdf, iv));
-      }
-    }
-  }
-  else if (dictval)
-  {
-	  /*
-    // Copy/merge dictionary...
-    if (pdfioDictGetDict(helper->page_resdict, key) == NULL)
-      pdfioDictSetDict(helper->page_resdict, pdfioStringCreate(helper->pdf, key), pdfioDictCopy(helper->pdf, dictval));
-    else
-      pdfioDictIterateKeys(dictval, (pdfio_dict_cb_t)resource_dict_cb, helper);
-      */
-  }
-
-  return (true);
-}
-
 
 //
 // 'cfCopyPDFdoc()' - Copy the PDF file to another using PDFio, as PDFio doesn't 
@@ -268,31 +90,9 @@ cfCopyPDFdoc(cf_pdf_t *input_doc,
 	     FILE *output_file,
 	     iterate_data_t *iterate_helper)
 {
-  pdfio_rect_t default_box = { 0.0, 0.0, 612.0, 792.0 };
-  pdfio_dict_t *input_resdict;
-  pdfio_obj_t *input_resobject;
-
   cf_pdf_t *pdf = (cf_pdf_t*)pdfioFileCreateOutput(cf_pdf_write_cb, output_file,
 		 			    pdfioFileGetVersion((pdfio_file_t *)input_doc), 					       NULL, NULL, NULL, NULL);
   iterate_helper->pdf = pdf;
-  /*
-  pdfio_dict_t *pagedict = pdfioDictCreate((pdfio_file_t *)pdf);
-  pdfio_dict_t *resdict = pdfioDictCreate((pdfio_file_t *)pdf);
-
-  pdfioDictSetRect(pagedict, "CropBox", &default_box);
-  pdfioDictSetRect(pagedict, "MediaBox", &default_box);
-  pdfioDictSetDict(pagedict, "Resources", resdict); 
-  pdfioDictSetName(pagedict, "Type", "Page");
-
-  iterate_helper->page_dict = pagedict;
-  iterate_helper->page_resdict = resdict;
-
-  pdfio_dict_t *input_page_dict = pdfioObjGetDict(pdfioFileGetPage((pdfio_file_t*)input_doc, 0));
-  if ((input_resdict = pdfioDictGetDict(input_page_dict, "Resources")) != NULL)
-    pdfioDictIterateKeys(resdict, (pdfio_dict_cb_t)page_dict_cb, iterate_helper);
-  else if ((input_resobject = pdfioDictGetObj(input_page_dict, "Resources")) != NULL)
-    pdfioDictIterateKeys(pdfioObjGetDict(input_resobject), (pdfio_dict_cb_t)page_dict_cb, iterate_helper);
-  */
   pdfio_dict_t *input_page_dict = pdfioObjGetDict(pdfioFileGetPage((pdfio_file_t*)input_doc, 0));
   iterate_helper->page_dict = pdfioDictCopy((pdfio_file_t *)iterate_helper->pdf, input_page_dict);
 
@@ -452,8 +252,9 @@ cfPDFPrependStream(cf_pdf_t *pdf,		// I - Pointer to PDF file
 }
 
 //
-// 'cfPDFPrependStream1()' - Prepend a stream to the contents of a specified
-//                          page in PDF file.
+// 'cfPDFPrependStream1()' - Replacement API for the original above.
+// 			     Prepend a stream to the contents of a specified
+//                           page in PDF file.
 //
 
 int 						  // O - 0 on success, 1 on error
@@ -463,7 +264,6 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
 		    const char *buf, 		// I - Buffer containing stream data
 		    size_t len) 		// I - Length of Buffer
 {
-  size_t count;
   pdfio_stream_t *st;
   ssize_t bytes;
   char          buffer[65536];
@@ -475,7 +275,6 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
 
   // Get the existing page object
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
-  pdfio_dict_t *pageDict = pdfioObjGetDict(page);
 
   // Create the new pdf page stream
   pdfio_stream_t *new_stream = pdfioFileCreatePage((pdfio_file_t*)iterate_helper->pdf, iterate_helper->page_dict);
@@ -497,37 +296,6 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
     pdfioStreamClose(st);
   }
 
-  /*
-  // Write the new buffer (buf) into the new stream
-  pdfio_stream_t *new_stream = pdfioFileCreatePage((pdfio_file_t *)iterate_helper->pdf, iterate_helper->page_dict);
-  if (!new_stream) 
-  {
-    pdfioStreamClose(existing_stream);
-    return 1;
-  }
-
-  pdfioStreamWrite(new_stream, buf, len);
-  pdfioStreamClose(new_stream);
-
-  // Create a combined stream on the page to merge new + existing
-  // NOTE :  This logic does overwriting/appending to the page content stream,
-  // 	     be cautious while making changes
-  pdfio_stream_t *combined_stream = pdfioObjCreateStream(page, PDFIO_FILTER_FLATE);
-  if (!combined_stream) 
-  {
-    pdfioStreamClose(existing_stream);
-    return 1;
-  }
-
-  // Copy existing stream content to the combined stream
-  char buffer[1024];
-  size_t read_len;
-  while ((read_len = pdfioStreamRead(existing_stream, buffer, sizeof(buffer))) > 0) 
-    pdfioStreamWrite(combined_stream, buffer, read_len);
-
-  pdfioStreamClose(existing_stream);
-  pdfioStreamClose(combined_stream);
-  */
   pdfioStreamClose(new_stream);
 
   return 0; 
@@ -582,7 +350,8 @@ cfPDFAddType1Font(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 }
 
 //
-// 'cfPDFAddType1Font1()' - Add the specified type1 font face to the specified
+// 'cfPDFAddType1Font1()' - Replacement to the API just above
+// 			    Add the specified type1 font face to the specified
 //                         page in a PDF document.
 //
 
@@ -601,7 +370,6 @@ cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
   pdfio_dict_t *resources = pdfioDictGetDict(pageDict, "Resources");
   if (!resources) 
   {
-    fprintf(stderr, "her's the issue where its arising");
     resources = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
     pdfioDictSetDict(pageDict, "Resources", resources);
   }
@@ -609,20 +377,11 @@ cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
   // Locate or create the Font dictionary within Resources
   pdfio_valtype_t fonts_type = pdfioDictGetType(resources, "Font");
   if (fonts_type == PDFIO_VALTYPE_INDIRECT) 
-  {
-    fprintf(stderr, "font object is indirect\n");
     fonts = pdfioDictCopy((pdfio_file_t*)iterate_helper->pdf, pdfioObjGetDict(pdfioDictGetObj(resources, "Font")));
-  }
   else if(fonts_type == PDFIO_VALTYPE_DICT) 
-  {
-    fprintf(stderr, "font object is direct\n");
     fonts = pdfioDictCopy((pdfio_file_t*)iterate_helper->pdf, pdfioDictGetDict(resources, "Font"));
-  }
   else
-  {
-    fprintf(stderr, "no Fonts object in pdf\n");
     fonts = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
-  }
 
   // Create the specific Font dictionary for this Type1 font
   pdfio_dict_t *new_font = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
@@ -631,16 +390,11 @@ cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 
   pdfioDictSetName(new_font, "Type", "Font");
   pdfioDictSetName(new_font, "Subtype", "Type1");
-  char basefont[256];
-//  snprintf(basefont, sizeof(basefont), "%s", name);
-//  pdfioDictSetName(new_font, "BaseFont", basefont);
   pdfioDictSetName(new_font, "BaseFont", name);
 
   // Register the font under the name "bannertopdf-font"
   // Note: This fixed key name implies only one such font can be added per page via this function.
-  pdfio_obj_t *new_font_obj = pdfioFileCreateObj((pdfio_file_t *)iterate_helper->pdf, new_font);
   if(pdfioDictSetDict(fonts, "bannertopdf-font", new_font))
-    fprintf(stderr, "n pdf\n");
 
   pdfioDictSetDict(resources, "Font", fonts);
   return 0;
@@ -750,10 +504,7 @@ cfPDFResizePage(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
 
   // Get original dimensions to calculate scale
   if (!dict_lookup_rect(page, "MediaBox", old_mediabox, true))
-  {
-    fprintf(stderr, "yahaa yahaaa_____2\n");
     return (1);
-  }
   
   fit_rect(old_mediabox, new_mediabox, scale);
   media_box = make_real_box(new_mediabox);
@@ -772,7 +523,8 @@ cfPDFResizePage(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
 }
 
 //
-// 'cfPDFResizePage1()' - Resize page in a PDF with the given dimensions.
+// 'cfPDFResizePage1()' -  Replacement to original API above 
+// 			   Resize page in a PDF with the given dimensions.
 //
 
 int 					// O - 0 if success, 1 if error
@@ -795,10 +547,7 @@ cfPDFResizePage1(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
 
   // Get original dimensions to calculate scale
   if (!dict_lookup_rect1(pageDict, "MediaBox", old_mediabox, true))
-  {
-    fprintf(stderr, "yahaa yahaaa_____2\n");
     return (1);
-  }
   
   fit_rect(old_mediabox, new_mediabox, scale);
   media_box = make_real_box(new_mediabox);
@@ -855,7 +604,7 @@ cfPDFWrite(cf_pdf_t *pdf,
 int
 cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt)
 {
-    // TODO: PDFio does not directly support form filling.
-    return 1;
+  // TODO: PDFio does not directly support form filling.
+  return 1;
 }
 
