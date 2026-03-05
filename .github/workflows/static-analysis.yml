@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'cpp' ]
+        language: [ 'c-cpp' ]
 
     steps:
       - name: Checkout repository
@@ -65,14 +65,12 @@ jobs:
             ghostscript \
             cppcheck
 
-      - name: Install pdfio >= 1.6.0
+      - name: Install pdfio >= 1.6.2
         run: |
           cd ..
-          mkdir -p pdfio
-          cd pdfio
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.0/pdfio-1.6.0.tar.gz
-          tar -xzf pdfio-1.6.0.tar.gz
-          cd pdfio-1.6.0
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+          tar -xzf pdfio-1.6.2.tar.gz
+          cd pdfio-1.6.2
           ./configure --prefix=/usr --enable-shared
           make all
           make test
