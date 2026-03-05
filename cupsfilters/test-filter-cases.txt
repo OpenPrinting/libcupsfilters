@@ -23,4 +23,5 @@ cupsfilters/test_files/test_text_lorem.txt	text/plain	cupsfilters/test_files/out
 cupsfilters/test_files/test_text_greek.txt	text/plain	cupsfilters/test_files/output_files/output_text_greek.pdf	application/pdf	Generic	PDF Color 2	1	1	text/plain,application/pdf	301	greek-user	greek-test	1
 cupsfilters/test_files/test_text_russian.txt	text/plain	cupsfilters/test_files/output_files/output_text_russian.pdf	application/pdf	Generic	PDF Color 2	1	1	text/plain,application/pdf	304	russian-user	russian-test	1
 cupsfilters/test_files/test_text_arabic_rtl.txt	text/plain	cupsfilters/test_files/output_files/output_text_arabic.pdf	application/pdf	Generic	PDF Color 2	1	1	text/plain,application/pdf	303	arabic-user	arabic-test	1
+cupsfilters/test_files/malformed.pdf	application/pdf	cupsfilters/test_files/output_files/output_malformed_should_fail.pdf	application/vnd.cups-pdf	Generic	PDF Color 2	1	1	application/vnd.cups-pdf	202	poc-user-malformed	expect-fail	1
 
