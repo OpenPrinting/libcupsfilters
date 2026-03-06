@@ -1,0 +1,48 @@
+name: Cppcheck
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update --fix-missing -y
+          sudo apt-get install -y cppcheck
+
+      # Set up GitHub caching to store cppcheck's analysis state
+      - name: Cache cppcheck build state
+        uses: actions/cache@v4
+        with:
+          path: cppcheck-build-dir
+          key: ${{ runner.os }}-cppcheck-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cppcheck-${{ github.ref }}-
+            ${{ runner.os }}-cppcheck-
+
+      - name: Run cppcheck
+        run: |
+          # Create the cache directory if it doesn't exist
+          mkdir -p cppcheck-build-dir
+          
+          # Run cppcheck with parallel jobs and caching enabled
+          cppcheck \
+            -j $(nproc) \
+            --cppcheck-build-dir=cppcheck-build-dir \
+            --enable=warning,performance,portability \
+            --error-exitcode=1 \
+            --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --suppress=unknownMacro \
+            .
