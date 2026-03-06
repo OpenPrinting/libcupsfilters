@@ -18,6 +18,7 @@
 #include <math.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <cups/file.h>
 #include <cups/array.h>

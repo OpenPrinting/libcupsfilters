@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /*
  * 'remove_white_space()' - Remove white spaces from beginning and end of a string
@@ -1223,14 +1224,6 @@ run_test(
       }
       continue;
      }
-     else if (globalFlag == 9) 
-     {
-            filter_chain_str = token;
-            filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
-            globalFlag++;
-        }
-
-
 
      clargs = realloc(clargs, (token_index+1)*sizeof(char*));
      char* tmp_token = (char*)malloc(100*sizeof(char*));
@@ -1239,7 +1232,14 @@ run_test(
      clargs[token_index] = tmp_token;
      token_index++;
    }  
-  
+   // Optional FilterChain support
+    if (token_index > 5) {
+        filter_chain_str = clargs[token_index-1];
+        if (filter_chain_str && strlen(filter_chain_str) > 0) {
+            filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
+        }
+    }
+
    ipp_t* emulated_ipp = load_legacy_attributes(make, model, ppm, ppm_color, duplex, docformats);
 //   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp, inputContentType, outputContentType, inputFileName, outputFileName);
 
@@ -1260,56 +1260,63 @@ int main(int  argc,				// I - Number of command-line args
   size_t len = 0;      // Length of Input Stream
   ssize_t read;
 
-
   // set file_name (test.txt) from argv... 
-  if (argc  > 1) 
-    file_name = argv[1];
-  else
+  if (argc < 2)
   {
-    fprintf(stderr, "No Input Test file Provided...\n");
-    exit(EXIT_FAILURE);
+    fprintf(stderr, "No input test file provided.\n");
+    return EXIT_FAILURE;
   }
-  char* tc_cnt = argv[2];
-  int total_tc = atoi(tc_cnt) + 1;
-  fprintf(stdout, "%s\n", file_name);
+  file_name = argv[1];
   fp = fopen(file_name, "r");
-
-  if (fp == NULL)
-    exit(EXIT_FAILURE);
+  if (!fp)
+  {
+    perror("fopen");
+    return EXIT_FAILURE;
+  }
 
   int test_case_no = 1;
-  
+
   // Counts the number of test case which failed...
   int fail_cnt = 0;
-  
-   while ((read = getline(&line, &len, fp))!=-1 && total_tc--) 
-   {
-     if (!line)
-       break;
-     
-     char* test_case = (char*)malloc(1000*sizeof(char));
-     memcpy(test_case, line, strlen(line)+1);
-     
-     // skip lines starting with '#' (Intruction Line) ...
-     if(test_case[0] == '#')
-       continue;
-    	
-     test_case[len-1] = '\0';
-     fprintf(stderr, "Running Test #%d\n", test_case_no);
-     int testResult = run_test(test_case, argv[0]);
-    	
-     if(testResult == 0)
-       fprintf(stderr, "Test Status %d: Successful\n", test_case_no);	
-     else
-     {
-     	fprintf(stderr, "Test Status %d: Failed\n", test_case_no);
-     	fail_cnt++;
-     }
-       
-    	
-     test_case_no++;
+
+  while ((read = getline(&line, &len, fp)) != -1)
+  {
+    if (read <= 1)
+      continue;
+
+    // skip lines starting with '#' (Intruction Line) ...   
+    if (line[0] == '#')
+      continue;
+
+    if (line[read - 1] == '\n')
+      line[read - 1] = '\0';
+
+    char *test_case = strdup(line);
+    if (!test_case)
+      continue;
+
+    long pos = ftell(fp);
+
+    int testResult = run_test(test_case, argv[0]);
+
+    // restoring stream state in case filters modified descriptor
+    clearerr(fp);
+    fseek(fp, pos, SEEK_SET);
+
+    if (testResult == 0)
+      fprintf(stderr, "Test Status %d: Successful\n", test_case_no);
+    else
+    {
+      fprintf(stderr, "Test Status %d: Failed\n", test_case_no);
+      fail_cnt++;
     }
 
-   fclose(fp);
-   return (fail_cnt);
+    free(test_case);
+    test_case_no++;
+  }
+
+  free(line);
+  fclose(fp);
+
+  return fail_cnt;
 }

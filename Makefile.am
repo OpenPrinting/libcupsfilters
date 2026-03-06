@@ -322,6 +322,16 @@ testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib
 
+noinst_PROGRAMS = gen-lorem-text
+gen_lorem_text_SOURCES = cupsfilters/gen-lorem-text.c
+EXTRA_DIST += cupsfilters/gen-lorem-text.c
+# Generated deterministic lorem text for texttopdf tests
+BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
+CLEANFILES   = cupsfilters/test_files/test_text_lorem.txt
+
+cupsfilters/test_files/test_text_lorem.txt: gen-lorem-text
+	$(AM_V_GEN)./gen-lorem-text > $@
+
 EXTRA_DIST += \
 	$(check_SCRIPTS) \
 	$(pkgfiltersinclude_DATA) \
