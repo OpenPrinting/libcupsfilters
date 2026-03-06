@@ -1240,8 +1240,7 @@ special_pdfio_annotation_get_content(pdfio_obj_t  *annot,
   BBox.x2 = rect->x2 - rect->x1;
   BBox.y2 = rect->y2 - rect->y1;
   
-  pdfio_matrix_t M;
-  matrix_set_identity(M);
+  pdfio_matrix_t M = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
   
   pdfio_rect_t T = matrix_transform_rect(M, BBox);
   double Tw = T.x2 - T.x1, Th = T.y2 - T.y1;
@@ -1729,34 +1728,34 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
 	  }
 	  else
 	  { 
-	    if (!N_stream)
-	    {
-              fprintf(stderr, "ERROR: pdfioObjOpenStream failed for object %zu. The stream might be malformed or encrypted.\n", obj_num);
-            }
-	    else
-            {
-              pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
-              if (!dst_stream)
-              {
-                  fprintf(stderr, "ERROR: Failed to create destination stream for Form XObject.\n");
-              }
-              else
-              {
-	          pdfio_stream_t *src_stream = N_stream;
-                  fprintf(stderr, "DEBUG: Successfully opened source and destination streams. Copying content for object %zu...\n", obj_num);
-                  char buffer[4096];
-                  ssize_t bytes;
-                  size_t total_bytes = 0;
-                  while ((bytes = pdfioStreamRead(src_stream, buffer, sizeof(buffer))) > 0)
-                  {
-                      pdfioStreamWrite(dst_stream, buffer, (size_t)bytes);
-                      total_bytes += bytes;
-                  }
-                  fprintf(stderr, "DEBUG: Copied %zu bytes from appearance stream.\n", total_bytes);
-                  pdfioStreamClose(dst_stream);
-              }
-	    }
-	  }
+          if (!obj_dict || !pdfioDictGetType(obj_dict, "Length"))
+        { 
+          fprintf(stderr, "ERROR: Object %zu is not a valid stream object. It is missing its dictionary or the required /Length key.\n", obj_num);
+        }
+        else
+        { 
+                // N_stream is already guaranteed to be non-null here
+                pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
+                if (!dst_stream)
+                {
+                    fprintf(stderr, "ERROR: Failed to create destination stream for Form XObject.\n");
+                }
+                else
+                {
+                    pdfio_stream_t *src_stream = N_stream;
+                    fprintf(stderr, "DEBUG: Successfully opened source and destination streams. Copying content for object %zu...\n", obj_num);
+                    char buffer[4096];
+                    ssize_t bytes;
+                    size_t total_bytes = 0;
+                    while ((bytes = pdfioStreamRead(src_stream, buffer, sizeof(buffer))) > 0)
+                    {
+                        pdfioStreamWrite(dst_stream, buffer, (size_t)bytes);
+                        total_bytes += bytes;
+                    }
+                    fprintf(stderr, "DEBUG: Copied %zu bytes from appearance stream.\n", total_bytes);
+                    pdfioStreamClose(dst_stream);
+                }
+        }
         } 
 	
 	pdfioDictSetObj(xobj_dict, pdfioStringCreatef(outpage->pdf, "Fxo%u", (unsigned)next_fx), form_xobj);
