@@ -165,13 +165,13 @@ header_to_gs_args(gs_page_header *h,
     }
     if (h->AdvanceDistance)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dAdvanceDistance=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dAdvanceDistance=%u",
 	       (unsigned)(h->AdvanceDistance));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->AdvanceMedia)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dAdvanceMedia=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dAdvanceMedia=%u",
 	       (unsigned)(h->AdvanceMedia));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -179,7 +179,7 @@ header_to_gs_args(gs_page_header *h,
       cupsArrayAdd(gs_args, strdup("-dCollate"));
     if (h->CutMedia)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dCutMedia=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dCutMedia=%u",
 	       (unsigned)(h->CutMedia));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -212,13 +212,13 @@ header_to_gs_args(gs_page_header *h,
       cupsArrayAdd(gs_args, strdup("-dInsertSheet"));
     if (h->Jog)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dJog=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dJog=%u",
 	       (unsigned)(h->Jog));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->LeadingEdge)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dLeadingEdge=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dLeadingEdge=%u",
 	       (unsigned)(h->LeadingEdge));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -267,7 +267,7 @@ header_to_gs_args(gs_page_header *h,
       }
       else
 	mediapos = h->MediaPosition;
-      snprintf(tmpstr, sizeof(tmpstr), "-dMediaPosition=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dMediaPosition=%u",
 	       (unsigned)(mediapos));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -278,7 +278,7 @@ header_to_gs_args(gs_page_header *h,
   {
     if (h->MediaWeight)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dMediaWeight=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dMediaWeight=%u",
 	       (unsigned)(h->MediaWeight));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -288,13 +288,13 @@ header_to_gs_args(gs_page_header *h,
       cupsArrayAdd(gs_args, strdup("-dNegativePrint"));
     if (h->NumCopies != 1)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dNumCopies=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dNumCopies=%u",
 	       (unsigned)(h->NumCopies));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->Orientation)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dOrientation=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dOrientation=%u",
 	       (unsigned)(h->Orientation));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -334,7 +334,7 @@ header_to_gs_args(gs_page_header *h,
   {
     if (h->cupsMediaType)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsMediaType=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dcupsMediaType=%u",
 	       (unsigned)(h->cupsMediaType));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -370,25 +370,25 @@ header_to_gs_args(gs_page_header *h,
   {
     if (h->cupsCompression)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsCompression=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dcupsCompression=%u",
 	       (unsigned)(h->cupsCompression));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->cupsRowCount)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowCount=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowCount=%u",
 	       (unsigned)(h->cupsRowCount));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->cupsRowFeed)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowFeed=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowFeed=%u",
 	       (unsigned)(h->cupsRowFeed));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
     if (h->cupsRowStep)
     {
-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowStep=%d",
+      snprintf(tmpstr, sizeof(tmpstr), "-dcupsRowStep=%u",
 	       (unsigned)(h->cupsRowStep));
       cupsArrayAdd(gs_args, strdup(tmpstr));
     }
@@ -407,7 +407,7 @@ header_to_gs_args(gs_page_header *h,
     for (i = 0; i <= 15; i ++)
       if (h->cupsInteger[i])
       {
-	snprintf(tmpstr, sizeof(tmpstr), "-dcupsInteger%d=%d",
+	snprintf(tmpstr, sizeof(tmpstr), "-dcupsInteger%d=%u",
 		 i, (unsigned)(h->cupsInteger[i]));
 	cupsArrayAdd(gs_args, strdup(tmpstr));
       }
