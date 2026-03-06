@@ -24,7 +24,7 @@ static const char *agl_l207e[] =
 static const char *agl_la1ff[] =
 {
   "exclamdown", "cent", "sterling", "currency", "yen", "brokenbar", "section", "dieresis",
-  "copyright", "ordfeminine", "guillemotleft", "logicalnot", "registered", "macron", "degree", "plusminus",
+  "copyright", "ordfeminine", "guillemotleft", "logicalnot", "softhyphen", "registered", "macron", "degree", "plusminus",
   0, 0, "acute", 0, "paragraph", "periodcentered", "cedilla", 0,
   "ordmasculine", "guillemotright", "onequarter", "onehalf", "threequarters", "questiondown", "Agrave", "Aacute",
   "Acircumflex", "Atilde", "Adieresis", "Aring", "AE", "Ccedilla", "Egrave", "Eacute",
@@ -215,6 +215,7 @@ aglfn13(unsigned short uni)
   {
     struct agl_lt key, *res;
     key.uid = uni;
+    key.name = NULL;
     res = bsearch(&key, agl_lxx, (sizeof(agl_lxx) / sizeof(struct agl_lt)),
 		  sizeof(struct agl_lt), agl_cmp);
     if (res)

@@ -48,7 +48,7 @@ _cfFontEmbedFontFileOpenStd(const char *name) // {{{
   _cf_fontembed_fontfile_t *ret = calloc(1, sizeof(_cf_fontembed_fontfile_t));
 
   ret->stdname = strdup(name);
-
+  // cppcheck-suppress memleak
   return (ret);
 }
 // }}}

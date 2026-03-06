@@ -100,7 +100,7 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
 
   a->copyfunc = cf;
   a->freefunc = ff;
-
+  // cppcheck-suppress memleak
   return (a);
 }
 

@@ -532,6 +532,7 @@ _cfFontEmbedOTFGetTable(_cf_fontembed_otf_file_t *otf,
       csum -= __cfFontEmbedGetULong(ret + 8);
     if (csum != table->checkSum)
     {
+      // cppcheck-suppress wrongPrintfScanfArgNum
       fprintf(stderr, "Wrong checksum for %c%c%c%c\n",
 	      _CF_FONTEMBED_OTF_UNTAG(tag));
       free(ret);
