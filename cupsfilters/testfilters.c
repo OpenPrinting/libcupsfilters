@@ -1224,11 +1224,6 @@ run_test(
       }
       continue;
      }
-<<<<<<< HEAD
-
-     clargs = realloc(clargs, (token_index+1)*sizeof(char*));
-     char* tmp_token = (char*)malloc(100*sizeof(char*));
-=======
      else if (globalFlag == 9) 
          {
                 filter_chain_str = token;
@@ -1247,7 +1242,6 @@ run_test(
      clargs = tmp_clargs;
 
      char* tmp_token = (char*)malloc(100*sizeof(char));
->>>>>>> 85deee94 (Fix pointer size allocations, realloc leak, and redundant null checks in testfilters.c)
      strcpy(tmp_token, token);
       
      clargs[token_index] = tmp_token;
