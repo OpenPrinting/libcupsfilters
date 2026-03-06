@@ -84,6 +84,9 @@ cfResolveURI2(const char *uri,
     goto error;
   memset(resolved_uri, 0, CF_GET_PRINTER_ATTRIBUTES_MAX_URI_LEN);
 
+  if (reg_type <= hostname)
+    goto error;
+    
   reg_type --;
   while (reg_type >= hostname && *reg_type != '.')
     reg_type --;
@@ -218,7 +221,6 @@ cfResolveURI2(const char *uri,
 
   cupsFileClose(fp);
 
-  if (buffer != NULL)
     free(buffer);
 
   //
@@ -272,8 +274,7 @@ cfResolveURI2(const char *uri,
   //
 
  error:
-  if (resolved_uri != NULL)
-    free(resolved_uri);
+  free(resolved_uri);
   return (NULL);
 }
 
