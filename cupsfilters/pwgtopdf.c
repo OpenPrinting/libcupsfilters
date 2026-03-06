@@ -373,8 +373,7 @@ no_color_conversion(unsigned char *src,
 // I - string containing delimiters
 //
 
-char** 
-split_strings(const char *str, 
+char** split_strings(const char *str, 
 	      const char *delimiters, 
 	      size_t *count) 
 {
@@ -386,7 +385,9 @@ split_strings(const char *str,
   if (!delimiters || *delimiters == '\0') delimiters = ",";
 
   char **result = NULL;
+  char **tmp_result = NULL;
   char *current = NULL;
+  char *tmp_current = NULL;
   size_t current_len = 0;
   size_t max_tokens = 0;
   bool in_token = false;
@@ -397,13 +398,17 @@ split_strings(const char *str,
     {
       if (in_token) 
       {
-        current = realloc(current, current_len + 1);
+        tmp_current = realloc(current, current_len + 1);
+        if (!tmp_current) goto cleanup;
+        current = tmp_current;
        	current[current_len] = '\0';
       
         if (*count >= max_tokens) 
 	{
       	  max_tokens = (*count == 0) ? 4 : max_tokens * 2;
-	  result = realloc(result, max_tokens * sizeof(char *));
+	  tmp_result = realloc(result, max_tokens * sizeof(char *));
+          if (!tmp_result) goto cleanup;
+          result = tmp_result;
        	}
        	result[(*count)++] = current;
  
@@ -416,7 +421,9 @@ split_strings(const char *str,
     {
       if (!in_token) 
 	in_token = true;
-      current = realloc(current, current_len + 1);
+      tmp_current = realloc(current, current_len + 1);
+      if (!tmp_current) goto cleanup;
+      current = tmp_current;
       current[current_len++] = *str;
     }
     str++;
@@ -424,11 +431,16 @@ split_strings(const char *str,
 
   if (in_token) 
   {
-    current = realloc(current, current_len + 1);
+    tmp_current = realloc(current, current_len + 1);
+    if (!tmp_current) goto cleanup;
+    current = tmp_current;
     current[current_len] = '\0';
+
     if (*count >= max_tokens) 
     {
-      result = realloc(result, (*count + 1) * sizeof(char *));
+      tmp_result = realloc(result, (*count + 1) * sizeof(char *));
+      if (!tmp_result) goto cleanup;
+      result = tmp_result;
     }
     result[(*count)++] = current;
   } 
@@ -437,8 +449,22 @@ split_strings(const char *str,
     free(current);
   }
 
-  result = realloc(result, *count * sizeof(char *));
+  tmp_result = realloc(result, *count * sizeof(char *));
+  if (tmp_result || *count == 0) result = tmp_result;
+  
   return result;
+
+cleanup:
+  // If any memory allocation fails, safely free everything to prevent leaks
+  if (current) free(current);
+  if (result) {
+    for (size_t i = 0; i < *count; i++) {
+      free(result[i]);
+    }
+    free(result);
+  }
+  *count = 0;
+  return NULL;
 }
 
 //
@@ -1238,7 +1264,7 @@ finish_page(struct pdf_info *info,
     {
       yAnchor -= info->pclm_strip_height[i];
       bytes = snprintf(strip_cmd, sizeof(strip_cmd),
-                       "/P <</MCID 0>> BDC q\n%u 0 0 %u 0 %u cm\n/Image%0*d Do Q\n",
+                       "/P <</MCID 0>> BDC q\n%u 0 0 %u 0 %u cm\n/Image%0*u Do Q\n",
                        info->width,
                        info->pclm_strip_height[i],
                        yAnchor,
