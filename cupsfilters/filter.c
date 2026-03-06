@@ -1168,31 +1168,48 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
       if (strcasecmp(opt->value, "true") == 0 ||
 	  strcasecmp(opt->value, "false") == 0)
       {
-	options_str =
-	  (char *)realloc(options_str,
-			  ((options_str ? strlen(options_str) : 0) +
-			   strlen(opt->name) +
-			   (strcasecmp(opt->value, "false") == 0 ? 2 : 0) + 2) *
-			  sizeof(char));
-	if (i == 0)
-	  options_str[0] = '\0';
-	sprintf(options_str + strlen(options_str), " %s%s",
-		(strcasecmp(opt->value, "false") == 0 ? "no" : ""), opt->name);
+      char *temp_str =
+        (char *)realloc(options_str,
+            ((options_str ? strlen(options_str) : 0) +
+            strlen(opt->name) +
+            (strcasecmp(opt->value, "false") == 0 ? 2 : 0) + 2) *
+            sizeof(char));
+      if (!temp_str)
+      {
+        if (log) log(ld, CF_LOGLEVEL_ERROR, "cfFilterExternal: Memory allocation failed for options");
+        free(options_str);
+        options_str = NULL;
+        status = 1;
+        goto out;
+      }
+      options_str = temp_str;
+      if (i == 0)
+        options_str[0] = '\0';
+      sprintf(options_str + strlen(options_str), " %s%s",
+        (strcasecmp(opt->value, "false") == 0 ? "no" : ""), opt->name);
       }
       else
       {
-	options_str =
-	  (char *)realloc(options_str,
-			  ((options_str ? strlen(options_str) : 0) +
-			   strlen(opt->name) + strlen(opt->value) + 3) *
-			  sizeof(char));
-	if (i == 0)
-	  options_str[0] = '\0';
-	sprintf(options_str + strlen(options_str), " %s=%s", opt->name,
-		opt->value);
+      char *temp_str =
+        (char *)realloc(options_str,
+            ((options_str ? strlen(options_str) : 0) +
+            strlen(opt->name) + strlen(opt->value) + 3) *
+            sizeof(char));
+      if (!temp_str)
+      {
+        if (log) log(ld, CF_LOGLEVEL_ERROR, "cfFilterExternal: Memory allocation failed for options");
+        free(options_str);
+        options_str = NULL;
+        status = 1;
+        goto out;
+      }
+      options_str = temp_str;
+      if (i == 0)
+        options_str[0] = '\0';
+      sprintf(options_str + strlen(options_str), " %s=%s", opt->name,
+        opt->value);
       }
     }
-
     // Find DEVICE_URI environment variable
     if (params->exec_mode > 0)
       for (i = 0; envp[i]; i ++)

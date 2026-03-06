@@ -1115,16 +1115,16 @@ run_test(
   cups_array_t *filter_chain = NULL;
   char *filter_chain_str = NULL;
 
-  char* make = (char*) malloc(100 * sizeof(char*));
-  char* model = (char*) malloc(100 * sizeof(char*));
+  char* make = (char*) malloc(100 * sizeof(char));
+  char* model = (char*) malloc(100 * sizeof(char));
    
   int ppm = 1;
    
-  char* inputFileName = (char*) malloc(100 * sizeof(char*));
-  char* outputFileName = (char*) malloc(100 * sizeof(char*));
+  char* inputFileName = (char*) malloc(100 * sizeof(char));
+  char* outputFileName = (char*) malloc(100 * sizeof(char));
    
-  char* inputContentType = (char*) malloc(100 * sizeof(char*));
-  char* outputContentType = (char*) malloc(100 * sizeof(char*));
+  char* inputContentType = (char*) malloc(100 * sizeof(char));
+  char* outputContentType = (char*) malloc(100 * sizeof(char));
    
   // ppm_color and duplex should be supplied...
   int color = 0;
@@ -1152,7 +1152,7 @@ run_test(
    
   int globalFlag = 1;
 
-  while ( token != NULL ) 
+  while ( 1 ) 
   {
     token = strtok_r(NULL, "\t", &next_token1);
     if (!token) break;
@@ -1224,9 +1224,24 @@ run_test(
       }
       continue;
      }
+     else if (globalFlag == 9) 
+         {
+                filter_chain_str = token;
+                filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
+                globalFlag++;
+            }
 
-     clargs = realloc(clargs, (token_index+1)*sizeof(char*));
-     char* tmp_token = (char*)malloc(100*sizeof(char*));
+
+
+     char **tmp_clargs = (char **)realloc(clargs, (token_index+1)*sizeof(char*));
+     if (!tmp_clargs)
+     {
+         fprintf(stderr, "Memory allocation failed for clargs\n");
+         break;
+     }
+     clargs = tmp_clargs;
+
+     char* tmp_token = (char*)malloc(100*sizeof(char));
      strcpy(tmp_token, token);
       
      clargs[token_index] = tmp_token;

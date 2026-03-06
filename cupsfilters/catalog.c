@@ -753,14 +753,22 @@ cfCatalogLoad(const char *location,
       // Add the string to our human-readable string
       if (human_readable) // Continuation line
       {
-	size_t human_readable_size = sizeof(char) *
-				     (strlen(human_readable) +
-				      strlen(start) + 2);
-	human_readable = realloc(human_readable, human_readable_size);
-	ptr = human_readable + strlen(human_readable);
-	*ptr = ' ';
-	strncpy(ptr + 1, start,
-		human_readable_size - (ptr - human_readable) - 1);
+      size_t human_readable_size = sizeof(char) *
+                (strlen(human_readable) +
+                  strlen(start) + 2);
+      char *temp_hr = realloc(human_readable, human_readable_size);
+      if (!temp_hr) 
+      {
+        // If realloc fails, free the original memory to prevent a leak
+        free(human_readable);
+        human_readable = NULL;
+        continue; // Skip the rest of this line's processing
+      }
+      human_readable = temp_hr;
+      ptr = human_readable + strlen(human_readable);
+      *ptr = ' ';
+      strncpy(ptr + 1, start,
+        human_readable_size - (ptr - human_readable) - 1);
       }
       else // First line
 	human_readable = strdup(start);
