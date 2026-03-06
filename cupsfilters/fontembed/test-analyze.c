@@ -50,12 +50,12 @@ show_post(_cf_fontembed_otf_file_t *otf) // {{{
   // TODO: check len
   printf("POST: (%d bytes)\n"
          "  version: %08x\n"
-         "  italicAngle: %d.%d\n"
+         "  italicAngle: %d.%u\n"
          "  underlinePosition: %d\n"
          "  underlineThickness: %d\n"
-         "  isFixedPitch: %d\n"
-         "  vmType42: %d %d\n"
-         "  vmType1: %d %d\n",
+         "  isFixedPitch: %u\n"
+         "  vmType42: %u %u\n"
+         "  vmType1: %u %u\n",
 	 len,
          __cfFontEmbedGetULong(buf),
          __cfFontEmbedGetLong(buf + 4) >> 16,
@@ -151,7 +151,7 @@ show_cmap(_cf_fontembed_otf_file_t *otf) // {{{
     const char *ndata = cmap + __cfFontEmbedGetULong(nrec + 4);
     DEBUG_assert(ndata >= cmap + 4 + 8 * numTables);
     printf("  platformID/encodingID: %d/%d\n"
-           "  offset: %d  data (format: %d, length: %d, language: %d);\n",
+           "  offset: %u  data (format: %d, length: %d, language: %d);\n",
            __cfFontEmbedGetUShort(nrec), __cfFontEmbedGetUShort(nrec + 2),
            __cfFontEmbedGetULong(nrec + 4),
            __cfFontEmbedGetUShort(ndata), __cfFontEmbedGetUShort(ndata + 2),
@@ -258,7 +258,8 @@ main(int argc,
   int iA;
   for (iA=0; iA < otf->numTables; iA ++)
   {
-    printf("%c%c%c%c %d @%d\n", _CF_FONTEMBED_OTF_UNTAG(otf->tables[iA].tag),
+    // cppcheck-suppress wrongPrintfScanfArgNum
+    printf("%c%c%c%c %u @%u\n", _CF_FONTEMBED_OTF_UNTAG(otf->tables[iA].tag),
 	   otf->tables[iA].length, otf->tables[iA].offset);
   }
   printf("unitsPerEm: %d, indexToLocFormat: %d\n",
