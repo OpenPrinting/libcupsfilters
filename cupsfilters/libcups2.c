@@ -176,9 +176,11 @@ cfResolveURI2(const char *uri,
     // First, build the DNS-SD-service-name-based URI ...
     while (ptr && !isalnum(*ptr & 255)) ptr ++;
 
+    if (!ptr) goto read_error;
+
     service_hostname = ptr; 
     ptr = memchr(ptr, '\t',
-		 CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN - (ptr - buffer));
+      CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN - (ptr - buffer));
     if (!ptr) goto read_error;
     *ptr = '\0';
     ptr ++;
