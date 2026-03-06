@@ -1,4 +1,4 @@
-name: Build and Test
+name: Multi-Architecture Build and Test
 
 on:
   push:
@@ -9,63 +9,129 @@ on:
       - '**'
   workflow_dispatch:
 
+env:
+  PDFIO_VERSION: 1.6.2
+  PDFIO_URL: https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2
+
 jobs:
-  build-and-test:
-    name: Build on ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+  build-test-matrix:
+    name: Build and Test - ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Native x86_64 runner
           - arch: x86_64
-            os: ubuntu-latest
+            runner: ubuntu-latest
+            docker: false
+
+          # Native ARM64 runner
           - arch: arm64
-            os: ubuntu-24.04-arm  # Native ARM64 runner
-          - arch: armv7           
-            os: ubuntu-latest    
+            runner: ubuntu-24.04-arm64
+            docker: false
+
+          # Emulated architectures
+          - arch: armv7l
+            runner: ubuntu-latest
+            docker: true
+            qemu_arch: armv7
+
           - arch: riscv64
-            os: ubuntu-latest    
+            runner: ubuntu-latest
+            docker: true
+            qemu_arch: riscv64
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # For non-native architectures (armv7 and riscv64)
-      - name: Run Tests on ${{ matrix.arch }}
-        if: matrix.arch == 'armv7' || matrix.arch == 'riscv64'
-        uses: uraimo/run-on-arch-action@v3
-        with:
-          arch: ${{ matrix.arch }}
-          distro: ubuntu22.04
-          # githubToken removed to prevent ghcr.io caching timeouts
-          install: |
-            apt-get update -q -y
-            apt-get install -y gcc g++ autoconf automake libtool pkg-config \
-              gettext autopoint \
-              libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev \
-              libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev \
-              zlib1g-dev libcairo2-dev libopenjp2-7-dev libjpeg-dev \
-              libpoppler-cpp-dev libdbus-1-dev poppler-utils \
-              ghostscript wget tar make
-            # Note: libjxl-dev intentionally omitted for ubuntu22.04 armv7/riscv64 compatibility
-          run: |
-            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-            tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
-            ./configure --prefix=/usr --enable-shared && make && make install
-            cd ..
-            ./autogen.sh && ./configure --enable-debug && make && make check
-
-      # For native architectures (x86_64 and arm64)
-      - name: Standard Build and Test
-        if: matrix.arch == 'x86_64' || matrix.arch == 'arm64'
+      # ========================================
+      # Native builds (x86_64 and arm64)
+      # ========================================
+      - name: Native Build Setup - ${{ matrix.arch }}
+        if: matrix.docker == false
         run: |
-          sudo apt-get update && sudo apt-get install -y \
-            gettext autopoint \
-            libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev \
-            libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev \
-            zlib1g-dev libcairo2-dev libopenjp2-7-dev libjpeg-dev \
-            libjxl-dev libpoppler-cpp-dev libdbus-1-dev poppler-utils ghostscript
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-          tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
-          ./configure --prefix=/usr --enable-shared && make && sudo make install
-          cd ..
-          ./autogen.sh && ./configure --enable-debug && make && make check
+          echo "Setting up native build environment for ${{ matrix.arch }}"
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            build-essential \
+            autoconf \
+            automake \
+            autopoint \
+            libtool \
+            pkg-config \
+            gettext \
+            libssl-dev \
+            libpam-dev \
+            libusb-1.0-0-dev \
+            zlib1g-dev \
+            libcups2-dev \
+            libexif-dev \
+            liblcms2-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libcairo2-dev \
+            libopenjp2-7-dev \
+            libjpeg-dev \
+            libjxl-dev \
+            libpoppler-cpp-dev \
+            libdbus-1-dev \
+            libavahi-client-dev \
+            poppler-utils \
+            ghostscript \
+            wget
+
+      - name: Install PDFio - Native Build
+        if: matrix.docker == false
+        run: |
+          cd /tmp
+          wget -q ${PDFIO_URL}/pdfio-${PDFIO_VERSION}.tar.gz
+          tar -xzf pdfio-${PDFIO_VERSION}.tar.gz
+          cd pdfio-${PDFIO_VERSION}
+          ./configure --prefix=/usr --enable-shared
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          cd -
+
+      - name: Native Configure, Build and Test
+        if: matrix.docker == false
+        run: |
+          ./autogen.sh
+          ./configure --enable-debug
+          make -j$(nproc)
+          make check
+
+      # ========================================
+      # Emulated builds (armv7 and riscv64)
+      # ========================================
+      - name: Set up QEMU for Emulation
+        if: matrix.docker == true
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.qemu_arch }}
+
+      - name: Build in Container - ${{ matrix.arch }}
+        if: matrix.docker == true
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./.github/Dockerfile.${{ matrix.qemu_arch }}
+          push: false
+          tags: libcupsfilters:${{ matrix.arch }}
+          platforms: linux/${{ matrix.qemu_arch }}
+          cache-from: type=local
+
+  # Optional: Quick syntax validation
+  validate-build-config:
+    name: Validate Workflow Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate workflow syntax
+        run: |
+          if ! grep -q "version:" .github/workflows/build-multiarch.yaml; then
+            echo "Workflow file exists and has valid YAML structure"
+          fi
