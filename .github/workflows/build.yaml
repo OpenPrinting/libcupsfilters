@@ -21,7 +21,7 @@ jobs:
             os: ubuntu-latest
           - arch: arm64
             os: ubuntu-24.04-arm  # Native ARM64 runner
-          - arch: armv7           # Fixed label from armhf
+          - arch: armv7           
             os: ubuntu-latest    
           - arch: riscv64
             os: ubuntu-latest    
@@ -36,16 +36,17 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           distro: ubuntu22.04
-          githubToken: ${{ github.token }}
+          # githubToken removed to prevent ghcr.io caching timeouts
           install: |
             apt-get update -q -y
             apt-get install -y gcc g++ autoconf automake libtool pkg-config \
-              gettext \
+              gettext autopoint \
               libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev \
               libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev \
               zlib1g-dev libcairo2-dev libopenjp2-7-dev libjpeg-dev \
-              libjxl-dev libpoppler-cpp-dev libdbus-1-dev poppler-utils \
+              libpoppler-cpp-dev libdbus-1-dev poppler-utils \
               ghostscript wget tar make
+            # Note: libjxl-dev intentionally omitted for ubuntu22.04 armv7/riscv64 compatibility
           run: |
             wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
             tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
@@ -58,7 +59,7 @@ jobs:
         if: matrix.arch == 'x86_64' || matrix.arch == 'arm64'
         run: |
           sudo apt-get update && sudo apt-get install -y \
-            gettext \
+            gettext autopoint \
             libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev \
             libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev \
             zlib1g-dev libcairo2-dev libopenjp2-7-dev libjpeg-dev \
