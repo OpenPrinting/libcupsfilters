@@ -1157,7 +1157,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
   char			buffer[8192];		// Copy buffer
   int			bytes;			// Bytes copied
   int			npages = 0;
-  pdfio_file_t		*pdf = (pdfio_file_t *)malloc(sizeof(pdfio_file_t *));;
+  pdfio_file_t		*pdf = NULL;
   cups_raster_t		*raster;
   pclmtoraster_data_t	pclmtoraster_data;
   pclm_conversion_function_t convert;
@@ -1219,7 +1219,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
 
   if (parse_opts(data, outformat, &pclmtoraster_data) != 0)
   {
-    free(pdf);
+    pdfioFileClose(pdf);
     unlink(tempfile);
     return (1);
   }
@@ -1233,7 +1233,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
     if(log) log(ld, CF_LOGLEVEL_ERROR,
 		"cfFilterPCLmToRaster: Specified color format is not supported: %s",
 		strerror(errno));
-    free(pdf);
+    pdfioFileClose(pdf);
     unlink(tempfile);
     return (1);
   }
@@ -1259,7 +1259,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
     if(log) log(ld, CF_LOGLEVEL_ERROR,
 		"cfFilterPCLmToRaster: Can't open raster stream: %s",
 		strerror(errno));
-    free(pdf);
+    pdfioFileClose(pdf);
     unlink(tempfile);
     return (1);
   }
@@ -1292,7 +1292,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
   }
 
   cupsRasterClose(raster);
-  free(pdf);
+  pdfioFileClose(pdf);
   unlink(tempfile);
   return (0);
 }

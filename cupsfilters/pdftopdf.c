@@ -1240,8 +1240,7 @@ special_pdfio_annotation_get_content(pdfio_obj_t  *annot,
   BBox.x2 = rect->x2 - rect->x1;
   BBox.y2 = rect->y2 - rect->y1;
   
-  pdfio_matrix_t M;
-  matrix_set_identity(M);
+  pdfio_matrix_t M = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
   
   pdfio_rect_t T = matrix_transform_rect(M, BBox);
   double Tw = T.x2 - T.x1, Th = T.y2 - T.y1;
@@ -1250,8 +1249,9 @@ special_pdfio_annotation_get_content(pdfio_obj_t  *annot,
 
   double rw = rect->x2 - rect->x1, rh = rect->y2 - rect->y1;
 
-  pdfio_matrix_t AA, t, s;
-  matrix_set_identity(AA);
+  pdfio_matrix_t AA = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
+  pdfio_matrix_t t = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
+  pdfio_matrix_t s = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
   
   matrix_translate(t, rect->x1, rect->y1);
   matrix_concat(AA, t, AA);
@@ -1334,9 +1334,8 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,
     BBox.y2 = rect->y2 - rect->y1;
   }
   
-  pdfio_matrix_t M;
-  matrix_set_identity(M);
-  pdfio_matrix_t tmp;
+  pdfio_matrix_t M = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
+  pdfio_matrix_t tmp = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
   if (get_pdf_matrix(appearance_N_dict, "Matrix", tmp)) 
   {
     matrix_copy(M, tmp);
@@ -1345,9 +1344,9 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,
   int do_rotate = (page_rotate != 0) && (flags & an_no_rotate);
   if (do_rotate) 
   {
-    pdfio_matrix_t R;
+    pdfio_matrix_t R = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
     matrix_rotatex90(R, page_rotate);
-    pdfio_matrix_t MR;
+    pdfio_matrix_t MR = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
     matrix_concat(MR, R, M);
     matrix_copy(M, MR);
 
@@ -1386,8 +1385,9 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,
 
   double rw = rect->x2 - rect->x1, rh = rect->y2 - rect->y1;
 
-  pdfio_matrix_t AA, t, s;
-  matrix_set_identity(AA);
+  pdfio_matrix_t AA = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
+  pdfio_matrix_t t = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
+  pdfio_matrix_t s = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
   
   matrix_translate(t, rect->x1, rect->y1);
   matrix_concat(AA, t, AA);
@@ -1400,7 +1400,7 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,
 
   if (do_rotate) 
   {
-    pdfio_matrix_t R;
+    pdfio_matrix_t R = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };
     matrix_rotatex90(R, page_rotate);
     matrix_concat(AA, R, AA);
   }
@@ -1598,7 +1598,10 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
       snprintf(name, 32, "/Fxo%d", next_fx);
       content = pdfio_annotation_get_content(Annot_obj, name, rotate_val, 
 		      			     forbidden_flags, required_flags);
-      fprintf(stderr, "%s\n", content);
+      if (content)
+        fprintf(stderr, "%s\n", content);
+      else
+        fprintf(stderr, "DEBUG: Annotation content is NULL\n");
       
       if(content && content[0] != '\0') 
       { 
@@ -1714,7 +1717,7 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
 	  } 
         }
         else 
-        {
+      {
 	  size_t obj_num = pdfioObjGetNumber(N_object);
 	  pdfio_dict_t *obj_dict = pdfioObjGetDict(N_object);
 	  fprintf(stderr, "DEBUG: Appearance object (N_object) is number %zu.\n", obj_num);
@@ -1725,41 +1728,35 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
 	  }
 	  else
 	  { 
-	    if (!N_stream)
-	    {
-              fprintf(stderr, "ERROR: pdfioObjOpenStream failed for object %zu. The stream might be malformed or encrypted.\n", obj_num);
-            }
-	    else
+            // N_stream is already guaranteed to be non-null here
+            pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
+            if (!dst_stream)
             {
-              pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
-              if (!dst_stream)
-              {
-                  fprintf(stderr, "ERROR: Failed to create destination stream for Form XObject.\n");
-              }
-              else
-              {
-	          pdfio_stream_t *src_stream = N_stream;
-                  fprintf(stderr, "DEBUG: Successfully opened source and destination streams. Copying content for object %zu...\n", obj_num);
-                  char buffer[4096];
-                  ssize_t bytes;
-                  size_t total_bytes = 0;
-                  while ((bytes = pdfioStreamRead(src_stream, buffer, sizeof(buffer))) > 0)
-                  {
-                      pdfioStreamWrite(dst_stream, buffer, (size_t)bytes);
-                      total_bytes += bytes;
-                  }
-                  fprintf(stderr, "DEBUG: Copied %zu bytes from appearance stream.\n", total_bytes);
-                  pdfioStreamClose(dst_stream);
-              }
-	    }
+                fprintf(stderr, "ERROR: Failed to create destination stream for Form XObject.\n");
+            }
+            else
+            {
+                pdfio_stream_t *src_stream = N_stream;
+                fprintf(stderr, "DEBUG: Successfully opened source and destination streams. Copying content for object %zu...\n", obj_num);
+                char buffer[4096];
+                ssize_t bytes;
+                size_t total_bytes = 0;
+                while ((bytes = pdfioStreamRead(src_stream, buffer, sizeof(buffer))) > 0)
+                {
+                    pdfioStreamWrite(dst_stream, buffer, (size_t)bytes);
+                    total_bytes += bytes;
+                }
+                fprintf(stderr, "DEBUG: Copied %zu bytes from appearance stream.\n", total_bytes);
+                pdfioStreamClose(dst_stream);
+            }
 	  }
-        } 
 	
 	pdfioDictSetObj(xobj_dict, pdfioStringCreatef(outpage->pdf, "Fxo%u", (unsigned)next_fx), form_xobj);
         next_fx++; 
       }
     } 
-    else if(process && Appearance_dict) 
+  }
+  else if(process && Appearance_dict)
     { 
       // If an annotation has no selected appearance stream, just drop the annotation when 
       // flattening. This can happen for unchecked checkboxes and radio buttons, popup windows 
@@ -2508,7 +2505,7 @@ prepare_documents(
         else if ((resobj = pdfioDictGetObj(pagedict, "Resources")) != NULL)
 	    pdfioDictIterateKeys(pdfioObjGetDict(resobj), (pdfio_dict_cb_t)page_ext_dict_cb, flattened_page);
         else if (Verbosity)
-          fprintf(stderr, "DEBUG: No Resources for cell %u.\n", (unsigned)layout);
+          fprintf(stderr, "DEBUG: No Resources for page %u.\n", (unsigned)pg);
 
 	flatten_pdf(&p, flattened_page, pg, an_print, 0);
 
@@ -2826,12 +2823,6 @@ char buffer[8192];
 ssize_t bytes_read, bytes_written, total_written;
 
 while ((bytes_read = read(tempfd, buffer, sizeof(buffer))) > 0) {
-    if (bytes_read < 0) {
-        perror("read");
-        close(tempfd);
-        return 1;
-    }
-
     total_written = 0;
     while (total_written < bytes_read) {
         bytes_written = write(outputfd, buffer + total_written, bytes_read - total_written);
@@ -2842,6 +2833,12 @@ while ((bytes_read = read(tempfd, buffer, sizeof(buffer))) > 0) {
         }
         total_written += bytes_written;
     }
+}
+
+if (bytes_read < 0) {
+    perror("read");
+    close(tempfd);
+    return 1;
 }
 
 close(tempfd);

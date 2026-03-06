@@ -311,7 +311,7 @@ banner_new_from_file(const char *filename,
   free(line);
   if (f)
     fclose(f);
-
+  // cppcheck-suppress memleak
   return (banner);
 }
 
@@ -600,7 +600,7 @@ generate_banner_pdf(banner_t *banner,
   float media_limits[4];
   float page_scale;
   unsigned copies;
-  ipp_t *printer_attrs = data->printer_attrs;
+  ipp_t *printer_attrs = data ? data->printer_attrs : NULL;
   ipp_attribute_t *ipp_attr;
   char buf2[1024];
   const char *value;
