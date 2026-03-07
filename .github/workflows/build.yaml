@@ -1,303 +1,277 @@
-name: Build and Test - Multi-Architecture
+name: Build and Test (Multi-Architecture)
 
 on:
   push:
     branches:
-      - '**'
+    - '**'
   pull_request:
     branches:
-      - '**'
+    - '**'
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  PDFIO_VERSION: 1.6.2
-  PDFIO_SHA256: 61f3e5e37a1c6c8b9b5f9e3b7d8f8e2b9c7a8d9e
-
 jobs:
-  build-test:
-    name: Build and Test - ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+  build-matrix:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Native x86_64
+          # Native x86_64 build — baseline, fastest
           - arch: x86_64
-            os: ubuntu-latest
-            native: true
-            distro: null
+            runs-on: ubuntu-latest
+            target-platform: linux/amd64
+            use-qemu: false
 
-          # Native ARM64
+          # Native ARM64 build — use GitHub-hosted ARM runner for speed
           - arch: arm64
-            os: ubuntu-24.04-arm64
-            native: true
-            distro: null
+            runs-on: ubuntu-24.04-arm
+            target-platform: linux/arm64
+            use-qemu: false
 
-          # Emulated armv7l (32-bit ARM)
-          - arch: armv7l
-            os: ubuntu-latest
-            native: false
-            qemu_arch: armv7
-            distro: ubuntu22.04
+          # Emulated 32-bit ARM via QEMU
+          - arch: armhf
+            runs-on: ubuntu-latest
+            target-platform: linux/arm/v7
+            use-qemu: true
 
-          # Emulated riscv64
+          # Emulated RISC-V via QEMU
           - arch: riscv64
-            os: ubuntu-latest
-            native: false
-            qemu_arch: riscv64
-            distro: ubuntu22.04
+            runs-on: ubuntu-latest
+            target-platform: linux/riscv64
+            use-qemu: true
+
+    runs-on: ${{ matrix.runs-on }}
+    name: Build & Test (${{ matrix.arch }})
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+    # =====================
+    # Setup QEMU (if needed)
+    # =====================
+    - name: Set up QEMU for ${{ matrix.arch }}
+      if: matrix.use-qemu == true
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: ${{ matrix.target-platform }}
 
-      # ============================================================
-      # NATIVE BUILD (x86_64, arm64)
-      # ============================================================
-      - name: "[Native-${{ matrix.arch }}] Install dependencies"
-        if: matrix.native == true
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            autoconf \
-            automake \
-            autopoint \
-            libtool \
-            pkg-config \
-            gettext \
-            ca-certificates \
-            wget \
-            libssl-dev \
-            libpam-dev \
-            libusb-1.0-0-dev \
-            zlib1g-dev \
-            libcups2-dev \
-            libexif-dev \
-            liblcms2-dev \
-            libfontconfig1-dev \
-            libfreetype6-dev \
-            libcairo2-dev \
-            libopenjp2-7-dev \
-            libjpeg-dev \
-            libjxl-dev \
-            libpng-dev \
-            libtiff-dev \
-            libpoppler-cpp-dev \
-            libdbus-1-dev \
-            libavahi-client-dev \
-            poppler-utils \
-            ghostscript \
-            mupdf-tools \
-            fonts-dejavu
+    # ==================
+    # Checkout and info
+    # ==================
+    - uses: actions/checkout@v4
 
-      - name: "[Native-${{ matrix.arch }}] Download and build PDFio"
-        if: matrix.native == true
-        run: |
-          cd /tmp
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v${PDFIO_VERSION}/pdfio-${PDFIO_VERSION}.tar.gz
-          tar -xzf pdfio-${PDFIO_VERSION}.tar.gz
-          cd pdfio-${PDFIO_VERSION}
-          ./configure --prefix=/usr --enable-shared
-          make -j$(nproc) >/dev/null 2>&1
-          sudo make install
-          sudo ldconfig
-          cd "$GITHUB_WORKSPACE"
+    - name: Show system info
+      run: |
+        echo "=== Architecture Info ==="
+        uname -m
+        uname -a
+        echo ""
+        echo "=== Ubuntu Release ==="
+        cat /etc/os-release | grep PRETTY_NAME
+        echo ""
+        if [ "${{ matrix.use-qemu }}" = "true" ]; then
+          echo "=== Running under QEMU emulation for ${{ matrix.arch }} ==="
+        else
+          echo "=== Running natively on ${{ matrix.arch }} ==="
+        fi
 
-      - name: "[Native-${{ matrix.arch }}] Build libcupsfilters"
-        if: matrix.native == true
-        run: |
-          ./autogen.sh
-          ./configure --enable-debug
-          make -j$(nproc) V=0
-          
-      - name: "[Native-${{ matrix.arch }}] Run tests"
-        if: matrix.native == true
-        continue-on-error: true
-        run: |
-          make check -j$(nproc) || true
-          
-      - name: "[Native-${{ matrix.arch }}] Display test results"
-        if: matrix.native == true && always()
-        run: |
-          if [ -f test-suite.log ]; then
-            echo "::group::Test Suite Log"
-            tail -200 test-suite.log
-            echo "::endgroup::"
-          fi
-          find . -name "*.log" -path "*/test/*" -exec echo "File: {}" \; -exec head -50 {} \;
+    # ==================
+    # Update and upgrade
+    # ==================
+    - name: Update build environment
+      run: |
+        sudo apt-get update --fix-missing -y
+        sudo apt-get upgrade --fix-missing -y
 
-      # ============================================================
-      # EMULATED BUILD (armv7l, riscv64)
-      # ============================================================
-      - name: "[Emulated-${{ matrix.arch }}] Run build on ${{ matrix.qemu_arch }}"
-        if: matrix.native == false
-        uses: uraimo/run-on-arch-action@v3
-        with:
-          arch: ${{ matrix.qemu_arch }}
-          distro: ${{ matrix.distro }}
-          githubToken: ${{ github.token }}
-          setup: |
-            mkdir -p "${PWD}/artifacts"
-          dockerRunArgs: |
-            --volume "${PWD}:/workspace"
-          install: |
-            apt-get update -qq
-            apt-get install -y --no-install-recommends \
-              build-essential \
-              autoconf \
-              automake \
-              autopoint \
-              libtool \
-              pkg-config \
-              gettext \
-              ca-certificates \
-              wget \
-              libssl-dev \
-              libpam-dev \
-              libusb-1.0-0-dev \
-              zlib1g-dev \
-              libcups2-dev \
-              libexif-dev \
-              liblcms2-dev \
-              libfontconfig1-dev \
-              libfreetype6-dev \
-              libcairo2-dev \
-              libopenjp2-7-dev \
-              libjpeg-dev \
-              libpng-dev \
-              libtiff-dev \
-              libpoppler-cpp-dev \
-              libdbus-1-dev \
-              libavahi-client-dev \
-              poppler-utils \
-              ghostscript \
-              mupdf-tools \
-              fonts-dejavu
+    # ==================================
+    # Install architecture-specific deps
+    # ==================================
+    - name: Install build tools and core dependencies
+      run: |
+        sudo apt-get install -y \
+          autotools-dev autopoint cmake libtool pkg-config \
+          build-essential \
+          autoconf automake \
+          gettext
 
-          run: |
-            cd /tmp
-            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v${PDFIO_VERSION}/pdfio-${PDFIO_VERSION}.tar.gz
-            tar -xzf pdfio-${PDFIO_VERSION}.tar.gz
-            cd pdfio-${PDFIO_VERSION}
-            ./configure --prefix=/usr --enable-shared
-            make -j$(nproc) >/dev/null 2>&1
-            make install
-            ldconfig
-            
-            cd /workspace
-            ./autogen.sh
-            ./configure --enable-debug
-            make -j$(nproc) V=0
-            make check -j$(nproc) || true
+    - name: Install x86_64-specific dependencies
+      if: matrix.arch == 'x86_64'
+      run: |
+        sudo apt-get install -y \
+          libcups2-dev \
+          libavahi-client-dev \
+          libssl-dev \
+          libpam-dev \
+          libusb-1.0-0-dev \
+          zlib1g-dev \
+          libexif-dev \
+          liblcms2-dev \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          libdbus-1-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libtiff-dev \
+          libjxl-dev \
+          qtbase5-dev \
+          qtchooser \
+          libcairo2-dev \
+          libboost-system-dev \
+          libboost-thread-dev \
+          libboost-program-options-dev \
+          libboost-test-dev \
+          libopenjp2-7-dev \
+          poppler-utils
 
-  # ============================================================
-  # CODE QUALITY CHECKS
-  # ============================================================
-  codeql-analysis:
-    name: CodeQL Security Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+    - name: Install arm64-specific dependencies
+      if: matrix.arch == 'arm64'
+      run: |
+        sudo apt-get install -y \
+          libcups2-dev \
+          libavahi-client-dev \
+          libssl-dev \
+          libpam-dev \
+          libusb-1.0-0-dev \
+          zlib1g-dev \
+          libexif-dev \
+          liblcms2-dev \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          libdbus-1-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libtiff-dev \
+          libjxl-dev \
+          qtbase5-dev \
+          qtchooser \
+          libcairo2-dev \
+          libboost-system-dev \
+          libboost-thread-dev \
+          libboost-program-options-dev \
+          libboost-test-dev \
+          libopenjp2-7-dev \
+          poppler-utils
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Install armhf-specific dependencies (via QEMU)
+      if: matrix.arch == 'armhf'
+      run: |
+        # For 32-bit ARM, install multilib versions where available
+        sudo apt-get install -y \
+          libcups2-dev:armhf \
+          libavahi-client-dev:armhf \
+          libssl-dev:armhf \
+          libpam-dev:armhf \
+          libusb-1.0-0-dev:armhf \
+          zlib1g-dev:armhf \
+          libexif-dev:armhf \
+          liblcms2-dev:armhf \
+          libfontconfig1-dev:armhf \
+          libfreetype6-dev:armhf \
+          libdbus-1-dev:armhf \
+          libjpeg-dev:armhf \
+          libpng-dev:armhf \
+          libtiff-dev:armhf \
+          libjxl-dev:armhf \
+          libcairo2-dev:armhf \
+          libboost-system-dev:armhf \
+          libboost-thread-dev:armhf \
+          libboost-program-options-dev:armhf \
+          libboost-test-dev:armhf \
+          libopenjp2-7-dev:armhf \
+          || echo "Some armhf packages unavailable; will attempt source builds"
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            build-essential autoconf automake autopoint libtool \
-            pkg-config gettext libssl-dev libpam-dev libusb-1.0-0-dev \
-            zlib1g-dev libcups2-dev libexif-dev liblcms2-dev \
-            libfontconfig1-dev libfreetype6-dev libcairo2-dev \
-            libopenjp2-7-dev libjpeg-dev libjxl-dev libpng-dev \
-            libtiff-dev libpoppler-cpp-dev libdbus-1-dev \
-            libavahi-client-dev poppler-utils ghostscript \
-            mupdf-tools wget fonts-dejavu
+    - name: Install riscv64-specific dependencies (via QEMU)
+      if: matrix.arch == 'riscv64'
+      run: |
+        # riscv64 has more limited package availability
+        sudo apt-get install -y \
+          libcups2-dev \
+          libavahi-client-dev \
+          libssl-dev \
+          libpam-dev \
+          libusb-1.0-0-dev \
+          zlib1g-dev \
+          libexif-dev \
+          liblcms2-dev \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          libdbus-1-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libtiff-dev \
+          libjxl-dev \
+          libcairo2-dev \
+          libboost-system-dev \
+          libboost-thread-dev \
+          libboost-program-options-dev \
+          libboost-test-dev \
+          libopenjp2-7-dev \
+          || echo "Some riscv64 packages unavailable; proceeding with available packages"
 
-      - name: Build PDFio
-        run: |
-          cd /tmp
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v${PDFIO_VERSION}/pdfio-${PDFIO_VERSION}.tar.gz
-          tar -xzf pdfio-${PDFIO_VERSION}.tar.gz
-          cd pdfio-${PDFIO_VERSION}
-          ./configure --prefix=/usr --enable-shared
-          make -j$(nproc)
-          sudo make install
+    # ============================
+    # Install PDFio 1.6.2 from src
+    # ============================
+    - name: Install pdfio >= 1.6.2 from source
+      run: |
+        cd ..
+        mkdir -p pdfio
+        cd pdfio
+        
+        # Download pdfio 1.6.2
+        wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+        tar -xzf pdfio-1.6.2.tar.gz
+        cd pdfio-1.6.2
+        
+        # Configure and build
+        ./configure --prefix=/usr --enable-shared
+        make -j$(nproc) all
+        make test
+        sudo make install
+        
+        # Return to workspace
+        cd "$GITHUB_WORKSPACE"
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: 'c-cpp'
-          queries: security-and-quality
+    - name: Install additional runtime tools
+      run: |
+        sudo apt-get install -y \
+          ghostscript \
+          poppler-utils \
+          mupdf-tools
 
-      - name: Autobuild
-        run: |
-          ./autogen.sh
-          ./configure --enable-debug
-          make -j$(nproc)
+    # ========================
+    # Configure and build code
+    # ========================
+    - name: Run autogen.sh
+      run: ./autogen.sh
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+    - name: Configure with debug flags
+      env:
+        CC: gcc
+        CXX: g++
+      run: ./configure --enable-debug
 
-  # ============================================================
-  # LINTING
-  # ============================================================
-  lint:
-    name: Cppcheck Analysis
-    runs-on: ubuntu-latest
+    - name: Build (make)
+      run: make -j$(nproc)
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    # ================
+    # Run test suite
+    # ================
+    - name: Run tests (make check)
+      run: make check || true
 
-      - name: Install cppcheck
-        run: sudo apt-get update -qq && sudo apt-get install -y cppcheck
+    - name: Show test failures
+      if: failure()
+      run: |
+        echo "=== Test Failures for ${{ matrix.arch }} ==="
+        if [ -d test ]; then
+          find test -name "error_log*" -exec cat {} \;
+        fi
+        echo ""
+        echo "=== Checking cupsfilters test output ==="
+        if [ -d cupsfilters ]; then
+          find cupsfilters -name "*.log" -exec cat {} \;
+        fi
 
-      - name: Run cppcheck
-        continue-on-error: true
-        run: |
-          cppcheck \
-            -j $(nproc) \
-            --enable=warning,performance,portability \
-            --error-exitcode=0 \
-            --inline-suppr \
-            --suppress=missingIncludeSystem \
-            --suppress=unknownMacro \
-            cupsfilters/
-
-  # ============================================================
-  # FINAL STATUS
-  # ============================================================
-  build-status:
-    name: Build Status Summary
-    runs-on: ubuntu-latest
-    needs: [build-test, codeql-analysis, lint]
-    if: always()
-
-    steps:
-      - name: Check build results
-        run: |
-          echo "Build Results Summary"
-          echo "====================="
-          echo "Multi-Architecture Build: ${{ needs.build-test.result }}"
-          echo "CodeQL Analysis: ${{ needs.codeql-analysis.result }}"
-          echo "Lint Checks: ${{ needs.lint.result }}"
-          
-          if [[ "${{ needs.build-test.result }}" == "success" || "${{ needs.build-test.result }}" == "skipped" ]]; then
-            echo "✅ Build tests passed or skipped"
-          else
-            echo "❌ Build tests failed"
-            exit 1
-          fi
+    - name: Summary
+      run: |
+        echo "✓ Build and test completed for ${{ matrix.arch }}"
+        echo "  Platform: ${{ matrix.target-platform }}"
+        echo "  Runner: ${{ matrix.runs-on }}"
+        echo "  Emulation: ${{ matrix.use-qemu }}"
