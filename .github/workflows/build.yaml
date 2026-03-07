@@ -1,11 +1,4 @@
 # Multi-Architecture Build and Test Workflow for libcupsfilters
-#
-# CRITICAL FIXES APPLIED:
-# 1. Uses XFAIL_TESTS to mark test-pclm-overflow.sh as expected failure on emulated archs
-# 2. Removed --enable-debug (doesn't exist in configure)
-# 3. Full test logs preserved (no tail piping)
-# 4. Proper error handling with test-suite.log capture
-
 name: Build and Test (Multi-Architecture)
 
 on:
@@ -57,7 +50,10 @@ jobs:
         run: |
           sudo apt-get update --fix-missing -y
           sudo apt-get upgrade --fix-missing -y
+          # Removal of system libcupsfilters-dev to prevent header/linking conflicts
+          sudo apt-get remove -y libcupsfilters-dev || true
           sudo apt-get install -y \
+            libqpdf-dev \
             avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
             autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
             libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
@@ -78,12 +74,13 @@ jobs:
           make all
           sudo make install
           
-          # Build and Test libcupsfilters (all tests must pass on native)
+          # Build and Test libcupsfilters
           cd "$GITHUB_WORKSPACE"
           ./autogen.sh
           ./configure
           make -j$(nproc)
-          make check
+          # Verbose output for better log analysis
+          make check V=1
 
       - name: Upload test artifacts (Native)
         if: matrix.use-qemu == false && always()
@@ -91,9 +88,9 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
-            test-suite.log
-            test/
-            cupsfilters/test-pclm-overflow.log
+            **/test-suite.log
+            **/test/*.log
+            **/cupsfilters/test-pclm-overflow.log
 
       # ==========================================
       # 2. EMULATED EXECUTION (armv7 and riscv64)
@@ -107,7 +104,10 @@ jobs:
           install: |
             apt-get update --fix-missing -y
             DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
+            # Removal of system libcupsfilters-dev to prevent header/linking conflicts
+            apt-get remove -y libcupsfilters-dev || true
             apt-get install -y \
+              libqpdf-dev \
               avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
               autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
               libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
@@ -132,9 +132,8 @@ jobs:
             ./configure
             make -j$(nproc)
             
-            # CRITICAL FIX: Mark test-pclm-overflow.sh as XFAIL (expected failure on emulated architectures)
-            # All other tests must pass
-            make check XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (cat test-suite.log && exit 1)
+            # Mark test-pclm-overflow.sh as XFAIL on emulated architectures
+            make check V=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (cat test-suite.log && exit 1)
 
       - name: Upload test artifacts (Emulated)
         if: matrix.use-qemu == true && always()
@@ -142,7 +141,7 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
-            test-suite.log
-            test/
-            cupsfilters/test-pclm-overflow.log
+            **/test-suite.log
+            **/test/*.log
+            **/cupsfilters/test-pclm-overflow.log
           continue-on-error: true
