@@ -3,10 +3,10 @@ name: Build and Test (Multi-Architecture)
 on:
   push:
     branches:
-    - '**'
+      - '**'
   pull_request:
     branches:
-    - '**'
+      - '**'
   workflow_dispatch:
 
 jobs:
@@ -15,202 +15,101 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Native x86_64 build — baseline, fastest
+          # Native x86_64 build
           - arch: x86_64
             runs-on: ubuntu-latest
-            target-platform: linux/amd64
             use-qemu: false
 
-          # Native ARM64 build — use GitHub-hosted ARM runner for speed
+          # Native ARM64 build (GitHub-hosted ARM runner)
           - arch: arm64
             runs-on: ubuntu-24.04-arm
-            target-platform: linux/arm64
             use-qemu: false
 
           # Emulated 32-bit ARM via QEMU
           - arch: armhf
             runs-on: ubuntu-latest
-            target-platform: linux/arm/v7
             use-qemu: true
 
           # Emulated RISC-V via QEMU
           - arch: riscv64
             runs-on: ubuntu-latest
-            target-platform: linux/riscv64
             use-qemu: true
 
     runs-on: ${{ matrix.runs-on }}
     name: Build & Test (${{ matrix.arch }})
 
     steps:
-    # =====================
-    # Setup QEMU (if needed)
-    # =====================
-    - name: Set up QEMU for ${{ matrix.arch }}
-      if: matrix.use-qemu == true
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: ${{ matrix.target-platform }}
+      - uses: actions/checkout@v4
 
-    # ==================
-    # Checkout and info
-    # ==================
-    - uses: actions/checkout@v4
+      # ==========================================
+      # 1. NATIVE EXECUTION (x86_64 and arm64)
+      # ==========================================
+      - name: Install Dependencies (Native)
+        if: matrix.use-qemu == false
+        run: |
+          sudo apt-get update --fix-missing -y
+          sudo apt-get upgrade --fix-missing -y
+          sudo apt-get install -y \
+            avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
+            autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
+            libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
+            libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
+            libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
+            mupdf-tools poppler-utils ghostscript wget tar make gettext
 
-    - name: Show system info
-      run: |
-        echo "=== Architecture Info ==="
-        uname -m
-        uname -a
-        echo ""
-        echo "=== Ubuntu Release ==="
-        cat /etc/os-release | grep PRETTY_NAME
-        echo ""
-        if [ "${{ matrix.use-qemu }}" = "true" ]; then
-          echo "=== Running under QEMU emulation for ${{ matrix.arch }} ==="
-        else
-          echo "=== Running natively on ${{ matrix.arch }} ==="
-        fi
+      - name: Build PDFio and libcupsfilters (Native)
+        if: matrix.use-qemu == false
+        env:
+          CC: /usr/bin/gcc
+        run: |
+          # Build pdfio
+          cd /tmp
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+          tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
+          ./configure --prefix=/usr --enable-shared
+          make all && sudo make install
+          
+          # Build and Test libcupsfilters
+          cd "$GITHUB_WORKSPACE"
+          ./autogen.sh
+          ./configure --enable-debug
+          make -j$(nproc)
+          make check || (cat test/error_log* && exit 1)
 
-    # ==================
-    # Update and upgrade
-    # ==================
-    - name: Update build environment
-      run: |
-        sudo apt-get update --fix-missing -y
-        sudo apt-get upgrade --fix-missing -y 2>&1 | tail -20
-
-    # ==================================
-    # Install architecture-specific deps
-    # ==================================
-    - name: Install build tools (all architectures)
-      run: |
-        sudo apt-get install -y \
-          autotools-dev autopoint cmake libtool pkg-config \
-          build-essential \
-          autoconf automake \
-          gettext \
-          wget
-
-    - name: Install core CUPS and font libraries (all architectures)
-      run: |
-        sudo apt-get install -y \
-          libcups2-dev \
-          libfontconfig1-dev \
-          libfreetype6-dev \
-          liblcms2-dev \
-          zlib1g-dev
-
-    - name: Install image format libraries (all architectures)
-      run: |
-        sudo apt-get install -y \
-          libjpeg-dev \
-          libpng-dev \
-          libtiff-dev \
-          libjxl-dev \
-          libexif-dev || true
-
-    - name: Install optional runtime tools
-      run: |
-        sudo apt-get install -y \
-          ghostscript \
-          poppler-utils \
-          mupdf-tools || true
-
-    # ============================
-    # Install PDFio 1.6.2 from src
-    # (Must be built on all arches)
-    # ============================
-    - name: Build and install pdfio >= 1.6.2 from source
-      run: |
-        set -e
-        cd /tmp
-        mkdir -p pdfio-build
-        cd pdfio-build
-        
-        echo "=== Downloading pdfio 1.6.2 ==="
-        wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-        tar -xzf pdfio-1.6.2.tar.gz
-        cd pdfio-1.6.2
-        
-        echo "=== Configuring pdfio ==="
-        ./configure --prefix=/usr --enable-shared 2>&1 | tail -20
-        
-        echo "=== Building pdfio ==="
-        make -j$(nproc) all 2>&1 | tail -20
-        
-        echo "=== Testing pdfio ==="
-        make test 2>&1 | tail -30
-        
-        echo "=== Installing pdfio ==="
-        sudo make install
-        
-        echo "=== Verifying pdfio installation ==="
-        pkg-config --modversion pdfio
-        ls -la /usr/lib/*/libpdfio* 2>/dev/null || ls -la /usr/lib/libpdfio* 2>/dev/null || true
-
-    # ========================
-    # Configure and build code
-    # ========================
-    - name: Run autogen.sh
-      run: |
-        cd "$GITHUB_WORKSPACE"
-        ./autogen.sh 2>&1 | tail -20
-
-    - name: Configure libcupsfilters
-      env:
-        CC: gcc
-        CXX: g++
-      run: |
-        cd "$GITHUB_WORKSPACE"
-        echo "=== Running configure ==="
-        ./configure \
-          --disable-poppler \
-          --disable-dbus \
-          --enable-shared \
-          --disable-static \
-          2>&1 | tail -40
-
-    - name: Build (make)
-      run: |
-        cd "$GITHUB_WORKSPACE"
-        make -j$(nproc) 2>&1 | tail -50
-
-    # ================
-    # Run test suite
-    # ================
-    - name: Run tests (make check)
-      run: |
-        cd "$GITHUB_WORKSPACE"
-        make check 2>&1 | tail -100 || true
-
-    - name: Show test failures and logs
-      if: always()
-      run: |
-        cd "$GITHUB_WORKSPACE"
-        echo "=== Build Summary for ${{ matrix.arch }} ==="
-        echo "Arch: $(uname -m)"
-        echo "Host: $(uname -a | cut -d' ' -f1-3)"
-        echo ""
-        
-        if [ -d test ]; then
-          echo "=== Test Error Logs ==="
-          find test -name "error_log*" -exec cat {} \; 2>/dev/null || true
-          echo ""
-        fi
-        
-        if [ -d cupsfilters ]; then
-          echo "=== Cupsfilters Test Logs ==="
-          find cupsfilters -name "*.log" -exec cat {} \; 2>/dev/null || true
-          echo ""
-        fi
-        
-        echo "=== Shared Library Check ==="
-        ldd ./libcupsfilters.la 2>/dev/null || nm -D .libs/libcupsfilters.so* 2>/dev/null | head -20 || true
-
-    - name: Final Summary
-      run: |
-        echo "✓ Build and test completed for ${{ matrix.arch }}"
-        echo "  Platform: ${{ matrix.target-platform }}"
-        echo "  Runner: ${{ matrix.runs-on }}"
-        echo "  Emulation: ${{ matrix.use-qemu }}"
+      # ==========================================
+      # 2. EMULATED EXECUTION (armhf and riscv64)
+      # ==========================================
+      - name: Build and Test (Emulated)
+        if: matrix.use-qemu == true
+        uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ubuntu24.04
+          install: |
+            apt-get update --fix-missing -y
+            apt-get upgrade --fix-missing -y
+            DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
+            apt-get install -y \
+              avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
+              autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
+              libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
+              libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
+              libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
+              mupdf-tools poppler-utils ghostscript wget tar make gettext gcc g++
+          run: |
+            REPO_DIR=$(pwd)
+            
+            # Build pdfio
+            cd /tmp
+            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+            tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
+            ./configure --prefix=/usr --enable-shared
+            make all && make install
+            
+            # Build and Test libcupsfilters
+            cd $REPO_DIR
+            export CC=/usr/bin/gcc
+            ./autogen.sh
+            ./configure --enable-debug
+            make -j$(nproc)
+            make check || (cat test/error_log* && exit 1)
