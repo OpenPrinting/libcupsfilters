@@ -50,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update --fix-missing -y
           sudo apt-get upgrade --fix-missing -y
-          # Removal of system libcupsfilters-dev to prevent header/linking conflicts
+          # PREVENT CONFLICTS: Ensure system version doesn't override local source
           sudo apt-get remove -y libcupsfilters-dev || true
           sudo apt-get install -y \
             libqpdf-dev \
@@ -79,8 +79,8 @@ jobs:
           ./autogen.sh
           ./configure
           make -j$(nproc)
-          # Verbose output for better log analysis
-          make check V=1
+          # V=1 shows compiler commands; VERBOSE=1 restores full internal test details
+          make check V=1 VERBOSE=1 || (test -f test-suite.log && cat test-suite.log; exit 1)
 
       - name: Upload test artifacts (Native)
         if: matrix.use-qemu == false && always()
@@ -88,9 +88,10 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
+            test-suite.log
+            **/*.log
             **/test-suite.log
-            **/test/*.log
-            **/cupsfilters/test-pclm-overflow.log
+          if-no-files-found: warn
 
       # ==========================================
       # 2. EMULATED EXECUTION (armv7 and riscv64)
@@ -104,7 +105,7 @@ jobs:
           install: |
             apt-get update --fix-missing -y
             DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
-            # Removal of system libcupsfilters-dev to prevent header/linking conflicts
+            # PREVENT CONFLICTS: Ensure system version doesn't override local source
             apt-get remove -y libcupsfilters-dev || true
             apt-get install -y \
               libqpdf-dev \
@@ -132,8 +133,9 @@ jobs:
             ./configure
             make -j$(nproc)
             
-            # Mark test-pclm-overflow.sh as XFAIL on emulated architectures
-            make check V=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (cat test-suite.log && exit 1)
+            # Mark test-pclm-overflow.sh as XFAIL; VERBOSE=1 for full internal logs
+            # Added "test -f" safety check to error reporting
+            make check V=1 VERBOSE=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (test -f test-suite.log && cat test-suite.log; exit 1)
 
       - name: Upload test artifacts (Emulated)
         if: matrix.use-qemu == true && always()
@@ -141,7 +143,8 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
+            test-suite.log
+            **/*.log
             **/test-suite.log
-            **/test/*.log
-            **/cupsfilters/test-pclm-overflow.log
+          if-no-files-found: warn
           continue-on-error: true
