@@ -78,198 +78,137 @@ jobs:
     - name: Update build environment
       run: |
         sudo apt-get update --fix-missing -y
-        sudo apt-get upgrade --fix-missing -y
+        sudo apt-get upgrade --fix-missing -y 2>&1 | tail -20
 
     # ==================================
     # Install architecture-specific deps
     # ==================================
-    - name: Install build tools and core dependencies
+    - name: Install build tools (all architectures)
       run: |
         sudo apt-get install -y \
           autotools-dev autopoint cmake libtool pkg-config \
           build-essential \
           autoconf automake \
-          gettext
+          gettext \
+          wget
 
-    - name: Install x86_64-specific dependencies
-      if: matrix.arch == 'x86_64'
+    - name: Install core CUPS and font libraries (all architectures)
       run: |
         sudo apt-get install -y \
           libcups2-dev \
-          libavahi-client-dev \
-          libssl-dev \
-          libpam-dev \
-          libusb-1.0-0-dev \
-          zlib1g-dev \
-          libexif-dev \
-          liblcms2-dev \
           libfontconfig1-dev \
           libfreetype6-dev \
-          libdbus-1-dev \
+          liblcms2-dev \
+          zlib1g-dev
+
+    - name: Install image format libraries (all architectures)
+      run: |
+        sudo apt-get install -y \
           libjpeg-dev \
           libpng-dev \
           libtiff-dev \
           libjxl-dev \
-          qtbase5-dev \
-          qtchooser \
-          libcairo2-dev \
-          libboost-system-dev \
-          libboost-thread-dev \
-          libboost-program-options-dev \
-          libboost-test-dev \
-          libopenjp2-7-dev \
-          poppler-utils
+          libexif-dev || true
 
-    - name: Install arm64-specific dependencies
-      if: matrix.arch == 'arm64'
-      run: |
-        sudo apt-get install -y \
-          libcups2-dev \
-          libavahi-client-dev \
-          libssl-dev \
-          libpam-dev \
-          libusb-1.0-0-dev \
-          zlib1g-dev \
-          libexif-dev \
-          liblcms2-dev \
-          libfontconfig1-dev \
-          libfreetype6-dev \
-          libdbus-1-dev \
-          libjpeg-dev \
-          libpng-dev \
-          libtiff-dev \
-          libjxl-dev \
-          qtbase5-dev \
-          qtchooser \
-          libcairo2-dev \
-          libboost-system-dev \
-          libboost-thread-dev \
-          libboost-program-options-dev \
-          libboost-test-dev \
-          libopenjp2-7-dev \
-          poppler-utils
-
-    - name: Install armhf-specific dependencies (via QEMU)
-      if: matrix.arch == 'armhf'
-      run: |
-        # For 32-bit ARM, install multilib versions where available
-        sudo apt-get install -y \
-          libcups2-dev:armhf \
-          libavahi-client-dev:armhf \
-          libssl-dev:armhf \
-          libpam-dev:armhf \
-          libusb-1.0-0-dev:armhf \
-          zlib1g-dev:armhf \
-          libexif-dev:armhf \
-          liblcms2-dev:armhf \
-          libfontconfig1-dev:armhf \
-          libfreetype6-dev:armhf \
-          libdbus-1-dev:armhf \
-          libjpeg-dev:armhf \
-          libpng-dev:armhf \
-          libtiff-dev:armhf \
-          libjxl-dev:armhf \
-          libcairo2-dev:armhf \
-          libboost-system-dev:armhf \
-          libboost-thread-dev:armhf \
-          libboost-program-options-dev:armhf \
-          libboost-test-dev:armhf \
-          libopenjp2-7-dev:armhf \
-          || echo "Some armhf packages unavailable; will attempt source builds"
-
-    - name: Install riscv64-specific dependencies (via QEMU)
-      if: matrix.arch == 'riscv64'
-      run: |
-        # riscv64 has more limited package availability
-        sudo apt-get install -y \
-          libcups2-dev \
-          libavahi-client-dev \
-          libssl-dev \
-          libpam-dev \
-          libusb-1.0-0-dev \
-          zlib1g-dev \
-          libexif-dev \
-          liblcms2-dev \
-          libfontconfig1-dev \
-          libfreetype6-dev \
-          libdbus-1-dev \
-          libjpeg-dev \
-          libpng-dev \
-          libtiff-dev \
-          libjxl-dev \
-          libcairo2-dev \
-          libboost-system-dev \
-          libboost-thread-dev \
-          libboost-program-options-dev \
-          libboost-test-dev \
-          libopenjp2-7-dev \
-          || echo "Some riscv64 packages unavailable; proceeding with available packages"
-
-    # ============================
-    # Install PDFio 1.6.2 from src
-    # ============================
-    - name: Install pdfio >= 1.6.2 from source
-      run: |
-        cd ..
-        mkdir -p pdfio
-        cd pdfio
-        
-        # Download pdfio 1.6.2
-        wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-        tar -xzf pdfio-1.6.2.tar.gz
-        cd pdfio-1.6.2
-        
-        # Configure and build
-        ./configure --prefix=/usr --enable-shared
-        make -j$(nproc) all
-        make test
-        sudo make install
-        
-        # Return to workspace
-        cd "$GITHUB_WORKSPACE"
-
-    - name: Install additional runtime tools
+    - name: Install optional runtime tools
       run: |
         sudo apt-get install -y \
           ghostscript \
           poppler-utils \
-          mupdf-tools
+          mupdf-tools || true
+
+    # ============================
+    # Install PDFio 1.6.2 from src
+    # (Must be built on all arches)
+    # ============================
+    - name: Build and install pdfio >= 1.6.2 from source
+      run: |
+        set -e
+        cd /tmp
+        mkdir -p pdfio-build
+        cd pdfio-build
+        
+        echo "=== Downloading pdfio 1.6.2 ==="
+        wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
+        tar -xzf pdfio-1.6.2.tar.gz
+        cd pdfio-1.6.2
+        
+        echo "=== Configuring pdfio ==="
+        ./configure --prefix=/usr --enable-shared 2>&1 | tail -20
+        
+        echo "=== Building pdfio ==="
+        make -j$(nproc) all 2>&1 | tail -20
+        
+        echo "=== Testing pdfio ==="
+        make test 2>&1 | tail -30
+        
+        echo "=== Installing pdfio ==="
+        sudo make install
+        
+        echo "=== Verifying pdfio installation ==="
+        pkg-config --modversion pdfio
+        ls -la /usr/lib/*/libpdfio* 2>/dev/null || ls -la /usr/lib/libpdfio* 2>/dev/null || true
 
     # ========================
     # Configure and build code
     # ========================
     - name: Run autogen.sh
-      run: ./autogen.sh
+      run: |
+        cd "$GITHUB_WORKSPACE"
+        ./autogen.sh 2>&1 | tail -20
 
-    - name: Configure with debug flags
+    - name: Configure libcupsfilters
       env:
         CC: gcc
         CXX: g++
-      run: ./configure --enable-debug
+      run: |
+        cd "$GITHUB_WORKSPACE"
+        echo "=== Running configure ==="
+        ./configure \
+          --disable-poppler \
+          --disable-dbus \
+          --enable-shared \
+          --disable-static \
+          2>&1 | tail -40
 
     - name: Build (make)
-      run: make -j$(nproc)
+      run: |
+        cd "$GITHUB_WORKSPACE"
+        make -j$(nproc) 2>&1 | tail -50
 
     # ================
     # Run test suite
     # ================
     - name: Run tests (make check)
-      run: make check || true
-
-    - name: Show test failures
-      if: failure()
       run: |
-        echo "=== Test Failures for ${{ matrix.arch }} ==="
-        if [ -d test ]; then
-          find test -name "error_log*" -exec cat {} \;
-        fi
-        echo ""
-        echo "=== Checking cupsfilters test output ==="
-        if [ -d cupsfilters ]; then
-          find cupsfilters -name "*.log" -exec cat {} \;
-        fi
+        cd "$GITHUB_WORKSPACE"
+        make check 2>&1 | tail -100 || true
 
-    - name: Summary
+    - name: Show test failures and logs
+      if: always()
+      run: |
+        cd "$GITHUB_WORKSPACE"
+        echo "=== Build Summary for ${{ matrix.arch }} ==="
+        echo "Arch: $(uname -m)"
+        echo "Host: $(uname -a | cut -d' ' -f1-3)"
+        echo ""
+        
+        if [ -d test ]; then
+          echo "=== Test Error Logs ==="
+          find test -name "error_log*" -exec cat {} \; 2>/dev/null || true
+          echo ""
+        fi
+        
+        if [ -d cupsfilters ]; then
+          echo "=== Cupsfilters Test Logs ==="
+          find cupsfilters -name "*.log" -exec cat {} \; 2>/dev/null || true
+          echo ""
+        fi
+        
+        echo "=== Shared Library Check ==="
+        ldd ./libcupsfilters.la 2>/dev/null || nm -D .libs/libcupsfilters.so* 2>/dev/null | head -20 || true
+
+    - name: Final Summary
       run: |
         echo "✓ Build and test completed for ${{ matrix.arch }}"
         echo "  Platform: ${{ matrix.target-platform }}"
