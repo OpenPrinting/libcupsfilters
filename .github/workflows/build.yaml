@@ -15,22 +15,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Native x86_64 build
+          # Native x86_64
           - arch: x86_64
             runs-on: ubuntu-latest
             use-qemu: false
 
-          # Native ARM64 build (GitHub-hosted ARM runner)
+          # Native ARM64
           - arch: arm64
             runs-on: ubuntu-24.04-arm
             use-qemu: false
 
-          # Emulated 32-bit ARM via QEMU
-          - arch: armhf
+          # CRITICAL FIX: Must be 'armv7', not 'armhf'
+          - arch: armv7
             runs-on: ubuntu-latest
             use-qemu: true
 
-          # Emulated RISC-V via QEMU
+          # Emulated RISC-V
           - arch: riscv64
             runs-on: ubuntu-latest
             use-qemu: true
@@ -77,7 +77,7 @@ jobs:
           make check || (cat test/error_log* && exit 1)
 
       # ==========================================
-      # 2. EMULATED EXECUTION (armhf and riscv64)
+      # 2. EMULATED EXECUTION (armv7 and riscv64)
       # ==========================================
       - name: Build and Test (Emulated)
         if: matrix.use-qemu == true
@@ -87,7 +87,6 @@ jobs:
           distro: ubuntu24.04
           install: |
             apt-get update --fix-missing -y
-            apt-get upgrade --fix-missing -y
             DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
             apt-get install -y \
               avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
