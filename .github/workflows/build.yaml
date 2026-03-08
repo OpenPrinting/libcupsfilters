@@ -147,4 +147,4 @@ jobs:
             **/*.log
             **/test-suite.log
           if-no-files-found: warn
-          continue-on-error: true
+          
