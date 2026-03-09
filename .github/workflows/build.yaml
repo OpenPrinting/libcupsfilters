@@ -66,6 +66,8 @@ jobs:
         env:
           CC: /usr/bin/gcc
         run: |
+          set -ex
+          
           # Build pdfio
           cd /tmp
           wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
@@ -73,6 +75,7 @@ jobs:
           ./configure --prefix=/usr --enable-shared
           make all
           sudo make install
+          sudo ldconfig
           
           # Build and Test libcupsfilters
           cd "$GITHUB_WORKSPACE"
@@ -88,9 +91,7 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
-            test-suite.log
             **/*.log
-            **/test-suite.log
           if-no-files-found: warn
 
       # ==========================================
@@ -116,6 +117,7 @@ jobs:
               libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
               mupdf-tools poppler-utils ghostscript wget tar make gettext gcc g++
           run: |
+            set -ex
             REPO_DIR=$(pwd)
             
             # Build pdfio
@@ -125,6 +127,7 @@ jobs:
             ./configure --prefix=/usr --enable-shared
             make all
             make install
+            ldconfig
             
             # Build and Test libcupsfilters
             cd $REPO_DIR
@@ -134,7 +137,6 @@ jobs:
             make -j$(nproc)
             
             # Mark test-pclm-overflow.sh as XFAIL; VERBOSE=1 for full internal logs
-            # Added "test -f" safety check to error reporting
             make check V=1 VERBOSE=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (test -f test-suite.log && cat test-suite.log; exit 1)
 
       - name: Upload test artifacts (Emulated)
@@ -143,8 +145,6 @@ jobs:
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}
           path: |
-            test-suite.log
             **/*.log
-            **/test-suite.log
           if-no-files-found: warn
           
