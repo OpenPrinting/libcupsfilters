@@ -22,30 +22,28 @@
 // Include necessary headers.
 //
 
-#include <config.h>
 #include "ieee1284.h"
 #include "debug-internal.h"
-#include <cups/cups.h>
-#include <string.h>
+#include <config.h>
 #include <ctype.h>
+#include <cups/cups.h>
 #include <stdio.h>
-
+#include <string.h>
 
 //
 // 'cfIEEE1284GetDeviceID()' - Get the IEEE-1284 device ID string and
 //                             corresponding URI.
 //
 
-int					// O - 0 on success, -1 on failure
-cfIEEE1284GetDeviceID(
-    int        fd,			// I - File descriptor
-    char       *device_id,		// O - 1284 device ID
-    int        device_id_size,		// I - Size of buffer
-    char       *make_model,		// O - Make/model
-    int        make_model_size,		// I - Size of buffer
-    const char *scheme,			// I - URI scheme
-    char       *uri,			// O - Device URI
-    int        uri_size)		// I - Size of buffer
+int                                        // O - 0 on success, -1 on failure
+cfIEEE1284GetDeviceID(int fd,              // I - File descriptor
+                      char *device_id,     // O - 1284 device ID
+                      int device_id_size,  // I - Size of buffer
+                      char *make_model,    // O - Make/model
+                      int make_model_size, // I - Size of buffer
+                      const char *scheme,  // I - URI scheme
+                      char *uri,           // O - Device URI
+                      int uri_size)        // I - Size of buffer
 {
 #ifdef __APPLE__ // This function is a no-op
   (void)fd;
@@ -60,28 +58,26 @@ cfIEEE1284GetDeviceID(
   return (-1);
 
 #else // Get the device ID from the specified file descriptor...
-#  ifdef __linux
-  int	length;				// Length of device ID info
-  int   got_id = 0;
-#  endif // __linux
-#  if defined(__sun) && defined(ECPPIOC_GETDEVID)
-  struct ecpp_device_id did;		// Device ID buffer
-#  endif // __sun && ECPPIOC_GETDEVID
-  char	*ptr;				// Pointer into device ID
-
+#ifdef __linux
+  int length; // Length of device ID info
+  int got_id = 0;
+#endif // __linux
+#if defined(__sun) && defined(ECPPIOC_GETDEVID)
+  struct ecpp_device_id did; // Device ID buffer
+#endif // __sun && ECPPIOC_GETDEVID
+  char *ptr; // Pointer into device ID
 
   DEBUG_printf(("cfIEEE1284GetDeviceID(fd=%d, device_id=%p, device_id_size=%d, "
                 "make_model=%p, make_model_size=%d, scheme=\"%s\", "
-		"uri=%p, uri_size=%d)\n", fd, device_id, device_id_size,
-		make_model, make_model_size, scheme ? scheme : "(null)",
-		uri, uri_size));
+                "uri=%p, uri_size=%d)\n",
+                fd, device_id, device_id_size, make_model, make_model_size,
+                scheme ? scheme : "(null)", uri, uri_size));
 
   //
   // Range check input...
   //
 
-  if (!device_id || device_id_size < 32)
-  {
+  if (!device_id || device_id_size < 32) {
     DEBUG_puts("cfIEEE1284GetDeviceID: Bad args!");
     return (-1);
   }
@@ -89,17 +85,15 @@ cfIEEE1284GetDeviceID(
   if (make_model)
     *make_model = '\0';
 
-  if (fd >= 0)
-  {
+  if (fd >= 0) {
     //
     // Get the device ID string...
     //
 
     *device_id = '\0';
 
-#  ifdef __linux
-    if (ioctl(fd, LPIOC_GET_DEVICE_ID(device_id_size), device_id))
-    {
+#ifdef __linux
+    if (ioctl(fd, LPIOC_GET_DEVICE_ID(device_id_size), device_id)) {
       //
       // Linux has to implement things differently for every device it seems.
       // Since the standard parallel port driver does not provide a simple
@@ -108,80 +102,72 @@ cfIEEE1284GetDeviceID(
       // to get the current device ID.
       //
 
-      if (uri && !strncmp(uri, "parallel:/dev/", 14))
-      {
-	char	devparport[16];		// /dev/parportN
-	int	devparportfd,		// File descriptor for raw device
-		mode;			// Port mode
+      if (uri && !strncmp(uri, "parallel:/dev/", 14)) {
+        char devparport[16]; // /dev/parportN
+        int devparportfd,    // File descriptor for raw device
+            mode;            // Port mode
 
+        //
+        // Since the Linux parallel backend only supports 4 parallel port
+        // devices, just grab the trailing digit and use it to construct a
+        // /dev/parportN filename...
+        //
 
-	//
-	// Since the Linux parallel backend only supports 4 parallel port
-	// devices, just grab the trailing digit and use it to construct a
-	// /dev/parportN filename...
-	//
+        snprintf(devparport, sizeof(devparport), "/dev/parport%s",
+                 uri + strlen(uri) - 1);
 
-	snprintf(devparport, sizeof(devparport), "/dev/parport%s",
-		 uri + strlen(uri) - 1);
+        if ((devparportfd = open(devparport, O_RDWR | O_NOCTTY)) != -1) {
+          //
+          // Claim the device...
+          //
 
-	if ((devparportfd = open(devparport, O_RDWR | O_NOCTTY)) != -1)
-	{
-	  //
-	  // Claim the device...
-	  //
+          if (!ioctl(devparportfd, PPCLAIM)) {
+            fcntl(devparportfd, F_SETFL,
+                  fcntl(devparportfd, F_GETFL) | O_NONBLOCK);
 
-	  if (!ioctl(devparportfd, PPCLAIM))
-	  {
-	    fcntl(devparportfd, F_SETFL, fcntl(devparportfd, F_GETFL) | O_NONBLOCK);
+            mode = IEEE1284_MODE_COMPAT;
 
-	    mode = IEEE1284_MODE_COMPAT;
+            if (!ioctl(devparportfd, PPNEGOT, &mode)) {
+              //
+              // Put the device into Device ID mode...
+              //
 
-	    if (!ioctl(devparportfd, PPNEGOT, &mode))
-	    {
-	      //
-	      // Put the device into Device ID mode...
-	      //
+              mode = IEEE1284_MODE_NIBBLE | IEEE1284_DEVICEID;
 
-	      mode = IEEE1284_MODE_NIBBLE | IEEE1284_DEVICEID;
+              if (!ioctl(devparportfd, PPNEGOT, &mode)) {
+                //
+                // Read the 1284 device ID...
+                //
 
-	      if (!ioctl(devparportfd, PPNEGOT, &mode))
-	      {
-		//
-		// Read the 1284 device ID...
-		//
+                if ((length = read(devparportfd, device_id,
+                                   device_id_size - 1)) >= 2) {
+                  device_id[length] = '\0';
+                  got_id = 1;
+                }
+              }
+            }
 
-		if ((length = read(devparportfd, device_id,
-				   device_id_size - 1)) >= 2)
-		{
-		  device_id[length] = '\0';
-		  got_id = 1;
-		}
-	      }
-	    }
+            //
+            // Release the device...
+            //
 
-	    //
-	    // Release the device...
-	    //
+            ioctl(devparportfd, PPRELEASE);
+          }
 
-	    ioctl(devparportfd, PPRELEASE);
-	  }
-
-	  close(devparportfd);
-	}
+          close(devparportfd);
+        }
       }
-    }
-    else
+    } else
       got_id = 1;
 
-    if (got_id)
-    {
+    if (got_id) {
       //
       // Extract the length of the device ID string from the first two
       // bytes.  The 1284 spec says the length is stored MSB first...
       //
 
       length = (((unsigned)device_id[0] & 255) << 8) +
-	       ((unsigned)device_id[1] & 255);
+               ((unsigned)device_id[1] & 255);
 
       //
       // Check to see if the length is larger than our buffer; first
@@ -190,11 +176,11 @@ cfIEEE1284GetDeviceID(
       //
 
       if (length > device_id_size || length < 14)
-	length = (((unsigned)device_id[1] & 255) << 8) +
-		 ((unsigned)device_id[0] & 255);
+        length = (((unsigned)device_id[1] & 255) << 8) +
+                 ((unsigned)device_id[0] & 255);
 
       if (length > device_id_size)
-	length = device_id_size;
+        length = device_id_size;
 
       //
       // The length field counts the number of bytes in the string
@@ -205,59 +191,53 @@ cfIEEE1284GetDeviceID(
       //        2  +   4  +  1  +  5 +  1 +  1
       //
 
-      if (length < 14)
-      {
-	//
-	// Can't use this device ID, so don't try to copy it...
-	//
+      if (length < 14) {
+        //
+        // Can't use this device ID, so don't try to copy it...
+        //
 
-	device_id[0] = '\0';
-	got_id       = 0;
+        device_id[0] = '\0';
+        got_id = 0;
+      } else {
+        //
+        // Copy the device ID text to the beginning of the buffer and
+        // nul-terminate.
+        //
+
+        length -= 2;
+
+        memmove(device_id, device_id + 2, length);
+        device_id[length] = '\0';
       }
-      else
-      {
-	//
-	// Copy the device ID text to the beginning of the buffer and
-	// nul-terminate.
-	//
-
-	length -= 2;
-
-	memmove(device_id, device_id + 2, length);
-	device_id[length] = '\0';
-      }
-    }
-    else
-    {
-      DEBUG_printf(("cfIEEE1284GetDeviceID: ioctl failed - %s\n",
-                    strerror(errno)));
+    } else {
+      DEBUG_printf(
+          ("cfIEEE1284GetDeviceID: ioctl failed - %s\n", strerror(errno)));
       *device_id = '\0';
     }
-#  endif // __linux
+#endif // __linux
 
-#   if defined(__sun) && defined(ECPPIOC_GETDEVID)
+#if defined(__sun) && defined(ECPPIOC_GETDEVID)
     did.mode = ECPP_CENTRONICS;
-    did.len  = device_id_size - 1;
+    did.len = device_id_size - 1;
     did.rlen = 0;
     did.addr = device_id;
 
-    if (!ioctl(fd, ECPPIOC_GETDEVID, &did))
-    {
+    if (!ioctl(fd, ECPPIOC_GETDEVID, &did)) {
       //
       // Nul-terminate the device ID text.
       //
 
       if (did.rlen < (device_id_size - 1))
-	device_id[did.rlen] = '\0';
+        device_id[did.rlen] = '\0';
       else
-	device_id[device_id_size - 1] = '\0';
+        device_id[device_id_size - 1] = '\0';
     }
-#    ifdef DEBUG
+#ifdef DEBUG
     else
-      DEBUG_printf(("cfIEEE1284GetDeviceID: ioctl failed - %s\n",
-                    strerror(errno)));
-#    endif // DEBUG
-#  endif // __sun && ECPPIOC_GETDEVID
+      DEBUG_printf(
+          ("cfIEEE1284GetDeviceID: ioctl failed - %s\n", strerror(errno)));
+#endif // DEBUG
+#endif // __sun && ECPPIOC_GETDEVID
   }
 
   //
@@ -265,13 +245,12 @@ cfIEEE1284GetDeviceID(
   // reject device IDs with non-printable characters.
   //
 
-  for (ptr = device_id; *ptr; ptr ++)
+  for (ptr = device_id; *ptr; ptr++)
     if (isspace(*ptr))
       *ptr = ' ';
-    else if ((*ptr & 255) < ' ' || *ptr == 127)
-    {
-      DEBUG_printf(("cfIEEE1284GetDeviceID: Bad device_id character %d.",
-                    *ptr & 255));
+    else if ((*ptr & 255) < ' ' || *ptr == 127) {
+      DEBUG_printf(
+          ("cfIEEE1284GetDeviceID: Bad device_id character %d.", *ptr & 255));
       *device_id = '\0';
       break;
     }
@@ -295,16 +274,14 @@ cfIEEE1284GetDeviceID(
   // Then generate a device URI...
   //
 
-  if (scheme && uri && uri_size > 32)
-  {
-    int			num_values;	// Number of keys and values
-    cups_option_t	*values;	// Keys and values in device ID
-    const char		*mfg,		// Manufacturer
-			*mdl,		// Model
-			*sern;		// Serial number
-    char		temp[256],	// Temporary manufacturer string
-			*tempptr;	// Pointer into temp string
-
+  if (scheme && uri && uri_size > 32) {
+    int num_values;        // Number of keys and values
+    cups_option_t *values; // Keys and values in device ID
+    const char *mfg,       // Manufacturer
+        *mdl,              // Model
+        *sern;             // Serial number
+    char temp[256],        // Temporary manufacturer string
+        *tempptr;          // Pointer into temp string
 
     //
     // Get the make, model, and serial numbers...
@@ -322,15 +299,12 @@ cfIEEE1284GetDeviceID(
     if ((mdl = cupsGetOption("MODEL", num_values, values)) == NULL)
       mdl = cupsGetOption("MDL", num_values, values);
 
-    if (mfg)
-    {
+    if (mfg) {
       if (!strcasecmp(mfg, "Hewlett-Packard"))
         mfg = "HP";
       else if (!strcasecmp(mfg, "Lexmark International"))
         mfg = "Lexmark";
-    }
-    else
-    {
+    } else {
       strncpy(temp, make_model, sizeof(temp) - 1);
       temp[sizeof(temp) - 1] = '\0';
 
@@ -343,12 +317,11 @@ cfIEEE1284GetDeviceID(
     if (!mdl)
       mdl = "";
 
-    if (!strncasecmp(mdl, mfg, strlen(mfg)))
-    {
+    if (!strncasecmp(mdl, mfg, strlen(mfg))) {
       mdl += strlen(mfg);
 
       while (isspace(*mdl & 255))
-        mdl ++;
+        mdl++;
     }
 
     //
@@ -366,35 +339,31 @@ cfIEEE1284GetDeviceID(
 #endif // __APPLE__
 }
 
-
 //
 // 'cfIEEE1284GetMakeModel()' - Get the make and model string from the
 //                              device ID.
 //
 
-int					// O - 0 on success, -1 on failure
-cfIEEE1284GetMakeModel(
-    const char *device_id,		// O - 1284 device ID
-    char       *make_model,		// O - Make/model
-    int        make_model_size)		// I - Size of buffer
+int                                           // O - 0 on success, -1 on failure
+cfIEEE1284GetMakeModel(const char *device_id, // O - 1284 device ID
+                       char *make_model,      // O - Make/model
+                       int make_model_size)   // I - Size of buffer
 {
-  int		num_values;		// Number of keys and values
-  cups_option_t	*values;		// Keys and values
-  const char	*mfg,			// Manufacturer string
-		*mdl,			// Model string
-		*des;			// Description string
-
+  int num_values;        // Number of keys and values
+  cups_option_t *values; // Keys and values
+  const char *mfg,       // Manufacturer string
+      *mdl,              // Model string
+      *des;              // Description string
 
   DEBUG_printf(("cfIEEE1284GetMakeModel(device_id=\"%s\", "
-                "make_model=%p, make_model_size=%d)\n", device_id,
-		make_model, make_model_size));
+                "make_model=%p, make_model_size=%d)\n",
+                device_id, make_model, make_model_size));
 
   //
   // Range check input...
   //
 
-  if (!device_id || !*device_id || !make_model || make_model_size < 32)
-  {
+  if (!device_id || !*device_id || !make_model || make_model_size < 32) {
     DEBUG_puts("cfIEEE1284GetMakeModel: Bad args!");
     return (-1);
   }
@@ -410,8 +379,7 @@ cfIEEE1284GetMakeModel(
   if ((mdl = cupsGetOption("MODEL", num_values, values)) == NULL)
     mdl = cupsGetOption("MDL", num_values, values);
 
-  if (mdl)
-  {
+  if (mdl) {
     //
     // Build a make-model string from the manufacturer and model attributes...
     //
@@ -419,34 +387,29 @@ cfIEEE1284GetMakeModel(
     if ((mfg = cupsGetOption("MANUFACTURER", num_values, values)) == NULL)
       mfg = cupsGetOption("MFG", num_values, values);
 
-    if (!mfg || !strncasecmp(mdl, mfg, strlen(mfg)))
-    {
+    if (!mfg || !strncasecmp(mdl, mfg, strlen(mfg))) {
       //
       // Just copy the model string, since it has the manufacturer...
       //
 
       cfIEEE1284NormalizeMakeModel(mdl, NULL, CF_IEEE1284_NORMALIZE_HUMAN, NULL,
-				   make_model, make_model_size, NULL, NULL,
-				   NULL);
-    }
-    else
-    {
+                                   make_model, make_model_size, NULL, NULL,
+                                   NULL);
+    } else {
       //
       // Concatenate the make and model...
       //
 
-      char	temp[1024];		// Temporary make and model
+      char temp[1024]; // Temporary make and model
 
       snprintf(temp, sizeof(temp), "%s %s", mfg, mdl);
 
       cfIEEE1284NormalizeMakeModel(temp, NULL, CF_IEEE1284_NORMALIZE_HUMAN,
-				   NULL, make_model, make_model_size, NULL,
-				   NULL, NULL);
+                                   NULL, make_model, make_model_size, NULL,
+                                   NULL, NULL);
     }
-  }
-  else if ((des = cupsGetOption("DESCRIPTION", num_values, values)) != NULL ||
-           (des = cupsGetOption("DES", num_values, values)) != NULL)
-  {
+  } else if ((des = cupsGetOption("DESCRIPTION", num_values, values)) != NULL ||
+             (des = cupsGetOption("DES", num_values, values)) != NULL) {
     //
     // Make sure the description contains something useful, since some
     // printer manufacturers (HP) apparently don't follow the standards
@@ -456,33 +419,29 @@ cfIEEE1284GetMakeModel(
     // containing at least one space and one letter.
     //
 
-    if (strlen(des) >= 8)
-    {
-      const char	*ptr;		// Pointer into description
-      int		letters,	// Number of letters seen
-			spaces;		// Number of spaces seen
+    if (strlen(des) >= 8) {
+      const char *ptr; // Pointer into description
+      int letters,     // Number of letters seen
+          spaces;      // Number of spaces seen
 
+      for (ptr = des, letters = 0, spaces = 0; *ptr; ptr++) {
+        if (isspace(*ptr & 255))
+          spaces++;
+        else if (isalpha(*ptr & 255))
+          letters++;
 
-      for (ptr = des, letters = 0, spaces = 0; *ptr; ptr ++)
-      {
-	if (isspace(*ptr & 255))
-	  spaces ++;
-	else if (isalpha(*ptr & 255))
-	  letters ++;
-
-	if (spaces && letters)
-	  break;
+        if (spaces && letters)
+          break;
       }
 
       if (spaces && letters)
         cfIEEE1284NormalizeMakeModel(des, NULL, CF_IEEE1284_NORMALIZE_HUMAN,
-				     NULL, make_model, make_model_size, NULL,
-				     NULL, NULL);
+                                     NULL, make_model, make_model_size, NULL,
+                                     NULL, NULL);
     }
   }
 
-  if (!make_model[0])
-  {
+  if (!make_model[0]) {
     //
     // Use "Unknown" as the printer make and model...
     //
@@ -496,7 +455,6 @@ cfIEEE1284GetMakeModel(
   return (0);
 }
 
-
 //
 // 'cfIEEE1284GetValues()' - Get 1284 device ID keys and values.
 //
@@ -504,16 +462,14 @@ cfIEEE1284GetMakeModel(
 // cupsGetOption and freed with cupsFreeOptions.
 //
 
-int					// O - Number of key/value pairs
-cfIEEE1284GetValues(
-    const char *device_id,		// I - IEEE-1284 device ID string
-    cups_option_t **values)		// O - Array of key/value pairs
+int                                         // O - Number of key/value pairs
+cfIEEE1284GetValues(const char *device_id,  // I - IEEE-1284 device ID string
+                    cups_option_t **values) // O - Array of key/value pairs
 {
-  int		num_values;		// Number of values
-  char		key[256],		// Key string
-		value[256],		// Value string
-		*ptr;			// Pointer into key/value
-
+  int num_values; // Number of values
+  char key[256],  // Key string
+      value[256], // Value string
+      *ptr;       // Pointer into key/value
 
   //
   // Range check input...
@@ -533,15 +489,14 @@ cfIEEE1284GetValues(
   //
 
   num_values = 0;
-  while (*device_id)
-  {
+  while (*device_id) {
     while (isspace(*device_id))
-      device_id ++;
+      device_id++;
 
     if (!*device_id)
       break;
 
-    for (ptr = key; *device_id && *device_id != ':'; device_id ++)
+    for (ptr = key; *device_id && *device_id != ':'; device_id++)
       if (ptr < (key + sizeof(key) - 1))
         *ptr++ = *device_id;
 
@@ -549,18 +504,18 @@ cfIEEE1284GetValues(
       break;
 
     while (ptr > key && isspace(ptr[-1]))
-      ptr --;
+      ptr--;
 
     *ptr = '\0';
-    device_id ++;
+    device_id++;
 
     while (isspace(*device_id))
-      device_id ++;
+      device_id++;
 
     if (!*device_id)
       break;
 
-    for (ptr = value; *device_id && *device_id != ';'; device_id ++)
+    for (ptr = value; *device_id && *device_id != ';'; device_id++)
       if (ptr < (value + sizeof(value) - 1))
         *ptr++ = *device_id;
 
@@ -568,10 +523,10 @@ cfIEEE1284GetValues(
       break;
 
     while (ptr > value && isspace(ptr[-1]))
-      ptr --;
+      ptr--;
 
     *ptr = '\0';
-    device_id ++;
+    device_id++;
 
     num_values = cupsAddOption(key, value, num_values, values);
   }
@@ -588,15 +543,12 @@ cfIEEE1284GetValues(
 //                       to the right.
 //
 
-static void
-move_right_part(
-    char       *buffer,	     // I/O - String buffer
-    size_t     bufsize,	     // I   - Size of string buffer
-    char       *start_pos,   // I   - Start of part to be moved
-    int        num_chars)    // I   - Move by how many characters?
+static void move_right_part(char *buffer,    // I/O - String buffer
+                            size_t bufsize,  // I   - Size of string buffer
+                            char *start_pos, // I   - Start of part to be moved
+                            int num_chars) // I   - Move by how many characters?
 {
-  int bytes_to_be_moved,
-      buf_space_available;
+  int bytes_to_be_moved, buf_space_available;
 
   if (num_chars == 0)
     return;
@@ -604,14 +556,11 @@ move_right_part(
   buf_space_available = bufsize - (start_pos - buffer);
   bytes_to_be_moved = strlen(start_pos) + 1;
 
-  if (num_chars > 0)
-  {
+  if (num_chars > 0) {
     if (bytes_to_be_moved + num_chars > buf_space_available)
       bytes_to_be_moved = buf_space_available - num_chars;
     memmove(start_pos + num_chars, start_pos, bytes_to_be_moved);
-  }
-  else
-  {
+  } else {
     bytes_to_be_moved += num_chars;
     memmove(start_pos, start_pos - num_chars, bytes_to_be_moved);
   }
@@ -625,68 +574,66 @@ move_right_part(
 // to produce a clean make-and-model string we can use.
 //
 
-char *					// O - Normalized make-and-model string
-                                        //     or NULL on error
+char * // O - Normalized make-and-model string
+       //     or NULL on error
 cfIEEE1284NormalizeMakeModel(
-    const char *make_and_model,		// I - Original make-and-model string
-					//     or device ID
+    const char *make_and_model,         // I - Original make-and-model string
+                                        //     or device ID
     const char *make,                   // I - Manufacturer name as hint for
                                         //     correct separation of
-					//     make_and_model or adding
-					//     make, or pointer into input
-					//     string where model name starts
-					//     or NULL,
-					//     ignored on device ID with "MFG"
-					//     field or for NO_MAKE_MODEL
-    cf_ieee1284_normalize_modes_t mode,	// I - Bit field to describe how to
-					//     normalize
-    regex_t    *extra_regex,            // I - Compiled regex to determine
-					//     where the extra info after
-					//     the driver name starts, also
-					//     mark with parentheses which
-					//     sub string should be the
-					//     driver name
-    char       *buffer,			// O - String buffer, to hold the
-					//     normalized input string, plus,
-					//     after the terminating zero, the
-					//     driver name if an appropriate
-					//     extra_regex is supplied
-					//     (*drvname will point to it)
-    size_t     bufsize,			// O - Size of string buffer
-    char       **model,                 // O - Pointer to where model name
-					//     starts in buffer or NULL
-    char       **extra,                 // O - Pointer to where extra info
-					//     starts in buffer (after comma,
-					//     semicolon, parenthese, or
-					//     start of extra_regex
-					//     match) or NULL
-    char       **drvname)               // O - Driver name, string of the first
+                                        //     make_and_model or adding
+                                        //     make, or pointer into input
+                                        //     string where model name starts
+                                        //     or NULL,
+                                        //     ignored on device ID with "MFG"
+                                        //     field or for NO_MAKE_MODEL
+    cf_ieee1284_normalize_modes_t mode, // I - Bit field to describe how to
+                                        //     normalize
+    regex_t *extra_regex,               // I - Compiled regex to determine
+                                        //     where the extra info after
+                                        //     the driver name starts, also
+                                        //     mark with parentheses which
+                                        //     sub string should be the
+                                        //     driver name
+    char *buffer,                       // O - String buffer, to hold the
+                                        //     normalized input string, plus,
+                                        //     after the terminating zero, the
+                                        //     driver name if an appropriate
+                                        //     extra_regex is supplied
+                                        //     (*drvname will point to it)
+    size_t bufsize,                     // O - Size of string buffer
+    char **model,                       // O - Pointer to where model name
+                                        //     starts in buffer or NULL
+    char **extra,                       // O - Pointer to where extra info
+                                        //     starts in buffer (after comma,
+                                        //     semicolon, parenthese, or
+                                        //     start of extra_regex
+                                        //     match) or NULL
+    char **drvname)                     // O - Driver name, string of the first
                                         //     matching parenthese expression
                                         //     in the extra_regex
 {
-  int   i;
-  char	*bufptr;			// Pointer into buffer
-  char  sepchr = ' ';                   // Word separator character
-  int   compare = 0,                    // Format for comparing
-        human = 0,                      // Format for human-readable string
-        lower = 0,                      // All letters lowercase
-        upper = 0,                      // All letters uppercase
-        pad = 0,                        // Zero-pad numbers to 6 digits
-        separate = 0,                   // Separate components with '\0'
-        nomakemodel = 0;                // No make/model/extra separation
-  char  *makeptr = NULL,                // Manufacturer name in buffer
-        *modelptr = NULL,               // Model name in buffer
-        *extraptr = NULL,               // Extra info in buffer
-        *drvptr = NULL;                 // Driver name in buffer
-  int   numdigits = 0,
-        rightsidemoved = 0;
-  regmatch_t re_matches[10];            // Regular expression matches,
-					// first entry for the whole regex,
-                                        // following entries for each
-                                        // parenthese pair
+  int i;
+  char *bufptr;               // Pointer into buffer
+  char sepchr = ' ';          // Word separator character
+  int compare = 0,            // Format for comparing
+      human = 0,              // Format for human-readable string
+      lower = 0,              // All letters lowercase
+      upper = 0,              // All letters uppercase
+      pad = 0,                // Zero-pad numbers to 6 digits
+      separate = 0,           // Separate components with '\0'
+      nomakemodel = 0;        // No make/model/extra separation
+  char *makeptr = NULL,       // Manufacturer name in buffer
+      *modelptr = NULL,       // Model name in buffer
+          *extraptr = NULL,   // Extra info in buffer
+              *drvptr = NULL; // Driver name in buffer
+  int numdigits = 0, rightsidemoved = 0;
+  regmatch_t re_matches[10]; // Regular expression matches,
+                             // first entry for the whole regex,
+                             // following entries for each
+                             // parenthese pair
 
-  if (!make_and_model || !buffer || bufsize < 1)
-  {
+  if (!make_and_model || !buffer || bufsize < 1) {
     if (buffer)
       *buffer = '\0';
 
@@ -721,29 +668,23 @@ cfIEEE1284NormalizeMakeModel(
   if (mode & CF_IEEE1284_NORMALIZE_NO_MAKE_MODEL)
     nomakemodel = 1;
 
-  if (mode & CF_IEEE1284_NORMALIZE_IPP)
-  {
+  if (mode & CF_IEEE1284_NORMALIZE_IPP) {
     compare = 1;
     lower = 1;
     upper = 0;
     sepchr = '-';
-  }
-  else if (mode & CF_IEEE1284_NORMALIZE_ENV)
-  {
+  } else if (mode & CF_IEEE1284_NORMALIZE_ENV) {
     compare = 1;
     lower = 0;
     upper = 1;
     sepchr = '_';
-  }
-  else if (mode & CF_IEEE1284_NORMALIZE_COMPARE)
-  {
+  } else if (mode & CF_IEEE1284_NORMALIZE_COMPARE) {
     compare = 1;
     if (lower == 0 && upper == 0)
       lower = 1;
     if (lower == 1 && upper == 1)
       upper = 0;
-  }
-  else if (mode & CF_IEEE1284_NORMALIZE_HUMAN)
+  } else if (mode & CF_IEEE1284_NORMALIZE_HUMAN)
     human = 1;
 
   //
@@ -751,14 +692,13 @@ cfIEEE1284NormalizeMakeModel(
   //
 
   while (isspace(*make_and_model))
-    make_and_model ++;
+    make_and_model++;
 
   //
   // Remove parentheses...
   //
 
-  if (make_and_model[0] == '(')
-  {
+  if (make_and_model[0] == '(') {
     strncpy(buffer, make_and_model + 1, bufsize - 1);
     buffer[bufsize - 1] = '\0';
 
@@ -771,48 +711,50 @@ cfIEEE1284NormalizeMakeModel(
   //
 
   if ((((makeptr = strstr(make_and_model, "MFG:")) != NULL &&
-	(makeptr == make_and_model || *(makeptr - 1) == ';')) ||
+        (makeptr == make_and_model || *(makeptr - 1) == ';')) ||
        ((makeptr = strstr(make_and_model, "MANUFACTURER:")) != NULL &&
-	(makeptr == make_and_model || *(makeptr - 1) == ';'))) &&
+        (makeptr == make_and_model || *(makeptr - 1) == ';'))) &&
       (((modelptr = strstr(make_and_model, "MDL:")) != NULL &&
-	(modelptr == make_and_model || *(modelptr - 1) == ';')) ||
+        (modelptr == make_and_model || *(modelptr - 1) == ';')) ||
        ((modelptr = strstr(make_and_model, "MODEL:")) != NULL &&
-	(modelptr == make_and_model || *(modelptr - 1) == ';'))))
-  {
+        (modelptr == make_and_model || *(modelptr - 1) == ';')))) {
     //
     // Input is device ID
     //
 
     bufptr = buffer;
-    while (*makeptr != ':') makeptr ++;
-    makeptr ++;
-    while (isspace(*makeptr)) makeptr ++;
+    while (*makeptr != ':')
+      makeptr++;
+    makeptr++;
+    while (isspace(*makeptr))
+      makeptr++;
     while (*makeptr != ';' && *makeptr != '\0' &&
-	   bufptr < buffer + bufsize - 1)
-    {
+           bufptr < buffer + bufsize - 1) {
       *bufptr = *makeptr;
-      makeptr ++;
-      bufptr ++;
+      makeptr++;
+      bufptr++;
     }
-    while (isspace(*(bufptr - 1))) bufptr --;
-    if (bufptr < buffer + bufsize - 1)
-    {
+    while (isspace(*(bufptr - 1)))
+      bufptr--;
+    if (bufptr < buffer + bufsize - 1) {
       *bufptr = ' ';
-      makeptr ++;
-      bufptr ++;
+      makeptr++;
+      bufptr++;
     }
     makeptr = bufptr;
-    while (*modelptr != ':') modelptr ++;
-    modelptr ++;
-    while (isspace(*modelptr)) modelptr ++;
+    while (*modelptr != ':')
+      modelptr++;
+    modelptr++;
+    while (isspace(*modelptr))
+      modelptr++;
     while (*modelptr != ';' && *modelptr != '\0' &&
-	   bufptr < buffer + bufsize - 1)
-    {
+           bufptr < buffer + bufsize - 1) {
       *bufptr = *modelptr;
-      modelptr ++;
-      bufptr ++;
+      modelptr++;
+      bufptr++;
     }
-    while (isspace(*(bufptr - 1))) bufptr --;
+    while (isspace(*(bufptr - 1)))
+      bufptr--;
     *bufptr = '\0';
     if (!nomakemodel && makeptr != bufptr)
       modelptr = makeptr;
@@ -820,9 +762,7 @@ cfIEEE1284NormalizeMakeModel(
       modelptr = NULL;
     extraptr = NULL;
     drvptr = NULL;
-  }
-  else
-  {
+  } else {
     //
     // Input is string of type "MAKE MODEL", "MAKE MODEL, EXTRA", or
     // "MAKE MODEL (EXTRA)"
@@ -834,180 +774,159 @@ cfIEEE1284NormalizeMakeModel(
     strncpy(buffer, make_and_model, bufsize - 1);
     buffer[bufsize - 1] = '\0';
 
-    if (!nomakemodel)
-    {
-      if (make)
-      {
-	if (make >= make_and_model &&
-	    make < make_and_model + strlen(make_and_model))
-	  //
-	  // User-supplied pointer where model name starts
-	  //
+    if (!nomakemodel) {
+      if (make) {
+        if (make >= make_and_model &&
+            make < make_and_model + strlen(make_and_model))
+          //
+          // User-supplied pointer where model name starts
+          //
 
-	  modelptr = buffer + (make - make_and_model);
-	else if (!strncasecmp(buffer, make, strlen(make)) &&
-		 isspace(buffer[strlen(make)]))
-	  //
-	  // User-supplied make string matches start of input
-	  //
+          modelptr = buffer + (make - make_and_model);
+        else if (!strncasecmp(buffer, make, strlen(make)) &&
+                 isspace(buffer[strlen(make)]))
+          //
+          // User-supplied make string matches start of input
+          //
 
-	  modelptr = buffer + strlen(make) + 1;
-	else
-	{
-	  //
-	  // Add user-supplied make string at start of input
-	  //
+          modelptr = buffer + strlen(make) + 1;
+        else {
+          //
+          // Add user-supplied make string at start of input
+          //
 
-	  snprintf(buffer, bufsize, "%s %s", make, make_and_model);
-	  modelptr = buffer + strlen(make) + 1;
-	}
+          snprintf(buffer, bufsize, "%s %s", make, make_and_model);
+          modelptr = buffer + strlen(make) + 1;
+          if (modelptr >= buffer + strlen(buffer))
+            modelptr = buffer + strlen(buffer);
+        }
       }
 
       //
       // Add manufacturers as needed...
       //
 
-      if (modelptr == NULL)
-      {
-	if (!strncasecmp(make_and_model, "XPrint ", 7))
-	{
-	  //
-	  // Xerox XPrint...
-	  // Note: We check for the space after XPrint to ensure we do
-	  // not display Xerox for Xprinter devices, which are NOT by
-	  // Xerox.
-	  //
+      if (modelptr == NULL) {
+        if (!strncasecmp(make_and_model, "XPrint ", 7)) {
+          //
+          // Xerox XPrint...
+          // Note: We check for the space after XPrint to ensure we do
+          // not display Xerox for Xprinter devices, which are NOT by
+          // Xerox.
+          //
 
-	  snprintf(buffer, bufsize, "Xerox %s", make_and_model);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "Eastman", 7))
-        {
-	  //
-	  // Kodak...
-	  //
+          snprintf(buffer, bufsize, "Xerox %s", make_and_model);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "Eastman", 7)) {
+          //
+          // Kodak...
+          //
 
-	  snprintf(buffer, bufsize, "Kodak %s", make_and_model + 7);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "laserwriter", 11))
-	{
-	  //
-	  // Apple LaserWriter...
-	  //
+          snprintf(buffer, bufsize, "Kodak %s", make_and_model + 7);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "laserwriter", 11)) {
+          //
+          // Apple LaserWriter...
+          //
 
-	  snprintf(buffer, bufsize, "Apple LaserWriter%s", make_and_model + 11);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "colorpoint", 10))
-        {
-	  //
-	  // Seiko...
-	  //
+          snprintf(buffer, bufsize, "Apple LaserWriter%s", make_and_model + 11);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "colorpoint", 10)) {
+          //
+          // Seiko...
+          //
 
-	  snprintf(buffer, bufsize, "Seiko %s", make_and_model);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "fiery", 5))
-        {
-	  //
-	  // EFI...
-	  //
+          snprintf(buffer, bufsize, "Seiko %s", make_and_model);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "fiery", 5)) {
+          //
+          // EFI...
+          //
 
-	  snprintf(buffer, bufsize, "EFI %s", make_and_model);
-	  modelptr = buffer + 4;
+          snprintf(buffer, bufsize, "EFI %s", make_and_model);
+          modelptr = buffer + 4;
+        } else if (!strncasecmp(make_and_model, "ps ", 3) ||
+                   !strncasecmp(make_and_model, "colorpass", 9)) {
+          //
+          // Canon...
+          //
+
+          snprintf(buffer, bufsize, "Canon %s", make_and_model);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "primera", 7)) {
+          //
+          // Fargo...
+          //
+
+          snprintf(buffer, bufsize, "Fargo %s", make_and_model);
+          modelptr = buffer + 6;
+        } else if (!strncasecmp(make_and_model, "designjet", 9) ||
+                   !strncasecmp(make_and_model, "deskjet", 7) ||
+                   !strncasecmp(make_and_model, "laserjet", 8) ||
+                   !strncasecmp(make_and_model, "officejet", 9)) {
+          //
+          // HP...
+          //
+
+          snprintf(buffer, bufsize, "HP %s", make_and_model);
+          modelptr = buffer + 3;
+        } else if (!strncasecmp(make_and_model, "ecosys", 6)) {
+          //
+          // Kyocera...
+          //
+
+          snprintf(buffer, bufsize, "Kyocera %s", make_and_model);
+          modelptr = buffer + 8;
         }
-	else if (!strncasecmp(make_and_model, "ps ", 3) ||
-		 !strncasecmp(make_and_model, "colorpass", 9))
-        {
-	  //
-	  // Canon...
-	  //
 
-	  snprintf(buffer, bufsize, "Canon %s", make_and_model);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "primera", 7))
-        {
-	  //
-	  // Fargo...
-	  //
-
-	  snprintf(buffer, bufsize, "Fargo %s", make_and_model);
-	  modelptr = buffer + 6;
-	}
-	else if (!strncasecmp(make_and_model, "designjet", 9) ||
-		 !strncasecmp(make_and_model, "deskjet", 7) ||
-		 !strncasecmp(make_and_model, "laserjet", 8) ||
-		 !strncasecmp(make_and_model, "officejet", 9))
-        {
-	  //
-	  // HP...
-	  //
-
-	  snprintf(buffer, bufsize, "HP %s", make_and_model);
-	  modelptr = buffer + 3;
-	}
-	else if (!strncasecmp(make_and_model, "ecosys", 6))
-        {
-	  //
-	  // Kyocera...
-	  //
-
-	  snprintf(buffer, bufsize, "Kyocera %s", make_and_model);
-	  modelptr = buffer + 8;
-	}
-
-	//
-	// Known make names with space
-	//
+        //
+        // Known make names with space
+        //
 
         else if (strncasecmp(buffer, "konica minolta", 14) &&
-		 isspace(buffer[14]))
-	  modelptr = buffer + 15;
-	else if (strncasecmp(buffer, "fuji xerox", 10) &&
-		 isspace(buffer[10]))
-	  modelptr = buffer + 11;
-	else if (strncasecmp(buffer, "lexmark international", 21) &&
-		 isspace(buffer[21]))
-	  modelptr = buffer + 22;
-	else if (strncasecmp(buffer, "kyocera mita", 12) &&
-		 isspace(buffer[12]))
-	  modelptr = buffer + 13;
+                 isspace(buffer[14]))
+          modelptr = buffer + 15;
+        else if (strncasecmp(buffer, "fuji xerox", 10) && isspace(buffer[10]))
+          modelptr = buffer + 11;
+        else if (strncasecmp(buffer, "lexmark international", 21) &&
+                 isspace(buffer[21]))
+          modelptr = buffer + 22;
+        else if (strncasecmp(buffer, "kyocera mita", 12) && isspace(buffer[12]))
+          modelptr = buffer + 13;
 
-	//
-	// Consider the first space as separation between make and model
-	//
+        //
+        // Consider the first space as separation between make and model
+        //
 
-	else
-	{
-	  modelptr = buffer;
-	  while (!isspace(*modelptr) && *modelptr != '\0')
-	    modelptr ++;
-	}
+        else {
+          modelptr = buffer;
+          while (!isspace(*modelptr) && *modelptr != '\0')
+            modelptr++;
+        }
       }
 
       //
       // Adjust modelptr to the actual start of the model name
       //
 
+      if (modelptr && modelptr > buffer + strlen(buffer))
+        modelptr = buffer + strlen(buffer);
+
       if (modelptr)
-	while (!isalnum(*modelptr) && *modelptr != '\0')
-	  modelptr ++;
+        while (!isalnum(*modelptr) && *modelptr != '\0')
+          modelptr++;
     }
   }
 
-  if (!nomakemodel)
-  {
+  if (!nomakemodel) {
     //
     // Clean up the make...
     //
 
     bufptr = buffer;
     while ((bufptr = strcasestr(bufptr, "agfa")) != NULL &&
-	   (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
-	   !isalnum(*(bufptr + 4)))
-    {
+           (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
+           !isalnum(*(bufptr + 4))) {
       //
       // Replace with AGFA (all uppercase)...
       //
@@ -1020,8 +939,7 @@ cfIEEE1284NormalizeMakeModel(
     }
 
     bufptr = buffer;
-    while ((bufptr = strcasestr(bufptr, "Hewlett-Packard")) != NULL)
-    {
+    while ((bufptr = strcasestr(bufptr, "Hewlett-Packard")) != NULL) {
       //
       // Replace with "HP"...
       //
@@ -1030,15 +948,14 @@ cfIEEE1284NormalizeMakeModel(
       bufptr[1] = 'P';
       move_right_part(buffer, bufsize, bufptr + 2, -13);
       if (modelptr >= bufptr + 15)
-	modelptr -= 13;
+        modelptr -= 13;
       bufptr += 2;
     }
 
     bufptr = buffer;
     while ((bufptr = strcasestr(bufptr, "eastman kodak company")) != NULL &&
-	   (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
-	   !isalnum(*(bufptr + 21)))
-    {
+           (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
+           !isalnum(*(bufptr + 21))) {
       //
       // Replace with Kodak...
       //
@@ -1050,28 +967,26 @@ cfIEEE1284NormalizeMakeModel(
       bufptr[4] = 'k';
       move_right_part(buffer, bufsize, bufptr + 5, -16);
       if (modelptr >= bufptr + 21)
-	modelptr -= 16;
+        modelptr -= 16;
       bufptr += 5;
     }
 
     bufptr = buffer;
-    while ((bufptr = strcasestr(bufptr, "Lexmark International")) != NULL)
-    {
+    while ((bufptr = strcasestr(bufptr, "Lexmark International")) != NULL) {
       //
       // Strip "International"...
       //
 
       move_right_part(buffer, bufsize, bufptr + 7, -14);
       if (modelptr >= bufptr + 21)
-	modelptr -= 14;
+        modelptr -= 14;
       bufptr += 7;
     }
 
     bufptr = buffer;
     while ((bufptr = strcasestr(bufptr, "herk")) != NULL &&
-	   (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
-	   !isalnum(*(bufptr + 4)))
-    {
+           (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
+           !isalnum(*(bufptr + 4))) {
       //
       // Replace with LHAG...
       //
@@ -1085,9 +1000,8 @@ cfIEEE1284NormalizeMakeModel(
 
     bufptr = buffer;
     while ((bufptr = strcasestr(bufptr, "linotype")) != NULL &&
-	   (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
-	   !isalnum(*(bufptr + 8)))
-    {
+           (bufptr == buffer || !isalnum(*(bufptr - 1))) &&
+           !isalnum(*(bufptr + 8))) {
       //
       // Replace with LHAG...
       //
@@ -1098,20 +1012,19 @@ cfIEEE1284NormalizeMakeModel(
       bufptr[3] = 'G';
       move_right_part(buffer, bufsize, bufptr + 4, -4);
       if (modelptr >= bufptr + 8)
-	modelptr -= 4;
+        modelptr -= 4;
       bufptr += 4;
     }
 
     bufptr = buffer;
-    while ((bufptr = strcasestr(bufptr, "TOSHIBA TEC Corp.")) != NULL)
-    {
+    while ((bufptr = strcasestr(bufptr, "TOSHIBA TEC Corp.")) != NULL) {
       //
       // Strip "TEC Corp."...
       //
 
       move_right_part(buffer, bufsize, bufptr + 7, -10);
       if (modelptr >= bufptr + 17)
-	modelptr -= 10;
+        modelptr -= 10;
       bufptr += 7;
     }
 
@@ -1119,7 +1032,8 @@ cfIEEE1284NormalizeMakeModel(
     // Remove repeated manufacturer names...
     //
 
-    while (strncasecmp(buffer, modelptr, modelptr - buffer) == 0)
+    while (modelptr && modelptr < buffer + strlen(buffer) &&
+           strncasecmp(buffer, modelptr, modelptr - buffer) == 0)
       move_right_part(buffer, bufsize, modelptr, buffer - modelptr);
 
     //
@@ -1127,8 +1041,7 @@ cfIEEE1284NormalizeMakeModel(
     //
 
     bufptr = modelptr;
-    while ((bufptr = strcasestr(bufptr, " series")) != NULL)
-    {
+    while ((bufptr = strcasestr(bufptr, " series")) != NULL) {
       //
       // Strip "series"...
       //
@@ -1149,63 +1062,56 @@ cfIEEE1284NormalizeMakeModel(
     // matching parenthese pair is considered the driver name
     //
 
-    if (extra_regex)
-    {
+    if (extra_regex) {
       if (!regexec(extra_regex, buffer,
-		   (size_t)(sizeof(re_matches) / sizeof(re_matches[0])),
-		   re_matches, 0))
-      {
-	// Regular expression matches
-	extraptr = buffer + re_matches[0].rm_so;
-	if (strlen(buffer) < bufsize - 3)
-	  for (i = 1; i < (int)(sizeof(re_matches) / sizeof(re_matches[0]));
-	       i ++)
-	    if (re_matches[i].rm_so >= 0 && re_matches[i].rm_eo >= 0)
-	    {
-	      // We have a driver name (matching parentheses). Copy
-	      // the driver name to the end of the output buffer, so
-	      // it does not interfere with the output string and does
-	      // not need to get moved when the length of the output
-	      // string changes. Point drvptr to it for easy access
-	      drvptr = buffer + bufsize - 1;
-	      *drvptr = '\0';
-	      drvptr --;
-	      for (bufptr = buffer + re_matches[i].rm_eo - 1;
-		   bufptr >= buffer + re_matches[i].rm_so &&
-		     drvptr > buffer + strlen(buffer) + 1;
-		   bufptr --, drvptr --)
-		*drvptr = *bufptr;
-	      if (bufptr < buffer + re_matches[i].rm_so)
-		drvptr ++;
-	      else
-		drvptr = NULL;
-	      break;
-	    }
+                   (size_t)(sizeof(re_matches) / sizeof(re_matches[0])),
+                   re_matches, 0)) {
+        // Regular expression matches
+        extraptr = buffer + re_matches[0].rm_so;
+        if (strlen(buffer) < bufsize - 3)
+          for (i = 1; i < (int)(sizeof(re_matches) / sizeof(re_matches[0]));
+               i++)
+            if (re_matches[i].rm_so >= 0 && re_matches[i].rm_eo >= 0) {
+              // We have a driver name (matching parentheses). Copy
+              // the driver name to the end of the output buffer, so
+              // it does not interfere with the output string and does
+              // not need to get moved when the length of the output
+              // string changes. Point drvptr to it for easy access
+              drvptr = buffer + bufsize - 1;
+              *drvptr = '\0';
+              drvptr--;
+              for (bufptr = buffer + re_matches[i].rm_eo - 1;
+                   bufptr >= buffer + re_matches[i].rm_so &&
+                   drvptr > buffer + strlen(buffer) + 1;
+                   bufptr--, drvptr--)
+                *drvptr = *bufptr;
+              if (bufptr < buffer + re_matches[i].rm_so)
+                drvptr++;
+              else
+                drvptr = NULL;
+              break;
+            }
       }
-    }
-    else
-    {
+    } else {
       // Not having a regular expression we consider comma, semicolon,
       // isolated dash, or parenthese as the end of the model name and
       // the rest of the string as extra info. So we set a pointer to
       // this extra info if we find such a character
       if ((extraptr = strchr(buffer, ',')) == NULL)
-	if ((extraptr = strchr(buffer, ';')) == NULL)
-	  if ((extraptr = strstr(buffer, " - ")) == NULL)
-	    extraptr = strchr(buffer, '(');
-      if (extraptr)
-      {
-	if (human)
-	  // Include separator characters between model and extra info, pointer
-	  // will be on first character after model
-	  while (extraptr > buffer && isspace(*(extraptr - 1)))
-	    extraptr --;
-	else
-	{
-	  // Let extra info start at first alphanumeric character
-	  while(!isalnum(*extraptr) && *extraptr != '\0')
-	    extraptr ++;
-	}
+        if ((extraptr = strchr(buffer, ';')) == NULL)
+          if ((extraptr = strstr(buffer, " - ")) == NULL)
+            extraptr = strchr(buffer, '(');
+      if (extraptr) {
+        if (human)
+          // Include separator characters between model and extra info, pointer
+          // will be on first character after model
+          while (extraptr > buffer && isspace(*(extraptr - 1)))
+            extraptr--;
+        else {
+          // Let extra info start at first alphanumeric character
+          while (!isalnum(*extraptr) && *extraptr != '\0')
+            extraptr++;
+        }
       }
     }
   }
@@ -1215,8 +1121,8 @@ cfIEEE1284NormalizeMakeModel(
   //
 
   for (bufptr = buffer + strlen(buffer) - 1;
-       bufptr >= buffer && isspace(*bufptr);
-       bufptr --);
+       bufptr >= buffer && isspace(*bufptr); bufptr--)
+    ;
 
   bufptr[1] = '\0';
 
@@ -1226,90 +1132,75 @@ cfIEEE1284NormalizeMakeModel(
 
   // Word and component separation, number padding
   bufptr = buffer;
-  while (*bufptr)
-  {
+  while (*bufptr) {
     rightsidemoved = 0;
     if (compare) // Comparison-optimized format
     {
       if (bufptr > buffer &&
-	  ((isdigit(*bufptr) && isalpha(*(bufptr - 1))) || // a0 boundary
-	   (isalpha(*bufptr) && isdigit(*(bufptr - 1))) || // 0a boundary
-	   (!separate && modelptr && bufptr == modelptr &&
-	    bufptr >= buffer + 2 && // 2 separator char between make/model
-	    isalnum(*(bufptr - 2)) && !isalnum(*(bufptr - 1))) || 
-	   (!separate && extraptr && bufptr == extraptr &&
-	    bufptr >= buffer + 2 && // 2 separator char between model/extra
-	    isalnum(*(bufptr - 2)) && !isalnum(*(bufptr - 1)))))
+          ((isdigit(*bufptr) && isalpha(*(bufptr - 1))) || // a0 boundary
+           (isalpha(*bufptr) && isdigit(*(bufptr - 1))) || // 0a boundary
+           (!separate && modelptr && bufptr == modelptr &&
+            bufptr >= buffer + 2 && // 2 separator char between make/model
+            isalnum(*(bufptr - 2)) && !isalnum(*(bufptr - 1))) ||
+           (!separate && extraptr && bufptr == extraptr &&
+            bufptr >= buffer + 2 && // 2 separator char between model/extra
+            isalnum(*(bufptr - 2)) && !isalnum(*(bufptr - 1))))) {
+        // Insert single separator
+        move_right_part(buffer, bufsize, bufptr, 1);
+        *bufptr = sepchr;
+        rightsidemoved += 1;
+      } else if (*bufptr == '+') // Model names sometimes differ only by a '+'
       {
-	// Insert single separator
-	move_right_part(buffer, bufsize, bufptr, 1);
-	*bufptr = sepchr;
-	rightsidemoved += 1;
-      }
-      else if (*bufptr == '+') // Model names sometimes differ only by a '+'
+        // Replace with the word "plus"
+        move_right_part(buffer, bufsize, bufptr, 3);
+        *bufptr = 'p';
+        *(bufptr + 1) = 'l';
+        *(bufptr + 2) = 'u';
+        *(bufptr + 3) = 's';
+        rightsidemoved += 3;
+      } else if (!isalnum(*bufptr)) // Space or punctuation character
       {
-	// Replace with the word "plus"
-	move_right_part(buffer, bufsize, bufptr, 3);
-	*bufptr = 'p';
-	*(bufptr + 1) = 'l';
-	*(bufptr + 2) = 'u';
-	*(bufptr + 3) = 's';
-	rightsidemoved += 3;
+        if (bufptr == buffer || !isalnum(*(bufptr - 1))) {
+          // The previous is already a separator, remove this one
+          move_right_part(buffer, bufsize, bufptr, -1);
+          rightsidemoved -= 1;
+        } else
+          // Turn to standard separator character
+          *bufptr = sepchr;
       }
-      else if (!isalnum(*bufptr)) // Space or punctuation character
-      {
-	if (bufptr == buffer || !isalnum(*(bufptr - 1)))
-	{
-	  // The previous is already a separator, remove this one
-	  move_right_part(buffer, bufsize, bufptr, -1);
-	  rightsidemoved -= 1;
-	}
-	else
-	  // Turn to standard separator character
-	  *bufptr = sepchr;
+      if (pad) {
+        if (isdigit(*bufptr))
+          numdigits++;
+        else if (numdigits &&
+                 (!(isdigit(*bufptr)) || (modelptr && modelptr == bufptr) ||
+                  (extraptr && extraptr == bufptr))) {
+          if (numdigits < 6) {
+            move_right_part(buffer, bufsize, bufptr - numdigits, 6 - numdigits);
+            memset(bufptr - numdigits, '0', 6 - numdigits);
+            rightsidemoved += 6 - numdigits;
+          }
+          numdigits = 0;
+        }
       }
-      if (pad)
-      {
-	if (isdigit(*bufptr))
-	  numdigits ++;
-	else if (numdigits &&
-		 (!(isdigit(*bufptr)) ||
-		  (modelptr && modelptr == bufptr) ||
-		  (extraptr && extraptr == bufptr)))
-	{
-	  if (numdigits < 6)
-	  {
-	    move_right_part(buffer, bufsize,
-			  bufptr - numdigits, 6 - numdigits);
-	    memset(bufptr - numdigits, '0', 6 - numdigits);
-	    rightsidemoved += 6 - numdigits;
-	  }
-	  numdigits = 0;
-	}
-      }
-    }
-    else if (human) // Human-readable format
+    } else if (human) // Human-readable format
     {
       if (isspace(*bufptr)) // White space
       {
-	if (bufptr == buffer || isspace(*(bufptr - 1)))
-	{
-	  // The previous is already white space, remove this one
-	  move_right_part(buffer, bufsize, bufptr, -1);
-	  rightsidemoved -= 1;
-	}
-	else
-	  // Turn to standard separator character
-	  *bufptr = sepchr;
+        if (bufptr == buffer || isspace(*(bufptr - 1))) {
+          // The previous is already white space, remove this one
+          move_right_part(buffer, bufsize, bufptr, -1);
+          rightsidemoved -= 1;
+        } else
+          // Turn to standard separator character
+          *bufptr = sepchr;
       }
     }
     // Separate component strings with '\0' if requested
-    if (separate && bufptr > buffer)
-    {
+    if (separate && bufptr > buffer) {
       if (modelptr && bufptr == modelptr)
-	*(bufptr - 1) = '\0';
+        *(bufptr - 1) = '\0';
       if (extraptr && bufptr == extraptr)
-	*(bufptr - 1) = '\0';
+        *(bufptr - 1) = '\0';
     }
     // Correct component start pointers
     if (modelptr && modelptr >= bufptr)
@@ -1317,22 +1208,22 @@ cfIEEE1284NormalizeMakeModel(
     if (extraptr && extraptr >= bufptr)
       extraptr += rightsidemoved;
     // Advance to next character
-    bufptr += (rightsidemoved > 0 ? rightsidemoved :
-	       (rightsidemoved < 0 ? 0 : 1));
+    bufptr +=
+        (rightsidemoved > 0 ? rightsidemoved : (rightsidemoved < 0 ? 0 : 1));
   }
   // Remove separator at the end of the string
   if (bufptr > buffer && *(bufptr - 1) == sepchr)
-    *(bufptr - 1) = '\0'; 
+    *(bufptr - 1) = '\0';
 
   // Adjustment of upper/lowercase
-  if (lower == 1 || upper == 1)
-  {
+  if (lower == 1 || upper == 1) {
     bufptr = buffer;
-    while (*bufptr)
-    {
-      if (upper && islower(*bufptr)) *bufptr = toupper(*bufptr);
-      if (lower && isupper(*bufptr)) *bufptr = tolower(*bufptr);
-      bufptr ++;
+    while (*bufptr) {
+      if (upper && islower(*bufptr))
+        *bufptr = toupper(*bufptr);
+      if (lower && isupper(*bufptr))
+        *bufptr = tolower(*bufptr);
+      bufptr++;
     }
   }
 
@@ -1342,8 +1233,11 @@ cfIEEE1284NormalizeMakeModel(
 
   if (drvptr <= buffer + strlen(buffer) + 1)
     drvptr = NULL;
-  if (model) *model = modelptr;
-  if (extra) *extra = extraptr;
-  if (drvname) *drvname = drvptr;
+  if (model)
+    *model = modelptr;
+  if (extra)
+    *extra = extraptr;
+  if (drvname)
+    *drvname = drvptr;
   return (buffer[0] ? buffer : NULL);
 }
