@@ -1224,15 +1224,7 @@ run_test(
       }
       continue;
      }
-     else if (globalFlag == 9) 
-         {
-                filter_chain_str = token;
-                filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
-                globalFlag++;
-            }
-
-
-
+     
      char **tmp_clargs = (char **)realloc(clargs, (token_index+1)*sizeof(char*));
      if (!tmp_clargs)
      {
