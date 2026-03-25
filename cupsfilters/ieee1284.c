@@ -845,13 +845,18 @@ cfIEEE1284NormalizeMakeModel(
 	  //
 
 	  modelptr = buffer + (make - make_and_model);
-	else if (!strncasecmp(buffer, make, strlen(make)) &&
+	else if (strlen(make) < bufsize &&
+		 !strncasecmp(buffer, make, strlen(make)) &&
 		 isspace(buffer[strlen(make)]))
+	{
 	  //
 	  // User-supplied make string matches start of input
 	  //
 
 	  modelptr = buffer + strlen(make) + 1;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
+	}
 	else
 	{
 	  //
@@ -860,6 +865,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "%s %s", make, make_and_model);
 	  modelptr = buffer + strlen(make) + 1;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
       }
 
@@ -880,6 +887,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Xerox %s", make_and_model);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "Eastman", 7))
         {
@@ -889,6 +898,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Kodak %s", make_and_model + 7);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "laserwriter", 11))
 	{
@@ -898,6 +909,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Apple LaserWriter%s", make_and_model + 11);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "colorpoint", 10))
         {
@@ -907,6 +920,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Seiko %s", make_and_model);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "fiery", 5))
         {
@@ -916,6 +931,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "EFI %s", make_and_model);
 	  modelptr = buffer + 4;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
         }
 	else if (!strncasecmp(make_and_model, "ps ", 3) ||
 		 !strncasecmp(make_and_model, "colorpass", 9))
@@ -926,6 +943,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Canon %s", make_and_model);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "primera", 7))
         {
@@ -935,6 +954,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Fargo %s", make_and_model);
 	  modelptr = buffer + 6;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "designjet", 9) ||
 		 !strncasecmp(make_and_model, "deskjet", 7) ||
@@ -947,6 +968,8 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "HP %s", make_and_model);
 	  modelptr = buffer + 3;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 	else if (!strncasecmp(make_and_model, "ecosys", 6))
         {
@@ -956,22 +979,28 @@ cfIEEE1284NormalizeMakeModel(
 
 	  snprintf(buffer, bufsize, "Kyocera %s", make_and_model);
 	  modelptr = buffer + 8;
+	  if (modelptr >= buffer + strlen(buffer))
+	    modelptr = buffer + strlen(buffer);
 	}
 
 	//
 	// Known make names with space
 	//
 
-        else if (strncasecmp(buffer, "konica minolta", 14) &&
+	else if (strlen(buffer) >= 15 &&
+		 strncasecmp(buffer, "konica minolta", 14) &&
 		 isspace(buffer[14]))
 	  modelptr = buffer + 15;
-	else if (strncasecmp(buffer, "fuji xerox", 10) &&
+	else if (strlen(buffer) >= 11 &&
+		 strncasecmp(buffer, "fuji xerox", 10) &&
 		 isspace(buffer[10]))
 	  modelptr = buffer + 11;
-	else if (strncasecmp(buffer, "lexmark international", 21) &&
+	else if (strlen(buffer) >= 22 &&
+		 strncasecmp(buffer, "lexmark international", 21) &&
 		 isspace(buffer[21]))
 	  modelptr = buffer + 22;
-	else if (strncasecmp(buffer, "kyocera mita", 12) &&
+	else if (strlen(buffer) >= 13 &&
+		 strncasecmp(buffer, "kyocera mita", 12) &&
 		 isspace(buffer[12]))
 	  modelptr = buffer + 13;
 
@@ -990,6 +1019,9 @@ cfIEEE1284NormalizeMakeModel(
       //
       // Adjust modelptr to the actual start of the model name
       //
+
+      if (modelptr && modelptr > buffer + strlen(buffer))
+	modelptr = buffer + strlen(buffer);
 
       if (modelptr)
 	while (!isalnum(*modelptr) && *modelptr != '\0')
