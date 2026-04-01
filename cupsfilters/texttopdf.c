@@ -1563,8 +1563,6 @@ font_load(const char *font,
   {
     FcInit();
     pattern = FcNameParse ((const FcChar8 *)font);
-    FcPatternAddInteger(pattern, FC_SPACING, FC_MONO);
-                      // guide fc, in case substitution becomes necessary
     FcConfigSubstitute (0, pattern, FcMatchPattern);
     FcDefaultSubstitute (pattern);
 
@@ -1583,7 +1581,7 @@ font_load(const char *font,
 	FcPatternGetString(candidates->fonts[i], FC_FONTFORMAT, 0, &fontformat);
 	FcPatternGetInteger(candidates->fonts[i], FC_SPACING, 0, &spacing);
 
-	if ((fontformat) && ((spacing == FC_MONO) || (fontwidth == 2)))
+	if (fontformat) 
 	{
 	  // check for monospace or double width fonts
 	  if (strcmp((const char *)fontformat, "TrueType") == 0)
