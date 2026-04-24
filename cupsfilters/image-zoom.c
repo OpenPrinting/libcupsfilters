@@ -270,7 +270,7 @@ zoom_bilinear(cf_izoom_t   *z,		// I - Zoom record to fill
     if (ix < z_xmax)
     {
       for (count = 0; count < z_depth; count ++)
-        *r++ = (inptr[count] * xerr0 + inptr[z_depth + count] * xerr1) / z_xsize;
+        *r++ = (inptr[count] * xerr0 + inptr[z_inincr + count] * xerr1) / z_xsize;
     }
     else
     {
