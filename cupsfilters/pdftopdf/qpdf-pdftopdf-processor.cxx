@@ -371,6 +371,13 @@ _cfPDFToPDFQPDFPageHandle::add_subpage
 					     rect.right, rect.top));
     // TODO? do everything for cropping here?
   }
+
+  // Preserve /Group from subpage to container page for performance
+  if (qsub->page.hasKey("/Group"))
+  {
+    page.replaceKey("/Group", qsub->page.getKey("/Group"));
+  }
+
   xobjs[xoname] = _cfPDFToPDFMakeXObject(qsub->page.getOwningQPDF(),
 					 qsub->page); // trick: should be the
                                                       // same as
@@ -420,9 +427,22 @@ _cfPDFToPDFQPDFPageHandle::mirror() // {{{
 
     QPDFObjectHandle subpage = get();  // this->page, with rotation
 
+    // Preserve /Group from the original page
+    QPDFObjectHandle group;
+    if (subpage.hasKey("/Group"))
+    {
+      group = subpage.getKey("/Group");
+    }
+
     // replace all our data
     *this = _cfPDFToPDFQPDFPageHandle(subpage.getOwningQPDF(),
 				      orig.width, orig.height);
+
+    // Apply /Group to the new wrapper page for performance
+    if (group.isInitialized())
+    {
+      page.replaceKey("/Group", group);
+    }
 
     xobjs[xoname] = _cfPDFToPDFMakeXObject(subpage.getOwningQPDF(), subpage);
                                        // we can only now set this->xobjs

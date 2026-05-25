@@ -67,7 +67,7 @@ CombineFromContents_Provider::provideStreamData(int objid,
 //                        /used/ -- or set /Matrix)
 //  [/UserUnit] (PDF 1.6)   -> to /Matrix ?   -- it MUST be handled.
 //
-//  [/Group dict]      -> copy
+//  [/Group dict]      -> keep in /Page, do not copy to /XObject (performance)
 //  [/Thumb stream]    -> remove, not needed any more / would have to be
 //                        regenerated (combined)
 //  [/B]               article beads -- ignore for now
@@ -141,10 +141,8 @@ _cfPDFToPDFMakeXObject(QPDF *pdf, QPDFObjectHandle page)
   dict.replaceKey("/Matrix", mtx.get());
 
   dict.replaceKey("/Resources", page.getKey("/Resources"));
-  if (page.hasKey("/Group"))
-    dict.replaceKey("/Group", page.getKey("/Group")); // (transparency); opt,
-                                                      // copy if there
 
+  // Note: /Group is kept in the /Page and not copied to /XObject for performance reasons
   // ?? /StructParents   ... can basically copy from page, but would need
   // fixup in Structure Tree
   // FIXME: remove (globally) Tagged spec (/MarkInfo), and Structure Tree
@@ -188,7 +186,7 @@ _cfPDFToPDFMakeXObject(QPDF *pdf, QPDFObjectHandle page)
 //   [/Matrix .]   ...  default is [1 0 0 1 0 0] ---   we have to incorporate
 //                      /UserUnit here?!
 //   [/Resources dict]  from page.
-//   [/Group dict]      used for transparency -- can copy from page
+//   [/Group dict]      used for transparency -- kept in /Page, not copied to /XObject for performance
 //   [/Ref dict]        not needed; for external reference
 //   [/Metadata]        not, as long we can not combine.
 //   [/PieceInfo]       can copy, but not combine 
