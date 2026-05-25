@@ -8,6 +8,6 @@
 
 #include <qpdf/QPDFObjectHandle.hh>
 
-QPDFObjectHandle _cfPDFToPDFMakeXObject(QPDF *pdf, QPDFObjectHandle page);
+QPDFObjectHandle _cfPDFToPDFMakeXObject(QPDF *pdf, QPDFObjectHandle page, bool copyGroup = false);
 
 #endif // !_CUPS_FILTERS_PDFTOPDF_QPDF_XOBJECT_H_

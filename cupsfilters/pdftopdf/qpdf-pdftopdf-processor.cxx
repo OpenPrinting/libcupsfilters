@@ -105,6 +105,67 @@ _cfPDFToPDFQPDFPageHandle::get() // {{{
 
   if (!is_existing())
   { // finish up page
+    // Smart /Group transparency optimization
+    bool copyGroupToXObjects = false;
+
+    if (!subpage_info.empty())
+    {
+      // Check if we have multiple subpages
+      if (subpage_info.size() == 1)
+      {
+        // Single subpage: safe to promote /Group to page level
+        if (!subpage_info[0].group.isNull())
+        {
+          page.replaceKey("/Group", subpage_info[0].group);
+          copyGroupToXObjects = false; // Don't copy to XObject for performance
+        }
+      }
+      else
+      {
+        // Multiple subpages: check if all have identical /Group
+        bool allSame = true;
+        bool allHaveGroup = true;
+        QPDFObjectHandle firstGroup = subpage_info[0].group;
+
+        for (size_t i = 0; i < subpage_info.size(); i++)
+        {
+          if (subpage_info[i].group.isNull())
+          {
+            allHaveGroup = false;
+            allSame = false;
+            break;
+          }
+          if (i > 0)
+          {
+            // Compare groups (simplified: check if they're the same object or equal dictionaries)
+            if (subpage_info[i].group.unparse() != firstGroup.unparse())
+            {
+              allSame = false;
+              break;
+            }
+          }
+        }
+
+        if (allHaveGroup && allSame)
+        {
+          // All subpages have identical /Group: promote to page level
+          page.replaceKey("/Group", firstGroup);
+          copyGroupToXObjects = false;
+        }
+        else
+        {
+          // Different /Group settings: keep them in XObjects (fallback to current behavior)
+          copyGroupToXObjects = true;
+        }
+      }
+
+      // Now create the XObjects with the appropriate /Group handling
+      for (const auto& info : subpage_info)
+      {
+        xobjs[info.xoname] = _cfPDFToPDFMakeXObject(info.page_handle.getOwningQPDF(), info.page_handle, copyGroupToXObjects);
+      }
+    }
+
     page.getKey("/Resources").replaceKey("/XObject",
 					 QPDFObjectHandle::newDictionary(xobjs));
     content.append("Q\n");
@@ -372,18 +433,16 @@ _cfPDFToPDFQPDFPageHandle::add_subpage
     // TODO? do everything for cropping here?
   }
 
-  // Preserve /Group from subpage to container page for performance
-  if (qsub->page.hasKey("/Group"))
-  {
-    page.replaceKey("/Group", qsub->page.getKey("/Group"));
-  }
+  // Store subpage information for deferred XObject creation with smart /Group handling
+  SubpageInfo info;
+  info.page_handle = qsub->page;
+  info.group = qsub->page.hasKey("/Group") ? qsub->page.getKey("/Group") : QPDFObjectHandle::newNull();
+  info.xoname = xoname;
+  subpage_info.push_back(info);
 
-  xobjs[xoname] = _cfPDFToPDFMakeXObject(qsub->page.getOwningQPDF(),
-					 qsub->page); // trick: should be the
-                                                      // same as
-                                                      // page->getOwningQPDF()
-                                                      // [only after it's made
-                                                      // indirect]
+  // Note: XObject will be created in get() with smart /Group optimization
+  // Store a placeholder for now
+  xobjs[xoname] = QPDFObjectHandle::newNull();
 
   _cfPDFToPDFMatrix mtx;
   mtx.translate(xpos, ypos);
@@ -438,13 +497,15 @@ _cfPDFToPDFQPDFPageHandle::mirror() // {{{
     *this = _cfPDFToPDFQPDFPageHandle(subpage.getOwningQPDF(),
 				      orig.width, orig.height);
 
-    // Apply /Group to the new wrapper page for performance
+    // Apply /Group to the new wrapper page for performance optimization
+    // Safe for single-page wrapping: /Group stays at page level, not in XObject
     if (group.isInitialized())
     {
       page.replaceKey("/Group", group);
     }
 
-    xobjs[xoname] = _cfPDFToPDFMakeXObject(subpage.getOwningQPDF(), subpage);
+    // Single page wrapping: don't copy /Group to XObject (copyGroup=false for performance)
+    xobjs[xoname] = _cfPDFToPDFMakeXObject(subpage.getOwningQPDF(), subpage, false);
                                        // we can only now set this->xobjs
 
     // content.append(std::string("1 0 0 1 0 0 cm\n  ");

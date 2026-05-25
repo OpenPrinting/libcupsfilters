@@ -46,6 +46,14 @@ class _cfPDFToPDFQPDFPageHandle : public _cfPDFToPDFPageHandle {
   std::string content;
 
   pdftopdf_rotation_e rotation;
+
+  // Group transparency tracking for safe optimization
+  struct SubpageInfo {
+    QPDFObjectHandle page_handle;
+    QPDFObjectHandle group;
+    std::string xoname;
+  };
+  std::vector<SubpageInfo> subpage_info; // Track subpage details for deferred XObject creation
 };
 
 class _cfPDFToPDFQPDFProcessor : public _cfPDFToPDFProcessor {
