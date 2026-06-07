@@ -56,6 +56,7 @@ struct _cups_array_s                    // CUPS array structure
   cups_afree_cb_t       freefunc;       // Free function
 };
 
+#if CUPS_VERSION_MAJOR < 3 && !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR == 5)
 typedef struct cups_media_s             // Media information
 {
   char          media[128],             // Media name to use
@@ -69,6 +70,7 @@ typedef struct cups_media_s             // Media information
                 right,                  // Right margin in hundredths of millimeters
                 top;                    // Top margin in hundredths of millimeters
 } cups_media_t;
+#endif
 
 typedef enum cf_filter_delivery_e	// "page-delivery" values
 {
