@@ -1259,7 +1259,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 
   // If size if specified by user, use it, else default size from
   // printer_attrs
-  strcpy(defSize, header.cupsPageSizeName);
+  snprintf(defSize, sizeof(defSize), "%s", header.cupsPageSizeName);
 
   if ((strncasecmp(defSize, "Custom", 6)) == 0 ||
       strcasestr(defSize, "_custom_"))
@@ -1308,7 +1308,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     // Set the new custom size...
     //
 
-    strcpy(header.cupsPageSizeName, "Custom");
+    snprintf(header.cupsPageSizeName, sizeof(header.cupsPageSizeName), "%s", "Custom");
 
     header.cupsPageSize[0] = width + 0.5;
     header.cupsPageSize[1] = length + 0.5;
@@ -1629,7 +1629,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	"cfFilterImageToRaster: img->colorspace = %d", img->colorspace);
   }
 
-  row = malloc(2 * header.cupsBytesPerLine);
+  row = calloc(2, header.cupsBytesPerLine);
   ras = cupsRasterOpen(outputfd, CUPS_RASTER_WRITE);
 
   for (i = 0, page = 1; i < doc.Copies; i ++)
