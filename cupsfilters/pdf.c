@@ -70,6 +70,36 @@ cfPDFLoadTemplate(const char *filename) 	// I - Filename of the PDF file
 }
 
 //
+// 'cf_pdf_write()' - helper which writes the PDF file to a FILE*
+//
+
+ssize_t
+cf_pdf_write_cb(void *context, const void *buffer, size_t bytes)
+{
+  return (ssize_t)fwrite(buffer, 1, bytes, (FILE *)context);
+}
+
+//
+// 'cfCopyPDFdoc()' - Copy the PDF file to another using PDFio, as PDFio doesn't 
+// 		      explicitly support file modification. 
+// 		      Thus we will copy contents into new streams and modify there.
+//
+
+cf_pdf_t*
+cfCopyPDFdoc(cf_pdf_t *input_doc, 
+	     FILE *output_file,
+	     iterate_data_t *iterate_helper)
+{
+  cf_pdf_t *pdf = (cf_pdf_t*)pdfioFileCreateOutput(cf_pdf_write_cb, output_file,
+		 			    pdfioFileGetVersion((pdfio_file_t *)input_doc), 					       NULL, NULL, NULL, NULL);
+  iterate_helper->pdf = pdf;
+  pdfio_dict_t *input_page_dict = pdfioObjGetDict(pdfioFileGetPage((pdfio_file_t*)input_doc, 0));
+  iterate_helper->page_dict = pdfioDictCopy((pdfio_file_t *)iterate_helper->pdf, input_page_dict);
+
+  return pdf;
+}
+
+//
 // 'cfPDFFree()' - Free pointer used by PDF object
 //
 
@@ -222,6 +252,55 @@ cfPDFPrependStream(cf_pdf_t *pdf,		// I - Pointer to PDF file
 }
 
 //
+// 'cfPDFPrependStream1()' - Replacement API for the original above.
+// 			     Prepend a stream to the contents of a specified
+//                           page in PDF file.
+//
+
+int 						  // O - 0 on success, 1 on error
+cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
+		    iterate_data_t *iterate_helper,
+		    unsigned page_num, 		// I - page number to prepend to
+		    const char *buf, 		// I - Buffer containing stream data
+		    size_t len) 		// I - Length of Buffer
+{
+  pdfio_stream_t *st;
+  ssize_t bytes;
+  char          buffer[65536];
+  // This is used to place content "underneath" existing page content, typically
+  // for adding backgrounds or forms
+	
+  if(pdfioFileGetNumPages((pdfio_file_t *)pdf)==0)
+    return 1;
+
+  // Get the existing page object
+  pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
+
+  // Create the new pdf page stream
+  pdfio_stream_t *new_stream = pdfioFileCreatePage((pdfio_file_t*)iterate_helper->pdf, iterate_helper->page_dict);
+
+  pdfioStreamWrite(new_stream, buf, len);
+
+  for (size_t i = 0, count = pdfioPageGetNumStreams(page); i < count; i ++)
+  {
+    fprintf(stderr, "DEBUG: Opening content stream %u/%u...\n", (unsigned)i + 1, (unsigned)count);
+
+    if ((st = pdfioPageOpenStream(page, i, true)) != NULL)
+    {
+      fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
+      while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
+      {
+        pdfioStreamWrite(new_stream, buffer, (size_t)bytes);
+      }
+    }
+    pdfioStreamClose(st);
+  }
+
+  pdfioStreamClose(new_stream);
+
+  return 0; 
+}
+//
 // 'cfPDFAddType1Font()' - Add the specified type1 font face to the specified
 //                         page in a PDF document.
 //
@@ -231,14 +310,13 @@ cfPDFAddType1Font(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 		  unsigned page_num, 	// I - Page number to add font to
 		  const char *name) 	// I - Name of the font
 {
-  pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num);
+  pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num-1);
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
   if (!page) 
     return 1; 
 
   // Locate or create the Resources dictionary
   pdfio_dict_t *resources = pdfioDictGetDict(pageDict, "Resources");
-
   if (!resources) 
   {
     resources = pdfioDictCreate((pdfio_file_t *)pdf);
@@ -272,6 +350,57 @@ cfPDFAddType1Font(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 }
 
 //
+// 'cfPDFAddType1Font1()' - Replacement to the API just above
+// 			    Add the specified type1 font face to the specified
+//                         page in a PDF document.
+//
+
+int 					  // O - 0 on success , 1 on error
+cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
+		   iterate_data_t *iterate_helper,
+		   unsigned page_num, 	// I - Page number to add font to
+		   const char *name) 	// I - Name of the font
+{
+  pdfio_dict_t *fonts;
+  pdfio_dict_t *pageDict = iterate_helper->page_dict;
+  if (!pageDict) 
+    return 1; 
+
+  // Locate or create the Resources dictionary
+  pdfio_dict_t *resources = pdfioDictGetDict(pageDict, "Resources");
+  if (!resources) 
+  {
+    resources = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
+    pdfioDictSetDict(pageDict, "Resources", resources);
+  }
+
+  // Locate or create the Font dictionary within Resources
+  pdfio_valtype_t fonts_type = pdfioDictGetType(resources, "Font");
+  if (fonts_type == PDFIO_VALTYPE_INDIRECT) 
+    fonts = pdfioDictCopy((pdfio_file_t*)iterate_helper->pdf, pdfioObjGetDict(pdfioDictGetObj(resources, "Font")));
+  else if(fonts_type == PDFIO_VALTYPE_DICT) 
+    fonts = pdfioDictCopy((pdfio_file_t*)iterate_helper->pdf, pdfioDictGetDict(resources, "Font"));
+  else
+    fonts = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
+
+  // Create the specific Font dictionary for this Type1 font
+  pdfio_dict_t *new_font = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
+  if (!new_font) 
+    return 1; 
+
+  pdfioDictSetName(new_font, "Type", "Font");
+  pdfioDictSetName(new_font, "Subtype", "Type1");
+  pdfioDictSetName(new_font, "BaseFont", name);
+
+  // Register the font under the name "bannertopdf-font"
+  // Note: This fixed key name implies only one such font can be added per page via this function.
+  if(pdfioDictSetDict(fonts, "bannertopdf-font", new_font))
+
+  pdfioDictSetDict(resources, "Font", fonts);
+  return 0;
+}
+
+//
 // 'dict_lookup_rect()' - Lookup for an array of rectangle dimensions in a PDFio
 //                        dictionary object. If it is found, store the values in
 //                        an array and return true, else return false.
@@ -283,28 +412,50 @@ dict_lookup_rect(pdfio_obj_t *object,  // I - PDF dictionary object
                  float rect[4],        // O - Array to store values if key is found
                  bool inheritable)     // I - Whether to look for inheritable values
 {
+
+  if (!object)
+    return false;
+
   pdfio_dict_t *dict = pdfioObjGetDict(object);
-  if (!dict)
+  if(!dict)
     return false;
 
-  pdfio_obj_t *value = pdfioDictGetObj(dict, key);
-  if (!value && inheritable)
-    return false;
-
-  pdfio_array_t *array = pdfioObjGetArray(value);
+  pdfio_array_t *array = pdfioDictGetArray(dict, key);
   if (!array || pdfioArrayGetSize(array) != 4)
     return false;
 
   for (int i = 0; i < 4; i++)
   {
-    pdfio_obj_t *elem = pdfioArrayGetObj(array, i);
+    pdfio_valtype_t type = pdfioArrayGetType(array, i);
+    if (type != PDFIO_VALTYPE_NUMBER) 
+      return false;
 
-    if (pdfioArrayGetType(array, i) == PDFIO_VALTYPE_NUMBER)
-    {
-      rect[i] = pdfioObjGetNumber(elem);
-    }
-    else
-      return false; // If any value is not numeric, return false
+    rect[i] = (float)pdfioArrayGetNumber(array, i);
+  }
+
+  return true;
+}
+	
+static bool				 // O - true if found, false otherwise
+dict_lookup_rect1(pdfio_dict_t *dict,  // I - PDF dictionary object
+                 const char *key,      // I - Key to lookup
+                 float rect[4],        // O - Array to store values if key is found
+                 bool inheritable)     // I - Whether to look for inheritable values
+{
+  if(!dict)
+    return false;
+
+  pdfio_array_t *array = pdfioDictGetArray(dict, key);
+  if (!array || pdfioArrayGetSize(array) != 4)
+    return false;
+
+  for (int i = 0; i < 4; i++)
+  {
+    pdfio_valtype_t type = pdfioArrayGetType(array, i);
+    if (type != PDFIO_VALTYPE_NUMBER) 
+      return false;
+
+    rect[i] = (float)pdfioArrayGetNumber(array, i);
   }
 
   return true;
@@ -343,7 +494,9 @@ cfPDFResizePage(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
 {
   pdfio_obj_t *page = pdfioFileGetPage((pdfio_file_t *)pdf, page_num - 1);
   if (!page)
+  {
     return 1; 
+  }
 
   float new_mediabox[4] = {0.0, 0.0, width, length};
   float old_mediabox[4];
@@ -358,6 +511,48 @@ cfPDFResizePage(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
   
   // Set the new boxes
   pdfio_dict_t *pageDict = pdfioObjGetDict(page);
+  if (pageDict)
+  {
+    pdfioDictSetRect(pageDict, "CropBox", &media_box);
+    pdfioDictSetRect(pageDict, "TrimBox", &media_box);
+    pdfioDictSetRect(pageDict, "BleedBox", &media_box);
+    pdfioDictSetRect(pageDict, "ArtBox", &media_box);
+  }
+
+  return 0; 
+}
+
+//
+// 'cfPDFResizePage1()' -  Replacement to original API above 
+// 			   Resize page in a PDF with the given dimensions.
+//
+
+int 					// O - 0 if success, 1 if error
+cfPDFResizePage1(cf_pdf_t *pdf,       // I - Pointer to PDFio file object
+		 iterate_data_t *iterate_helper,	 // I - pdf helper
+                 unsigned page_num,   // I - Page number (1-based index)
+                 float width,         // I - New width of the page
+                 float length,        // I - New length of the page
+                 float *scale)        // O - Scale of the page to be updated
+{
+  pdfio_dict_t *pageDict = iterate_helper->page_dict;
+  if (!pageDict)
+  {
+    return 1; 
+  }
+
+  float new_mediabox[4] = {0.0, 0.0, width, length};
+  float old_mediabox[4];
+  pdfio_rect_t media_box;
+
+  // Get original dimensions to calculate scale
+  if (!dict_lookup_rect1(pageDict, "MediaBox", old_mediabox, true))
+    return (1);
+  
+  fit_rect(old_mediabox, new_mediabox, scale);
+  media_box = make_real_box(new_mediabox);
+  
+  // Set the new boxes
   if (pageDict)
   {
     pdfioDictSetRect(pageDict, "CropBox", &media_box);
@@ -399,8 +594,7 @@ void
 cfPDFWrite(cf_pdf_t *pdf, 
 	   FILE *file) 
 {
-// TODO
-//  pdfioFileCreateImageObjFromFile((pdfio_file_t *)pdf, file, false);
+  // PDFio doesn't work this way.
 }
 
 //
@@ -410,7 +604,7 @@ cfPDFWrite(cf_pdf_t *pdf,
 int
 cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt)
 {
-    // TODO: PDFio does not directly support form filling.
-    return 0;
+  // TODO: PDFio does not directly support form filling.
+  return 1;
 }
 
