@@ -66,7 +66,7 @@ main(int argc, char **argv)
 {
   if (argc != 2)
   {
-    fprintf(stderr, "Usage: %s <image.ppm>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <image.jpg>\n", argv[0]);
     return 1;
   }
 
@@ -107,7 +107,7 @@ main(int argc, char **argv)
   data.job_user           = "test";
   data.job_title          = "imagetoraster strcpy overflow regression";
   data.copies             = 1;
-  data.content_type       = "image/x-portable-pixmap";
+  data.content_type       = "image/jpeg";
   data.final_content_type = "application/vnd.cups-raster";
   data.header             = &crafted;
   data.printer_attrs      = NULL;
@@ -137,7 +137,7 @@ ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"
 set +e
 "${LIBTOOL}" --mode=execute \
   env ASAN_OPTIONS="${ASAN_OPTS}" \
-  "${HARNESS_BIN}" "${BUILD_ROOT}/cupsfilters/image.ppm" \
+  "${HARNESS_BIN}" "${BUILD_ROOT}/cupsfilters/test_files/test_imagetoraster.jpg" \
   >>"${RUN_LOG}" 2>&1
 STATUS=$?
 set -e

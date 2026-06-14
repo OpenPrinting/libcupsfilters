@@ -41,14 +41,15 @@ main(void)
   signal(SIGPIPE, SIG_IGN);
 
   //
-  // Open the bundled test PPM image as the filter input.
+  // Open the bundled test JPEG image as the filter input.
   //
 
-  inputfd = open("cupsfilters/image.ppm", O_RDONLY);
+  inputfd = open("cupsfilters/test_files/test_imagetoraster.jpg", O_RDONLY);
   if (inputfd < 0)
   {
     fprintf(stderr,
-	    "ERROR: testimagetoraster: Cannot open cupsfilters/image.ppm\n");
+	    "ERROR: testimagetoraster: Cannot open "
+	    "cupsfilters/test_files/test_imagetoraster.jpg\n");
     return (1);
   }
 
@@ -76,7 +77,7 @@ main(void)
   filter_data.job_user           = "test";
   filter_data.job_title          = "testimagetoraster buffer-safety check";
   filter_data.copies             = 1;
-  filter_data.content_type       = "image/x-portable-pixmap";
+  filter_data.content_type       = "image/jpeg";
   filter_data.final_content_type = "application/vnd.cups-raster";
   filter_data.logfunc            = cfCUPSLogFunc;
   filter_data.logdata            = NULL;
