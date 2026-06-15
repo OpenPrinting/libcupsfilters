@@ -70,8 +70,8 @@ jobs:
           
           # Build pdfio
           cd /tmp
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-          tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
+          tar -xzf pdfio-1.6.4.tar.gz && cd pdfio-1.6.4
           ./configure --prefix=/usr --enable-shared
           make all
           sudo make install
@@ -122,8 +122,8 @@ jobs:
             
             # Build pdfio
             cd /tmp
-            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.2/pdfio-1.6.2.tar.gz
-            tar -xzf pdfio-1.6.2.tar.gz && cd pdfio-1.6.2
+            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
+            tar -xzf pdfio-1.6.4.tar.gz && cd pdfio-1.6.4
             ./configure --prefix=/usr --enable-shared
             make all
             make install

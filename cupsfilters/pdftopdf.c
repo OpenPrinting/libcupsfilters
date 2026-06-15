@@ -1,6 +1,6 @@
 //
 // Copyright (c) 6-2011, BBR Inc.  All rights reserved.
-// Copyright 2024-2025 Uddhav Phatak <uddhavphatak@gmail.com>
+// Copyright 2024-2026 Uddhav Phatak <uddhavphatak@gmail.com>
 //
 // Licensed under Apache License v2.0.  See the file "LICENSE" for more
 // information.
@@ -583,7 +583,7 @@ page_ext_dict_cb(pdfio_dict_t *dict,	// I - Dictionary
     if ((outpage->restype = pdfioDictGetDict(outpage->resdict, key)) == NULL)
       pdfioDictSetDict(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
     else
-      pdfioDictIterateKeys(dictval, (pdfio_dict_cb_t)resource_dict_cb, outpage);
+      pdfioDictIterateKeys(dictval, (pdfio_dict_cb_t)page_ext_dict_cb, outpage);
   }
 
   return (true);
@@ -1408,7 +1408,7 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,
   char *AA_s = matrix_unparse(AA);
   if (!AA_s) return NULL;
 
-  const char *fmt = "q %s cm %s Do Q\n"; 
+  const char *fmt = "q %s cm /%s Do Q\n"; 
 
   size_t need = strlen(fmt) + strlen(AA_s) + strlen(name) + 1;
   char *out = (char*)malloc(need);
@@ -1595,7 +1595,7 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
       } 
       
       char *name = (char *)malloc(sizeof(char) * 32);
-      snprintf(name, 32, "/Fxo%d", next_fx);
+      snprintf(name, 32, "Fxo%d", next_fx);
       content = pdfio_annotation_get_content(Annot_obj, name, rotate_val, 
 		      			     forbidden_flags, required_flags);
       if (content)
@@ -1769,7 +1769,7 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
     else 
     { 
       char *name = (char *)malloc(sizeof(char) * 32);
-      snprintf(name, 32, "/Fxo%d", next_fx);
+      snprintf(name, 32, "Fxo%d", next_fx);
 
       pdfio_dict_t *page_resources = pdfioDictGetDict(outpage->pagedict, "Resources");
       if (!page_resources) 
@@ -1777,11 +1777,12 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
 	page_resources = pdfioDictCreate(outpage->pdf); 
 	pdfioDictSetDict(outpage->pagedict, "Resources", page_resources);
       } 
+
       pdfio_dict_t *xobj_dict = pdfioDictGetDict(page_resources, "XObject");
       if (!xobj_dict) 
       { 
 	xobj_dict = pdfioDictCreate(outpage->pdf);
-       	pdfioDictSetDict(page_resources, "XObject", xobj_dict); 
+	pdfioDictSetDict(page_resources, "XObject", xobj_dict);
       }
       
       pdfio_array_t *procset = pdfioArrayCreate(outpage->pdf);
@@ -1798,109 +1799,112 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
       char *content = special_pdfio_annotation_get_content(Annot_obj, name, rotate_val, forbidden_flags, required_flags);
       p->annotation_contents[i-noAppearanceobjectCount] = content;
 
-      pdfio_array_t *bbox = pdfioDictGetArray(Annot_dict, "BBox");
-      if (bbox) 
-      { 
-        pdfioDictSetArray(form_xobj_dict, "BBox", pdfioArrayCopy(outpage->pdf, bbox));
-      } 
-      else 
-      { 
-	fprintf(stderr, "WARNING: Appearance stream is missing required /BBox.\n");
-	pdfio_rect_t rect; 
+      // The addition to page xobject should be made only if the content stream is not NULL.
+      if (content && content[0] != '\0')
+      {
+        pdfio_array_t *bbox = pdfioDictGetArray(Annot_dict, "BBox");
+        if (bbox) 
+        { 
+          pdfioDictSetArray(form_xobj_dict, "BBox", pdfioArrayCopy(outpage->pdf, bbox));
+        } 
+        else 
+        { 
+     	  fprintf(stderr, "WARNING: Appearance stream is missing required /BBox.\n");
+	  pdfio_rect_t rect; 
 	    
-	if (pdfioDictGetRect(Annot_dict, "Rect", &rect)) 
-	{ 
-	  pdfio_rect_t Bbox;
-	  Bbox.x1 = 0;
-	  Bbox.y1 = 0;
-	  Bbox.x2 = rect.x2 - rect.x1;
-	  Bbox.y2 = rect.y2 - rect.y1;
-	  pdfioDictSetRect(form_xobj_dict, "BBox", &Bbox);
-	} 
-      }
+	  if (pdfioDictGetRect(Annot_dict, "Rect", &rect)) 
+	  { 
+	    pdfio_rect_t Bbox;
+	    Bbox.x1 = 0;
+	    Bbox.y1 = 0;
+	    Bbox.x2 = rect.x2 - rect.x1;
+	    Bbox.y2 = rect.y2 - rect.y1;
+	    pdfioDictSetRect(form_xobj_dict, "BBox", &Bbox);
+	  } 
+        }
        
-      pdfio_obj_t *form_xobj = pdfioFileCreateObj(outpage->pdf, form_xobj_dict);
+        pdfio_obj_t *form_xobj = pdfioFileCreateObj(outpage->pdf, form_xobj_dict);
       
-      const char *field_type = pdfioDictGetName(Annot_dict, "FT");
-      if (field_type && (strcmp(field_type, "Tx") == 0 || strcmp(field_type, "Ch") == 0)) 
-      { 
-     	const char *field_value = pdfioDictGetName(Annot_dict, "V");
-	if (!field_value) field_value = pdfioDictGetString(Annot_dict, "V");
+        const char *field_type = pdfioDictGetName(Annot_dict, "FT");
+        if (field_type && (strcmp(field_type, "Tx") == 0 || strcmp(field_type, "Ch") == 0)) 
+        { 
+     	  const char *field_value = pdfioDictGetName(Annot_dict, "V");
+	  if (!field_value) field_value = pdfioDictGetString(Annot_dict, "V");
 
-	const char *da_string = pdfioDictGetName(Annot_dict, "DA");
-	if (!da_string) da_string = pdfioDictGetString(Annot_dict, "DA");
+	  const char *da_string = pdfioDictGetName(Annot_dict, "DA");
+	  if (!da_string) da_string = pdfioDictGetString(Annot_dict, "DA");
 
-	char font_key[64];
-	double font_size = 10.0;
-	if (extractFontDetails(da_string, font_key, sizeof(font_key), &font_size))
-       	{
-	  pdfio_obj_t *font_obj = NULL;
-	  pdfio_dict_t *page_resource_dict = pdfioDictGetDict(outpage->pagedict, "Resources");
-	  pdfio_dict_t *font_dict = page_resource_dict ? pdfioDictGetDict(page_resource_dict, "Font") : NULL;
+	  char font_key[64];
+	  double font_size = 10.0;
+	  if (extractFontDetails(da_string, font_key, sizeof(font_key), &font_size))
+       	  {
+	    pdfio_obj_t *font_obj = NULL;
+	    pdfio_dict_t *page_resource_dict = pdfioDictGetDict(outpage->pagedict, "Resources");
+	    pdfio_dict_t *font_dict = page_resource_dict ? pdfioDictGetDict(page_resource_dict, "Font") : NULL;
 	 
-	  if (font_dict)
-	  {
-            font_obj = pdfioDictGetObj(font_dict, font_key);
-	  } 
-	 
-	  // If font_obj is not found in the page's resources, check the AcroForm's /DR.
-    	  if (!font_obj)
-	  {
-            pdfio_dict_t *catalog = pdfioFileGetCatalog(p->inpdf);
-	    pdfio_dict_t *acroform = catalog ? pdfioDictGetDict(catalog, "AcroForm") : NULL;
-	    pdfio_dict_t *acroform_dr = acroform ? pdfioDictGetDict(acroform, "DR") : NULL;
-	    pdfio_dict_t *acroform_font_dict = acroform_dr ? pdfioDictGetDict(acroform_dr, "Font") : NULL;
-	    if (acroform_font_dict)
+	    if (font_dict)
 	    {
-              font_obj = pdfioDictGetObj(acroform_font_dict, font_key);
+              font_obj = pdfioDictGetObj(font_dict, font_key);
+	    } 
+	 
+	    // If font_obj is not found in the page's resources, check the AcroForm's /DR.
+    	    if (!font_obj)
+	    {
+              pdfio_dict_t *catalog = pdfioFileGetCatalog(p->inpdf);
+	      pdfio_dict_t *acroform = catalog ? pdfioDictGetDict(catalog, "AcroForm") : NULL;
+	      pdfio_dict_t *acroform_dr = acroform ? pdfioDictGetDict(acroform, "DR") : NULL;
+	      pdfio_dict_t *acroform_font_dict = acroform_dr ? pdfioDictGetDict(acroform_dr, "Font") : NULL;
+	      if (acroform_font_dict)
+	      {
+                font_obj = pdfioDictGetObj(acroform_font_dict, font_key);
+	      }
 	    }
-	  }
-	  if (font_obj)
-	  {
-	    // 1. Create the dedicated sub-dictionary for fonts.
-    	    pdfio_dict_t *font_dict = pdfioDictCreate(outpage->pdf); 
-	    pdfioDictSetObj(font_dict, font_key, font_obj); 
-	    pdfioDictSetDict(resources, "Font", font_dict);
-	    pdfioDictSetDict(form_xobj_dict, "Resources", resources);
+	    if (font_obj)
+	    {
+	      // 1. Create the dedicated sub-dictionary for fonts.
+	      pdfio_dict_t *sub_font_dict = pdfioDictCreate(outpage->pdf);
+	      pdfioDictSetObj(sub_font_dict, font_key, font_obj);
+	      pdfioDictSetDict(resources, "Font", sub_font_dict);
+	      pdfioDictSetDict(form_xobj_dict, "Resources", resources);
 	   
-	    fprintf(stderr, "SUCCESS: Font /%s correctly nested in /Resources /Font dictionary.\\n", font_key); 
-	  } 
-	  else
-	  {
-	    fprintf(stderr, "ERROR: Font %s not found in page or AcroForm resources.\\n", font_key);
-	  }
-       	}
-
-	if (field_value && da_string) 
-	{ 
-	  pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
-	  if (dst_stream)
-	  {
-            pdfio_rect_t bbox;
-            if (pdfioDictGetRect(form_xobj_dict, "BBox", &bbox))
+	      fprintf(stderr, "SUCCESS: Font /%s correctly nested in /Resources /Font dictionary.\\n", font_key); 
+	    } 
+	    else
 	    {
-	      double field_height = bbox.y2 - bbox.y1;
-	      double x = 2.0;
-	      double y = (field_height / 2.0) - (font_size * 0.35);
-
-	      pdfioStreamPuts(dst_stream, "BT\n");
-	      pdfioStreamPrintf(dst_stream, "%s\n", da_string);       // Assuming da_string is safe
-	      pdfioStreamPrintf(dst_stream, "%.2f %.2f Td\n", x, y);
-	      pdfioStreamPrintf(dst_stream, "(%s) Tj\n", field_value);  // The critical fix
-	      pdfioStreamPuts(dst_stream, "ET\n");
-
+	      fprintf(stderr, "ERROR: Font %s not found in page or AcroForm resources.\\n", font_key);
 	    }
-	    pdfioStreamClose(dst_stream);
-	  }
-	} 
+       	  }
+
+	  if (field_value && da_string) 
+	  { 
+	    pdfio_stream_t *dst_stream = pdfioObjCreateStream(form_xobj, PDFIO_FILTER_NONE);
+	    if (dst_stream)
+	    {
+              pdfio_rect_t form_bbox;
+              if (pdfioDictGetRect(form_xobj_dict, "BBox", &form_bbox))
+	      {
+	        double field_height = form_bbox.y2 - form_bbox.y1;
+	        double x = 2.0;
+	        double y = (field_height / 2.0) - (font_size * 0.35);
+
+	        pdfioStreamPuts(dst_stream, "BT\n");
+	        pdfioStreamPrintf(dst_stream, "%s\n", da_string);       // Assuming da_string is safe
+	        pdfioStreamPrintf(dst_stream, "%.2f %.2f Td\n", x, y);
+	        pdfioStreamPrintf(dst_stream, "(%s) Tj\n", field_value);  // The critical fix
+	        pdfioStreamPuts(dst_stream, "ET\n");
+
+	      }
+	      pdfioStreamClose(dst_stream);
+	    }
+	  } 
+        }
+      
+        pdfioDictSetObj(xobj_dict, name, form_xobj);
+        next_fx++; 
       }
       
-      pdfioDictSetObj(xobj_dict, pdfioStringCreatef(outpage->pdf, "Fxo%u", (unsigned)next_fx), form_xobj);
-      next_fx++; 
-
       //Annot_dict
       free(name);
-
       fprintf(stderr, "DEBUG: special case ignore annotation with no appearance\n");
       noAppearanceobjectIndex[noAppearanceobjectCount] = i;
     } 
@@ -2459,6 +2463,10 @@ prepare_documents(
 	if (annots && pdfioArrayGetSize(annots) > 0)
 	{
           fprintf(stderr, "DEBUG: page %zu: Contains annotations\n", pg+1);
+	  if(p.has_form == true)
+          {
+            fprintf(stderr, "Page doesn't have form");
+          }
           p.has_annotations = true;
        	}
       }
@@ -2600,7 +2608,9 @@ prepare_documents(
 	strcasecmp(outformat, "image/urf") && 
 	!strcmp(options->page_border, "none") && 
 	!options->mirror && 
-	options->orientation_requested == CF_FILTER_ORIENT_NONE)
+	options->orientation_requested == CF_FILTER_ORIENT_NONE &&
+        !p.has_form &&
+  	!p.has_annotations)
     {
       // Simple path - no layout/scaling/rotation of pages so we can just copy the pages quickly.
       if (Verbosity)
