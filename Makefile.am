@@ -380,3 +380,93 @@ uninstall-hook:
 	$(RM) $(DESTDIR)$(pkgcharsetdir)/pdf.utf-8
 
 SUBDIRS =
+
+# =============================================================================
+# Downstream Debian autopkgtest harness (DESTDIR staging)
+#
+# Builds, DESTDIR-installs into an ephemeral $(CIROOT) tree, tops up the
+# test-only programs/data that `make install` does not ship, rewrites the
+# staged libcupsfilters.pc so a consumer resolves THIS build, then runs the
+# vendored downstream scripts against it.  No privilege, no bind mounts, no
+# proot -> identical on native and QEMU-emulated architectures.
+# =============================================================================
+CIROOT = $(abs_top_builddir)/_ciroot
+
+EXTRA_DIST += \
+	ci/autopkgtest/run.sh \
+	ci/autopkgtest/debian-tests/control \
+	ci/autopkgtest/debian-tests/libcupsfilters-2-dev \
+	ci/autopkgtest/debian-tests/libcupsfilters-2-functionality
+
+# Fix A: these are check_PROGRAMS (build-only; never copied by `make install`).
+# The functionality test executes them as installed binaries (/usr/bin/...),
+# so build them and stage them into $(CIROOT)$(bindir).  libtool --mode=install
+# relinks each cleanly against $(libdir) (LD_LIBRARY_PATH then forces the
+# staged library at run time).
+STAGED_TEST_BINARIES = \
+	testdither \
+	testpdf1 \
+	testpdf2 \
+	test-analyze \
+	test-pdf \
+	test-ps \
+	testcmyk \
+	testrgb
+
+install-test-programs: $(STAGED_TEST_BINARIES)
+	$(MKDIR_P) "$(CIROOT)$(bindir)"
+	@for p in $(STAGED_TEST_BINARIES); do \
+	  echo "  STAGE   $$p -> $(CIROOT)$(bindir)/$$p"; \
+	  $(LIBTOOL) --mode=install $(INSTALL_PROGRAM) "$$p" "$(CIROOT)$(bindir)/$$p" || exit 1; \
+	done
+
+# Fix C (data seeding): the functionality test copies its input images from
+# $(datadir)/libcupsfilters-tests, which upstream `make install` does not ship.
+# Seed image.pgm and image.ppm (both are cupsfilters/image.pgm, matching the
+# downstream packaging) so the unmodified script finds them.
+install-test-data:
+	$(MKDIR_P) "$(CIROOT)$(datadir)/libcupsfilters-tests"
+	@echo "  STAGE   cupsfilters/image.pgm -> $(CIROOT)$(datadir)/libcupsfilters-tests/image.pgm"
+	$(INSTALL_DATA) "$(srcdir)/cupsfilters/image.pgm" "$(CIROOT)$(datadir)/libcupsfilters-tests/image.pgm"
+	@echo "  STAGE   cupsfilters/image.pgm -> $(CIROOT)$(datadir)/libcupsfilters-tests/image.ppm"
+	$(INSTALL_DATA) "$(srcdir)/cupsfilters/image.pgm" "$(CIROOT)$(datadir)/libcupsfilters-tests/image.ppm"
+
+stage-ciroot: all
+	rm -rf "$(CIROOT)"
+	$(MAKE) $(AM_MAKEFLAGS) install DESTDIR="$(CIROOT)"
+	$(MAKE) $(AM_MAKEFLAGS) install-test-programs install-test-data
+	@pc="$(CIROOT)$(libdir)/pkgconfig/libcupsfilters.pc"; \
+	if [ -f "$$pc" ]; then \
+	  sed -i.bak -E "s#^(prefix|exec_prefix|libdir|includedir)=(/.*)#\1=$(CIROOT)\2#" "$$pc"; \
+	  rm -f "$$pc.bak"; \
+	  echo "stage-ciroot: rewrote staged-tree paths in $$pc"; \
+	fi
+
+# Common environment for the wrapper.  LIBCUPSFILTERS_BINDIR / LIBCUPSFILTERS_TESTDIR
+# point the functionality test at the staged binaries and data instead of the
+# system /usr paths, so it needs no absolute-path redirection (no root, no proot)
+# and runs identically on native and QEMU-emulated architectures.
+CIROOT_ENV = \
+	CIROOT="$(CIROOT)" \
+	CIPREFIX="$(exec_prefix)" \
+	TOP_BUILDDIR="$(abs_top_builddir)" \
+	LIBCUPSFILTERS_BINDIR="$(CIROOT)$(bindir)" \
+	LIBCUPSFILTERS_TESTDIR="$(CIROOT)$(datadir)/libcupsfilters-tests"
+
+# Full downstream suite in a single wrapper invocation -> one aggregate
+# PASS/FAIL summary across both tests.  Identical on every architecture.
+test-autopkgtest: stage-ciroot
+	$(CIROOT_ENV) \
+	    $(SHELL) $(srcdir)/ci/autopkgtest/run.sh libcupsfilters-2-dev libcupsfilters-2-functionality
+
+# Single-test convenience targets (handy for debugging one case in isolation).
+test-autopkgtest-dev: stage-ciroot
+	$(CIROOT_ENV) \
+	    $(SHELL) $(srcdir)/ci/autopkgtest/run.sh libcupsfilters-2-dev
+
+test-autopkgtest-func: stage-ciroot
+	$(CIROOT_ENV) \
+	    $(SHELL) $(srcdir)/ci/autopkgtest/run.sh libcupsfilters-2-functionality
+
+.PHONY: stage-ciroot install-test-programs install-test-data \
+	test-autopkgtest test-autopkgtest-dev test-autopkgtest-func

@@ -1,0 +1,52 @@
+#!/bin/sh
+# autopkgtest check: Build and run a program against libcupsfilters, to verify
+# that the headers and pkg-config file are installed correctly
+# (C) 2012 Canonical Ltd.
+# (C) 2018-2019 Simon McVittie
+# Authors: Martin Pitt, Simon McVittie
+
+set -eux
+
+package=libcupsfilters
+WORKDIR="$(mktemp -d)"
+export HOME="$WORKDIR"
+export XDG_RUNTIME_DIR="$WORKDIR"
+trap 'cd /; rm -rf "$WORKDIR"' 0 INT QUIT ABRT PIPE TERM
+
+if [ -n "${DEB_HOST_GNU_TYPE:-}" ]; then
+    CROSS_COMPILE="$DEB_HOST_GNU_TYPE-"
+else
+    CROSS_COMPILE=
+fi
+
+cd "$WORKDIR"
+cat <<EOF > test.c
+// All header files of libcupsfilters API
+#include <cupsfilters/bitmap.h>
+#include <cupsfilters/catalog.h>
+#include <cupsfilters/colord.h>
+#include <cupsfilters/colormanager.h>
+#include <cupsfilters/driver.h>
+#include <cupsfilters/filter.h>
+#include <cupsfilters/ieee1284.h>
+#include <cupsfilters/image.h>
+#include <cupsfilters/ipp.h>
+#include <cupsfilters/log.h>
+#include <cupsfilters/pdf.h>
+#include <cupsfilters/raster.h>
+
+int main(void)
+{
+  // Actually use something from the library, so that it gets actually linked 
+  cfCUPSLogFunc(NULL, CF_LOGLEVEL_DEBUG, "TEST OUTPUT %d %d %d", 1, 2, 3);
+  return (0);
+}
+EOF
+
+# Deliberately word-splitting pkg-config's output:
+# shellcheck disable=SC2046
+${CROSS_COMPILE}gcc -o "${package}-test" test.c $(${CROSS_COMPILE}pkg-config --cflags --libs "$package")
+echo "build ($package): OK"
+[ -x "${package}-test" ]
+dbus-run-session -- "./${package}-test" 2>&1 | grep -q 'DEBUG: TEST OUTPUT 1 2 3'
+echo "run ($package): OK"
