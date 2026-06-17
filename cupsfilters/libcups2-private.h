@@ -40,6 +40,10 @@
 #    define ippGetFirstAttribute   ippFirstAttribute
 #    define ippGetNextAttribute    ippNextAttribute
 
+//   Function with additional parameter in libcups3
+
+#    define cupsParseOptions(arg, end, num_options, options) cupsParseOptions(arg, num_options, options)
+
 //   Function replaced by a different function in libcups3
 
 #    define cupsCreateTempFd(prefix,suffix,buffer,bufsize) cupsTempFd(buffer,bufsize)

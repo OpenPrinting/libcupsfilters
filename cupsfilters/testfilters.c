@@ -9,6 +9,15 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#  if CUPS_VERISON_MAJOR < 3 /* CUPS 2.x and older */
+/* Functions changed in libcups3 */
+#    define cupsArrayGetCount      cupsArrayCount
+#    define cupsArrayGetFirst      cupsArrayFirst
+#    define cupsArrayGetNext       cupsArrayNext
+#    define cupsArrayNew           cupsArrayNew3
+#    define cupsParseOptions(arg, end, num_options, options) cupsParseOptions(arg, num_options, options)
+#endif
+
 /*
  * 'remove_white_space()' - Remove white spaces from beginning and end of a string
  */
@@ -73,7 +82,7 @@ cups_array_t*
 parse_filter_chain(const char *filter_chain_str, 
 		   const char *output_mime) 
 {
-  cups_array_t *chain = cupsArrayNew(NULL, NULL);
+  cups_array_t *chain = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
   char *saveptr;
   char *filter_name = strtok_r((char *)filter_chain_str, ",", &saveptr);
   while (filter_name) 
@@ -279,7 +288,7 @@ test_wrapper(
 
   options = NULL;
   if (num_clargs > 5)
-    num_options = cupsParseOptions(clargs[5], 0, &options);
+    num_options = cupsParseOptions(clargs[5], NULL, 0, &options);
 	fprintf(stderr, "NUM Options: %d\n", num_options);
   if ((filter_data.printer = getenv("PRINTER")) == NULL)
     filter_data.printer = clargs[0];
@@ -347,10 +356,10 @@ test_wrapper(
 
 //  retval = cfFilterUniversal(inputfd, outputfd, inputseekable, &filter_data, parameters);
 
-   if (filter_chain && cupsArrayCount(filter_chain) > 0) {  
+   if (filter_chain && cupsArrayGetCount(filter_chain) > 0) {  
         retval = cfFilterChain(inputfd, outputfd, inputseekable, &filter_data, filter_chain);
 	cf_filter_filter_in_chain_t *filter;
-        while ((filter = cupsArrayFirst(filter_chain)) != NULL) {  
+        while ((filter = cupsArrayGetFirst(filter_chain)) != NULL) {  
             free(filter->parameters);
             cupsArrayRemove(filter_chain, filter);
             free(filter);
@@ -981,7 +990,7 @@ load_legacy_attributes(
   snprintf(device_id, sizeof(device_id), "MFG:%s;MDL:%s;", make, model);
   ptr    = device_id + strlen(device_id);
   prefix = "CMD:";
-  for (format = (const char *)cupsArrayFirst(docformats); format; format = (const char *)cupsArrayNext(docformats))
+  for (format = (const char *)cupsArrayGetFirst(docformats); format; format = (const char *)cupsArrayGetNext(docformats))
   {
     if (!strcasecmp(format, "application/pdf"))
       snprintf(ptr, sizeof(device_id) - (size_t)(ptr - device_id), "%sPDF", prefix);
@@ -1131,7 +1140,7 @@ run_test(
   int duplex = 0;
   int ppm_color = 0;
        
-  cups_array_t* docformats = cupsArrayNew(NULL, NULL);
+  cups_array_t* docformats = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
     
   int jobCanceled = 0;
 
