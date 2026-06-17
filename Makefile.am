@@ -318,6 +318,9 @@ testfilters_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS) \
 	-lm -ldl
+testfilters_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
 testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib

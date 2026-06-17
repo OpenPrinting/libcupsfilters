@@ -69,7 +69,6 @@ extern "C" {
 #endif // WIN32 || __EMX__
 
 #include <cups/cups.h>
-#include <cups/backend.h>
 #include <cups/raster.h>
 
 // Data structure for IPP choice name and human-readable string

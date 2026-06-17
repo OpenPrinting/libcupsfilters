@@ -27,7 +27,6 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <cups/cups.h>
-#include <cups/backend.h>
 #include <cups/dir.h>
 #include <cups/http.h>
 #include <cups/pwg.h>
@@ -1574,7 +1573,7 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 	// String is a dictionary -> "media-col" value...
 	//
 
-	num_media_col = cupsParseOptions(value, 0, &media_col);
+	num_media_col = cupsParseOptions(value, NULL, 0, &media_col);
 
 	// Actual size in dictionary?
 	if ((value = cupsGetOption("media-size", num_media_col, media_col))
@@ -1585,7 +1584,7 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 	  const char	*x_dimension,	// x-dimension value
 	                *y_dimension;	// y-dimension value
 
-	  num_media_size = cupsParseOptions(value, 0, &media_size);
+	  num_media_size = cupsParseOptions(value, NULL, 0, &media_size);
 
 	  if ((x_dimension = cupsGetOption("x-dimension", num_media_size, media_size)) != NULL && (y_dimension = cupsGetOption("y-dimension", num_media_size, media_size)) != NULL)
 	  {
