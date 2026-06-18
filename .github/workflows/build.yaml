@@ -154,16 +154,15 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        timeout-minutes: 5
+        # Best-effort: never let a slow/stalled upload fail or hold the job.
+        continue-on-error: true
+        timeout-minutes: 3
         uses: actions/upload-artifact@v4
         with:
           name: libcupsfilters-test-artifacts-${{ matrix.arch }}-${{ matrix.cups }}
-          # Only the build/test logs - never the cache, git tree or source
-          # checkouts, whose size made the upload hang.
+          # Narrow positive globs only (no whole-tree walk, no cache, no .git).
           path: |
             config.log
             test-suite.log
             cupsfilters/*.log
-            !.ci-cache/**
-            !**/.git/**
-          if-no-files-found: warn
+          if-no-files-found: ignore
