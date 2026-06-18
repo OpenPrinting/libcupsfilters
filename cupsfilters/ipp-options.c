@@ -69,6 +69,17 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
              cups_acopy_cb_t  cf,       // I - Copy callback function or `NULL` for none
              cups_afree_cb_t  ff)       // I - Free callback function or `NULL` for none
 {
+#ifndef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
+  // CUPS 2.5 and libcups3 own the array implementation and keep the structure
+  // opaque, so defer to the native constructor instead of reaching into it.
+  // libcups3 renamed the 6-argument constructor to cupsArrayNew(); CUPS 2.5
+  // still calls it cupsArrayNew3() and takes an int hash size.
+#  if CUPS_VERSION_MAJOR >= 3
+  return (cupsArrayNew(f, d, hf, hsize, cf, ff));
+#  else
+  return (cupsArrayNew3(f, d, hf, (int)hsize, cf, ff));
+#  endif
+#else
   cups_array_t  *a;                     // Array
 
 
@@ -102,6 +113,7 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
   a->freefunc = ff;
   // cppcheck-suppress memleak
   return (a);
+#endif // !CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 }
 
 //
@@ -336,6 +348,11 @@ cupsParseOptions2(
 }
 
 
+// The helpers below (UTF-8 aware string copy/concat and the array element
+// accessors) became part of the public CUPS API in CUPS 2.5 and libcups3, so
+// only compile our own copies when building against older CUPS.
+#ifdef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
+
 //
 // 'validate_end()' - Validate the last UTF-8 character in a buffer.
 //
@@ -518,7 +535,8 @@ cupsCopyString(char       *dst,         // O - Destination string
 
   return (srclen);
 }
-     
+#endif // CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
+
 //
 // Local functions...
 //
