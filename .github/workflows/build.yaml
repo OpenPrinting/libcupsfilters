@@ -28,18 +28,6 @@ jobs:
       matrix:
         arch: [x86_64, arm64, armv7, riscv64]
         cups: [system-2x, source-2.5.x, source-3.x]
-        # Building CUPS 2.5 / libcups3 from source under QEMU emulation is
-        # impractically slow, so the emulated architectures only exercise the
-        # distro CUPS (2.4.x).  The full 2.4/2.5/3.x matrix runs natively.
-        exclude:
-          - arch: armv7
-            cups: source-2.5.x
-          - arch: armv7
-            cups: source-3.x
-          - arch: riscv64
-            cups: source-2.5.x
-          - arch: riscv64
-            cups: source-3.x
         include:
           - arch: x86_64
             runs-on: ubuntu-latest
