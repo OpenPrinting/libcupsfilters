@@ -2,13 +2,9 @@
 #
 # Builds libcupsfilters against three CUPS releases - CUPS 2.x (distro
 # libcups2-dev), CUPS 2.5.x (OpenPrinting/cups master) and CUPS 3.x
-# (OpenPrinting/libcups master) - on all four architectures, so the
-# cross-version compatibility shims added in PR #153 stay buildable.
-#
-# Optimisations: the 4 arch x 3 CUPS-version legs run in parallel; CUPS and
-# pdfio source builds are cached (keyed on the resolved upstream commit, so a
-# rebuild only happens when upstream actually moves); superseded runs are
-# auto-cancelled.
+# (OpenPrinting/libcups master) - so the cross-version compatibility shims
+# added in PR #153 stay buildable.  All three versions are exercised on
+# x86_64; the other architectures run the system (CUPS 2.x) leg.
 name: Build and Test (Multi-Architecture)
 
 on:
@@ -63,61 +59,31 @@ jobs:
 
     runs-on: ${{ matrix.runs-on }}
     name: ${{ matrix.arch }} / ${{ matrix.cups }}
-    # Generous enough for a cold-cache emulated source build, but bounded so a
-    # stall can never hold a runner for the full 6h default.
-    timeout-minutes: 300
 
+    # Keep apt fully non-interactive on native runners: needrestart's
+    # service-restart prompt otherwise hangs the job indefinitely.
     env:
-      CI_CACHE: ${{ github.workspace }}/.ci-cache
+      DEBIAN_FRONTEND: noninteractive
+      NEEDRESTART_MODE: a
+      NEEDRESTART_SUSPEND: "1"
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Prepare cache directory
-        run: mkdir -p "$CI_CACHE/pdfio" "$CI_CACHE/cups"
-
-      # Resolve the upstream CUPS revision so the cache key invalidates only
-      # when the pinned branch actually advances.
-      - name: Resolve CUPS source revision
-        id: cupsrev
-        run: |
-          case "${{ matrix.cups }}" in
-            source-2.5.x) url=https://github.com/OpenPrinting/cups.git ;;
-            source-3.x)   url=https://github.com/OpenPrinting/libcups.git ;;
-            *)            echo "sha=none" >> "$GITHUB_OUTPUT"; exit 0 ;;
-          esac
-          sha=$(git ls-remote "$url" master | cut -f1)
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-
-      # pdfio is needed by every leg; cache it once per architecture.
-      - name: Cache pdfio
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CI_CACHE }}/pdfio
-          key: pdfio-${{ matrix.arch }}-1.6.4-v1
-
-      # Cache the CUPS source build (source legs only); keyed on the resolved
-      # upstream commit so it rebuilds exactly when upstream changes.
-      - name: Cache CUPS source build
-        if: matrix.cups != 'system-2x'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CI_CACHE }}/cups
-          key: cups-${{ matrix.arch }}-${{ matrix.cups }}-${{ steps.cupsrev.outputs.sha }}-v1
 
       # ==========================================
       # NATIVE EXECUTION (x86_64, arm64)
       # ==========================================
       - name: Build & test (native)
         if: matrix.use-qemu == false
+        timeout-minutes: 90
         env:
           CUPS_KIND: ${{ matrix.cups }}
         run: |
           set -ex
           chmod +x ci/ci-setup.sh
           sudo -E ci/ci-setup.sh deps
-          sudo -E ci/ci-setup.sh cups "$CUPS_KIND" "$CI_CACHE"
-          sudo -E ci/ci-setup.sh pdfio "$CI_CACHE"
+          sudo -E ci/ci-setup.sh cups "$CUPS_KIND"
+          sudo -E ci/ci-setup.sh pdfio
           ci/ci-setup.sh build-libcupsfilters
           # Downstream autopkgtests against the staged tree (env overrides;
           # no privilege, no bind mounts).
@@ -128,18 +94,18 @@ jobs:
       # ==========================================
       - name: Build & test (emulated)
         if: matrix.use-qemu == true
+        timeout-minutes: 120
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: ${{ matrix.qemu-arch }}
           distro: ubuntu24.04
           githubToken: ${{ github.token }}
-          # Mount the host cache dir into the container at a fixed path.
-          dockerRunArgs: |
-            --volume "${{ env.CI_CACHE }}:/ci-cache"
           env: |
-            CI_CACHE: /ci-cache
             CUPS_KIND: ${{ matrix.cups }}
             EMULATED: 1
+            DEBIAN_FRONTEND: noninteractive
+            NEEDRESTART_MODE: a
+            NEEDRESTART_SUSPEND: 1
           install: |
             apt-get update --fix-missing -y
             DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata git sudo
@@ -147,8 +113,8 @@ jobs:
             set -ex
             chmod +x ci/ci-setup.sh
             ci/ci-setup.sh deps
-            ci/ci-setup.sh cups "$CUPS_KIND" "$CI_CACHE"
-            ci/ci-setup.sh pdfio "$CI_CACHE"
+            ci/ci-setup.sh cups "$CUPS_KIND"
+            ci/ci-setup.sh pdfio
             ci/ci-setup.sh build-libcupsfilters
             make test-autopkgtest V=1
 

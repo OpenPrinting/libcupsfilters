@@ -7,18 +7,15 @@
 # actually exercise each of those builds.
 #
 # Subcommands:
-#   deps                       install build dependencies
-#   cups <kind> <cache-dir>    provide libcups; <kind> is one of:
-#                                system-2x    distro libcups2-dev  (CUPS 2.4.x)
-#                                source-2.5.x OpenPrinting/cups@master
-#                                source-3.x   OpenPrinting/libcups@master
-#   pdfio <cache-dir>          build/install pdfio (required by libcupsfilters)
-#   build-libcupsfilters       autogen + configure + make + make check
+#   deps                 install build dependencies
+#   cups <kind>          provide libcups; <kind> is one of:
+#                          system-2x    distro libcups2-dev  (CUPS 2.4.x)
+#                          source-2.5.x OpenPrinting/cups@master
+#                          source-3.x   OpenPrinting/libcups@master
+#   pdfio                build/install pdfio (required by libcupsfilters)
+#   build-libcupsfilters autogen + configure + make + make check
 #
-# Source builds are staged with DESTDIR, archived into <cache-dir>, and reused
-# verbatim on the next run, so the slow compile only happens on a cache miss
-# (i.e. the first run, or when the pinned upstream revision changes).  The
-# script runs as root inside emulation containers and via sudo on native
+# The script runs as root inside emulation containers and via sudo on native
 # runners; it detects which automatically.
 set -eu
 
@@ -27,24 +24,16 @@ PDFIO_VER=1.6.4
 SUDO=""
 [ "$(id -u)" -eq 0 ] || SUDO="sudo"
 
+# Make apt completely non-interactive.  Native GitHub runners ship needrestart,
+# whose service-restart prompt otherwise hangs the job forever; the emulated
+# containers do not have it, which is why only the native legs stalled.
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
 apt_install() {
 	$SUDO apt-get update --fix-missing -y
-	DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y "$@"
-}
-
-# Extract a previously cached staged install into the live filesystem.
-restore_tarball() {
-	tarball="$1"
-	[ -f "$tarball" ] || return 1
-	echo "ci-setup: cache hit -> $tarball"
-	$SUDO tar -xf "$tarball" -C /
-	$SUDO ldconfig || true
-	return 0
-}
-
-# Make a freshly written cache dir readable by the (non-root) cache action.
-seal_cache() {
-	$SUDO chmod -R a+rwX "$1" 2>/dev/null || true
+	$SUDO apt-get install -y "$@"
 }
 
 cmd_deps() {
@@ -60,25 +49,18 @@ cmd_deps() {
 	$SUDO apt-get remove -y libcupsfilters-dev || true
 }
 
-# build_autoconf <url> <ref> <submodule-flag> <tarball> [configure-args...]
+# build_autoconf <url> <ref> <submodule-flag> [configure-args...]
 build_autoconf() {
-	url="$1"; ref="$2"; sub="$3"; tarball="$4"; shift 4
-	restore_tarball "$tarball" && return 0
-
-	echo "ci-setup: cache miss -> building $url @ $ref"
+	url="$1"; ref="$2"; sub="$3"; shift 3
+	echo "ci-setup: building $url @ $ref"
 	src="$(mktemp -d)"
 	git clone --depth 1 --branch "$ref" $sub "$url" "$src"
 	( cd "$src"
 	  [ -x ./configure ] || ./autogen.sh
 	  ./configure --prefix=/usr "$@" || ./configure --prefix=/usr
 	  make -j"$(nproc)"
-	  stage="$(mktemp -d)"
-	  make install DESTDIR="$stage"
-	  mkdir -p "$(dirname "$tarball")"
-	  tar -cf "$tarball" -C "$stage" . )
-	$SUDO tar -xf "$tarball" -C /
+	  $SUDO make install )
 	$SUDO ldconfig || true
-	seal_cache "$(dirname "$tarball")"
 }
 
 # CUPS >= 2.5 (OpenPrinting/cups master) dropped cups-config and ships only
@@ -122,19 +104,19 @@ EOF
 }
 
 cmd_cups() {
-	kind="$1"; cache="${2:-./.ci-cache}"
+	kind="$1"
 	case "$kind" in
 		system-2x)
 			apt_install libcups2-dev
 			;;
 		source-2.5.x)
 			build_autoconf https://github.com/OpenPrinting/cups.git master "" \
-				"$cache/cups/cups-2.5.x.tar" --disable-systemd
+				--disable-systemd
 			install_cupsconfig_shim
 			;;
 		source-3.x)
 			build_autoconf https://github.com/OpenPrinting/libcups.git master \
-				"--recurse-submodules" "$cache/cups/libcups-3.x.tar"
+				"--recurse-submodules"
 			;;
 		*)
 			echo "ci-setup: unknown cups kind: $kind" >&2; exit 2 ;;
@@ -142,11 +124,7 @@ cmd_cups() {
 }
 
 cmd_pdfio() {
-	cache="${1:-./.ci-cache}"
-	tarball="$cache/pdfio/pdfio-$PDFIO_VER.tar"
-	restore_tarball "$tarball" && return 0
-
-	echo "ci-setup: cache miss -> building pdfio $PDFIO_VER"
+	echo "ci-setup: building pdfio $PDFIO_VER"
 	src="$(mktemp -d)"
 	( cd "$src"
 	  wget -q "https://github.com/michaelrsweet/pdfio/releases/download/v$PDFIO_VER/pdfio-$PDFIO_VER.tar.gz"
@@ -154,13 +132,8 @@ cmd_pdfio() {
 	  cd "pdfio-$PDFIO_VER"
 	  ./configure --prefix=/usr --enable-shared
 	  make all
-	  stage="$(mktemp -d)"
-	  make install DESTDIR="$stage"
-	  mkdir -p "$(dirname "$tarball")"
-	  tar -cf "$tarball" -C "$stage" . )
-	$SUDO tar -xf "$tarball" -C /
+	  $SUDO make install )
 	$SUDO ldconfig || true
-	seal_cache "$(dirname "$tarball")"
 }
 
 cmd_build() {
@@ -185,9 +158,9 @@ cmd_build() {
 case "${1:-}" in
 	deps)                 cmd_deps ;;
 	cups)                 shift; cmd_cups "$@" ;;
-	pdfio)                shift; cmd_pdfio "$@" ;;
+	pdfio)                cmd_pdfio ;;
 	build-libcupsfilters) cmd_build ;;
 	*)
-		echo "usage: ci-setup.sh {deps | cups <kind> <cache-dir> | pdfio <cache-dir> | build-libcupsfilters}" >&2
+		echo "usage: ci-setup.sh {deps | cups <kind> | pdfio | build-libcupsfilters}" >&2
 		exit 2 ;;
 esac
