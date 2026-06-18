@@ -83,8 +83,15 @@ cmd_cups() {
 			# CUPS 2.5 (OpenPrinting/cups master) ships cups.pc and has dropped
 			# cups-config; libcupsfilters' configure now detects it via
 			# pkg-config, so no cups-config shim is needed.
+			#
+			# Force the multiarch libdir: CUPS's configure otherwise installs
+			# libcups into /usr/lib64 on 64-bit hosts, which is not on the
+			# default linker search path.  libcupsfilters now re-exports CUPS
+			# string/option symbols, so a downstream consumer that links only
+			# "-lcupsfilters" must be able to find libcups transitively at link
+			# time - which only works if libcups sits in a default search dir.
 			build_autoconf https://github.com/OpenPrinting/cups.git master "" \
-				--disable-systemd
+				--disable-systemd ${ma:+--libdir=/usr/lib/$ma}
 			;;
 		source-3.x)
 			build_autoconf https://github.com/OpenPrinting/libcups.git master \
