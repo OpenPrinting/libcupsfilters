@@ -245,6 +245,7 @@ testcmyk_SOURCES = \
 	$(pkgfiltersinclude_DATA)
 testcmyk_LDADD = \
 	libcupsfilters.la \
+	$(CUPS_LIBS) \
 	-lm
 testcmyk_CFLAGS = \
 	$(CUPS_CFLAGS)
@@ -254,6 +255,7 @@ testdither_SOURCES = \
 	$(pkgfiltersinclude_DATA)
 testdither_LDADD = \
 	libcupsfilters.la \
+	$(CUPS_LIBS) \
 	-lm
 testdither_CFLAGS = \
 	$(CUPS_CFLAGS)
@@ -266,6 +268,7 @@ testimage_LDADD = \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
 	libcupsfilters.la \
+	$(CUPS_LIBS) \
 	-lm
 testimage_CFLAGS = \
 	$(LIBJPEG_CFLAGS) \
@@ -278,6 +281,7 @@ testrgb_SOURCES = \
 	$(pkgfiltersinclude_DATA)
 testrgb_LDADD = \
 	libcupsfilters.la \
+	$(CUPS_LIBS) \
 	-lm
 testrgb_CFLAGS = \
 	$(CUPS_CFLAGS)
@@ -299,7 +303,8 @@ testpdf1_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 testpdf1_LDADD = \
-	libcupsfilters.la
+	libcupsfilters.la \
+	$(CUPS_LIBS)
 
 testpdf2_SOURCES = \
 	cupsfilters/testpdf2.c \
@@ -309,18 +314,19 @@ testpdf2_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 testpdf2_LDADD = \
-	libcupsfilters.la
+	libcupsfilters.la \
+	$(CUPS_LIBS)
 
 test_analyze_SOURCES = cupsfilters/fontembed/test-analyze.c
-test_analyze_LDADD = libcupsfilters.la
+test_analyze_LDADD = libcupsfilters.la $(CUPS_LIBS)
 test_analyze_CFLAGS = $(CUPS_CFLAGS)
 
 test_pdf_SOURCES = cupsfilters/fontembed/test-pdf.c
-test_pdf_LDADD = libcupsfilters.la
+test_pdf_LDADD = libcupsfilters.la $(CUPS_LIBS)
 test_pdf_CFLAGS = $(CUPS_CFLAGS)
 
 test_ps_SOURCES = cupsfilters/fontembed/test-ps.c
-test_ps_LDADD = libcupsfilters.la
+test_ps_LDADD = libcupsfilters.la $(CUPS_LIBS)
 test_ps_CFLAGS = $(CUPS_CFLAGS)
 
 testfilters_SOURCES = \
