@@ -20,10 +20,6 @@
 // Structures and types...
 //
 
-// CUPS 2.5 already provides these array types (with a slightly different
-// cups_ahash_cb_t signature), so defining them here conflicts.  Define them
-// only where CUPS does not - i.e. everything except 2.5.
-#if !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR == 5)
 typedef struct _cups_array_s cups_array_t;
                                         // CUPS array type
 typedef int (*cups_array_cb_t)(void *first, void *second, void *data);
@@ -59,7 +55,6 @@ struct _cups_array_s                    // CUPS array structure
   cups_acopy_cb_t       copyfunc;       // Copy function
   cups_afree_cb_t       freefunc;       // Free function
 };
-#endif // !(CUPS 2.5)
 
 #if CUPS_VERSION_MAJOR < 3 && !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR == 5)
 typedef struct cups_media_s             // Media information
