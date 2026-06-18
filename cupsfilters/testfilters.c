@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#  if CUPS_VERISON_MAJOR < 3 /* CUPS 2.x and older */
+#  if CUPS_VERSION_MAJOR < 3 /* CUPS 2.x and older */
 /* Functions changed in libcups3 */
 #    define cupsArrayGetCount      cupsArrayCount
 #    define cupsArrayGetFirst      cupsArrayFirst
