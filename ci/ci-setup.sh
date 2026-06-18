@@ -53,8 +53,9 @@ cmd_deps() {
 		autotools-dev cmake git wget tar make gcc g++ file dbus \
 		libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
 		libqpdf-dev libexif-dev liblcms2-dev libfontconfig1-dev libfreetype6-dev \
-		libcairo2-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libdbus-1-dev \
-		libopenjp2-7-dev mupdf-tools poppler-utils ghostscript
+		libcairo2-dev libjpeg-dev libpng-dev libtiff-dev libjxl-dev \
+		libpoppler-cpp-dev libdbus-1-dev libopenjp2-7-dev \
+		mupdf-tools poppler-utils ghostscript
 	# Never let a packaged libcupsfilters shadow the source build under test.
 	$SUDO apt-get remove -y libcupsfilters-dev || true
 }
@@ -80,6 +81,46 @@ build_autoconf() {
 	seal_cache "$(dirname "$tarball")"
 }
 
+# CUPS >= 2.5 (OpenPrinting/cups master) dropped cups-config and ships only
+# cups.pc, but libcupsfilters' configure detects CUPS 2.x exclusively through
+# cups-config.  Install a thin cups-config shim backed by pkg-config so the
+# 2.5.x compile path can be exercised.  (Proper fix belongs upstream: let
+# libcupsfilters fall back to "pkg-config cups".)
+install_cupsconfig_shim() {
+	command -v cups-config >/dev/null 2>&1 && return 0
+	ma=$(gcc -dumpmachine 2>/dev/null || echo "")
+	PKG_CONFIG_PATH="/usr/lib/pkgconfig${ma:+:/usr/lib/$ma/pkgconfig}:/usr/local/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+	export PKG_CONFIG_PATH
+	pkg-config --exists cups || {
+		echo "ci-setup: cannot build cups-config shim - no cups.pc found" >&2
+		return 1
+	}
+	ver=$(pkg-config --modversion cups)
+	cflags=$(pkg-config --cflags cups)
+	libs=$(pkg-config --libs cups)
+	pkg-config --exists cupsimage 2>/dev/null && libs="$libs $(pkg-config --libs cupsimage)"
+	prefix=$(pkg-config --variable=prefix cups); : "${prefix:=/usr}"
+	tmp=$(mktemp)
+	cat > "$tmp" <<EOF
+#!/bin/sh
+# cups-config compatibility shim (CUPS >= 2.5 ships cups.pc instead).
+while [ \$# -gt 0 ]; do
+	case "\$1" in
+		--version)    echo "$ver" ;;
+		--cflags)     printf '%s\n' "$cflags" ;;
+		--libs)       printf '%s\n' "$libs" ;;
+		--image)      : ;;  # image libs already folded into --libs
+		--datadir)    echo "$prefix/share/cups" ;;
+		--serverroot) echo "/etc/cups" ;;
+		--serverbin)  echo "$prefix/lib/cups" ;;
+	esac
+	shift
+done
+EOF
+	$SUDO install -m 0755 "$tmp" /usr/bin/cups-config
+	echo "ci-setup: installed cups-config shim (cups $ver)"
+}
+
 cmd_cups() {
 	kind="$1"; cache="${2:-./.ci-cache}"
 	case "$kind" in
@@ -89,6 +130,7 @@ cmd_cups() {
 		source-2.5.x)
 			build_autoconf https://github.com/OpenPrinting/cups.git master "" \
 				"$cache/cups/cups-2.5.x.tar" --disable-systemd
+			install_cupsconfig_shim
 			;;
 		source-3.x)
 			build_autoconf https://github.com/OpenPrinting/libcups.git master \
