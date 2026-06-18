@@ -1,4 +1,14 @@
 # Multi-Architecture Build and Test Workflow for libcupsfilters
+#
+# Builds libcupsfilters against three CUPS releases - CUPS 2.x (distro
+# libcups2-dev), CUPS 2.5.x (OpenPrinting/cups master) and CUPS 3.x
+# (OpenPrinting/libcups master) - on all four architectures, so the
+# cross-version compatibility shims added in PR #153 stay buildable.
+#
+# Optimisations: the 4 arch x 3 CUPS-version legs run in parallel; CUPS and
+# pdfio source builds are cached (keyed on the resolved upstream commit, so a
+# rebuild only happens when upstream actually moves); superseded runs are
+# auto-cancelled.
 name: Build and Test (Multi-Architecture)
 
 on:
@@ -10,159 +20,131 @@ on:
       - '**'
   workflow_dispatch:
 
+# Cancel an in-progress run when a newer commit is pushed to the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-matrix:
     strategy:
       fail-fast: false
       matrix:
+        arch: [x86_64, arm64, armv7, riscv64]
+        cups: [system-2x, source-2.5.x, source-3.x]
         include:
           # Native x86_64
           - arch: x86_64
             runs-on: ubuntu-latest
             use-qemu: false
-
           # Native ARM64
           - arch: arm64
             runs-on: ubuntu-24.04-arm
             use-qemu: false
-
           # Emulated 32-bit ARM
           - arch: armv7
             runs-on: ubuntu-latest
             use-qemu: true
-
+            qemu-arch: armv7
           # Emulated RISC-V
           - arch: riscv64
             runs-on: ubuntu-latest
             use-qemu: true
+            qemu-arch: riscv64
 
     runs-on: ${{ matrix.runs-on }}
-    name: Build & Test (${{ matrix.arch }})
+    name: ${{ matrix.arch }} / ${{ matrix.cups }}
+
+    env:
+      CI_CACHE: ${{ github.workspace }}/.ci-cache
 
     steps:
       - uses: actions/checkout@v4
 
-      # ==========================================
-      # 1. NATIVE EXECUTION (x86_64 and arm64)
-      # ==========================================
-      - name: Install Dependencies (Native)
-        if: matrix.use-qemu == false
-        run: |
-          sudo apt-get update --fix-missing -y
-          sudo apt-get upgrade --fix-missing -y
-          # PREVENT CONFLICTS: Ensure system version doesn't override local source
-          sudo apt-get remove -y libcupsfilters-dev || true
-          sudo apt-get install -y \
-            libqpdf-dev \
-            avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
-            autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
-            libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
-            libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
-            libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
-            mupdf-tools poppler-utils ghostscript wget tar make gettext \
-            dbus file
+      - name: Prepare cache directory
+        run: mkdir -p "$CI_CACHE/pdfio" "$CI_CACHE/cups"
 
-      - name: Build PDFio and libcupsfilters (Native)
+      # Resolve the upstream CUPS revision so the cache key invalidates only
+      # when the pinned branch actually advances.
+      - name: Resolve CUPS source revision
+        id: cupsrev
+        run: |
+          case "${{ matrix.cups }}" in
+            source-2.5.x) url=https://github.com/OpenPrinting/cups.git ;;
+            source-3.x)   url=https://github.com/OpenPrinting/libcups.git ;;
+            *)            echo "sha=none" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          sha=$(git ls-remote "$url" master | cut -f1)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # pdfio is needed by every leg; cache it once per architecture.
+      - name: Cache pdfio
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CI_CACHE }}/pdfio
+          key: pdfio-${{ matrix.arch }}-1.6.4-v1
+
+      # Cache the CUPS source build (source legs only); keyed on the resolved
+      # upstream commit so it rebuilds exactly when upstream changes.
+      - name: Cache CUPS source build
+        if: matrix.cups != 'system-2x'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CI_CACHE }}/cups
+          key: cups-${{ matrix.arch }}-${{ matrix.cups }}-${{ steps.cupsrev.outputs.sha }}-v1
+
+      # ==========================================
+      # NATIVE EXECUTION (x86_64, arm64)
+      # ==========================================
+      - name: Build & test (native)
         if: matrix.use-qemu == false
         env:
-          CC: /usr/bin/gcc
+          CUPS_KIND: ${{ matrix.cups }}
         run: |
           set -ex
-          
-          # Build pdfio
-          cd /tmp
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
-          tar -xzf pdfio-1.6.4.tar.gz && cd pdfio-1.6.4
-          ./configure --prefix=/usr --enable-shared
-          make all
-          sudo make install
-          sudo ldconfig
-          
-          # Build and Test libcupsfilters
-          cd "$GITHUB_WORKSPACE"
-          ./autogen.sh
-          ./configure
-          make -j$(nproc)
-          # V=1 shows compiler commands; VERBOSE=1 restores full internal test details
-          make check V=1 VERBOSE=1 || (test -f test-suite.log && cat test-suite.log; exit 1)
-
-      - name: Autopkgtest (DESTDIR staging, native)
-        if: matrix.use-qemu == false
-        run: |
-          set -ex
-          cd "$GITHUB_WORKSPACE"
-          # Full downstream suite: libcupsfilters-2-dev (compile/link/run) +
-          # libcupsfilters-2-functionality.  Both point at the staged tree via
-          # environment overrides, so no privilege or path redirection is needed.
+          chmod +x ci/ci-setup.sh
+          sudo -E ci/ci-setup.sh deps
+          sudo -E ci/ci-setup.sh cups "$CUPS_KIND" "$CI_CACHE"
+          sudo -E ci/ci-setup.sh pdfio "$CI_CACHE"
+          ci/ci-setup.sh build-libcupsfilters
+          # Downstream autopkgtests against the staged tree (env overrides;
+          # no privilege, no bind mounts).
           make test-autopkgtest V=1
 
-      - name: Upload test artifacts (Native)
-        if: matrix.use-qemu == false && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: libcupsfilters-test-artifacts-${{ matrix.arch }}
-          path: |
-            **/*.log
-          if-no-files-found: warn
-
       # ==========================================
-      # 2. EMULATED EXECUTION (armv7 and riscv64)
+      # EMULATED EXECUTION (armv7, riscv64)
       # ==========================================
-      - name: Build and Test (Emulated)
+      - name: Build & test (emulated)
         if: matrix.use-qemu == true
         uses: uraimo/run-on-arch-action@v3
         with:
-          arch: ${{ matrix.arch }}
+          arch: ${{ matrix.qemu-arch }}
           distro: ubuntu24.04
+          githubToken: ${{ github.token }}
+          # Mount the host cache dir into the container at a fixed path.
+          dockerRunArgs: |
+            --volume "${{ env.CI_CACHE }}:/ci-cache"
+          env: |
+            CI_CACHE: /ci-cache
+            CUPS_KIND: ${{ matrix.cups }}
+            EMULATED: 1
           install: |
             apt-get update --fix-missing -y
-            DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
-            # PREVENT CONFLICTS: Ensure system version doesn't override local source
-            apt-get remove -y libcupsfilters-dev || true
-            apt-get install -y \
-              libqpdf-dev \
-              avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev \
-              autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev \
-              libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
-              libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
-              libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
-              mupdf-tools poppler-utils ghostscript wget tar make gettext gcc g++ \
-              dbus file
+            DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata git sudo
           run: |
             set -ex
-            REPO_DIR=$(pwd)
-            
-            # Build pdfio
-            cd /tmp
-            wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
-            tar -xzf pdfio-1.6.4.tar.gz && cd pdfio-1.6.4
-            ./configure --prefix=/usr --enable-shared
-            make all
-            make install
-            ldconfig
-            
-            # Build and Test libcupsfilters
-            cd $REPO_DIR
-            export CC=/usr/bin/gcc
-            ./autogen.sh
-            ./configure
-            make -j$(nproc)
-            
-            # Mark test-pclm-overflow.sh as XFAIL; VERBOSE=1 for full internal logs
-            make check V=1 VERBOSE=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (test -f test-suite.log && cat test-suite.log; exit 1)
-
-            # Full downstream autopkgtest suite.  Both tests resolve the staged
-            # build tree through environment overrides (no absolute paths, no
-            # privilege, no bind mounts), so the same suite that runs on the
-            # native legs runs unchanged under QEMU emulation.
+            chmod +x ci/ci-setup.sh
+            ci/ci-setup.sh deps
+            ci/ci-setup.sh cups "$CUPS_KIND" "$CI_CACHE"
+            ci/ci-setup.sh pdfio "$CI_CACHE"
+            ci/ci-setup.sh build-libcupsfilters
             make test-autopkgtest V=1
 
-      - name: Upload test artifacts (Emulated)
-        if: matrix.use-qemu == true && always()
+      - name: Upload test artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: libcupsfilters-test-artifacts-${{ matrix.arch }}
+          name: libcupsfilters-test-artifacts-${{ matrix.arch }}-${{ matrix.cups }}
           path: |
             **/*.log
           if-no-files-found: warn
-          
