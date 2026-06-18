@@ -59,7 +59,8 @@ jobs:
             libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
             libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
             libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
-            mupdf-tools poppler-utils ghostscript wget tar make gettext
+            mupdf-tools poppler-utils ghostscript wget tar make gettext \
+            dbus file
 
       - name: Build PDFio and libcupsfilters (Native)
         if: matrix.use-qemu == false
@@ -84,6 +85,16 @@ jobs:
           make -j$(nproc)
           # V=1 shows compiler commands; VERBOSE=1 restores full internal test details
           make check V=1 VERBOSE=1 || (test -f test-suite.log && cat test-suite.log; exit 1)
+
+      - name: Autopkgtest (DESTDIR staging, native)
+        if: matrix.use-qemu == false
+        run: |
+          set -ex
+          cd "$GITHUB_WORKSPACE"
+          # Full downstream suite: libcupsfilters-2-dev (compile/link/run) +
+          # libcupsfilters-2-functionality.  Both point at the staged tree via
+          # environment overrides, so no privilege or path redirection is needed.
+          make test-autopkgtest V=1
 
       - name: Upload test artifacts (Native)
         if: matrix.use-qemu == false && always()
@@ -115,7 +126,8 @@ jobs:
               libfontconfig1-dev libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev \
               libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev \
               libopenjp2-7-dev libjpeg-dev libjxl-dev libpoppler-cpp-dev libpython3-dev libdbus-1-dev \
-              mupdf-tools poppler-utils ghostscript wget tar make gettext gcc g++
+              mupdf-tools poppler-utils ghostscript wget tar make gettext gcc g++ \
+              dbus file
           run: |
             set -ex
             REPO_DIR=$(pwd)
@@ -138,6 +150,12 @@ jobs:
             
             # Mark test-pclm-overflow.sh as XFAIL; VERBOSE=1 for full internal logs
             make check V=1 VERBOSE=1 XFAIL_TESTS="cupsfilters/test-pclm-overflow.sh" || (test -f test-suite.log && cat test-suite.log; exit 1)
+
+            # Full downstream autopkgtest suite.  Both tests resolve the staged
+            # build tree through environment overrides (no absolute paths, no
+            # privilege, no bind mounts), so the same suite that runs on the
+            # native legs runs unchanged under QEMU emulation.
+            make test-autopkgtest V=1
 
       - name: Upload test artifacts (Emulated)
         if: matrix.use-qemu == true && always()
