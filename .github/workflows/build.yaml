@@ -59,6 +59,11 @@ jobs:
 
     runs-on: ${{ matrix.runs-on }}
     name: ${{ matrix.arch }} / ${{ matrix.cups }}
+    # CUPS 2.5 (master beta) ships a half-transitioned API that libcupsfilters'
+    # ipp-options.c does not yet support (conflicting cupsParseOptions2 /
+    # cups array internals).  Keep the leg running for visibility, but allow it
+    # to fail so it does not block the workflow until that is fixed upstream.
+    continue-on-error: ${{ matrix.cups == 'source-2.5.x' }}
 
     # Keep apt fully non-interactive on native runners: needrestart's
     # service-restart prompt otherwise hangs the job indefinitely.
