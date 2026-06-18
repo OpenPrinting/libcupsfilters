@@ -40,9 +40,16 @@
 #    define ippGetFirstAttribute   ippFirstAttribute
 #    define ippGetNextAttribute    ippNextAttribute
 
-//   Function with additional parameter in libcups3
+//   Option parser: libcups3 spells it cupsParseOptions() with a trailing
+//   "end" pointer.  CUPS 2.5 provides the same 4-argument parser under the
+//   historic name cupsParseOptions2(); CUPS 2.4 only has the 3-argument form,
+//   so the "end" argument is dropped there.
 
-#    define cupsParseOptions(arg, end, num_options, options) cupsParseOptions(arg, num_options, options)
+#    if CUPS_VERSION_MINOR >= 5
+#      define cupsParseOptions cupsParseOptions2
+#    else
+#      define cupsParseOptions(arg, end, num_options, options) cupsParseOptions(arg, num_options, options)
+#    endif
 
 //   Function replaced by a different function in libcups3
 

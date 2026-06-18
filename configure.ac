@@ -109,48 +109,96 @@ AS_IF([$PKGCONFIG --exists cups3], [
     AC_SUBST(CUPS_SERVERBIN)
 ], [
     AC_MSG_RESULT(no)
-    AC_ARG_WITH([cups-config],
-		[AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
-		[with_cups_config="$withval"],
-		[with_cups_config=system])
-    AS_IF([test "x$with_cups_config" != "xsystem"], [
-	CUPSCONFIG=$with_cups_config
-    ], [
-	AC_PATH_TOOL(CUPSCONFIG, [cups-config])
-    ])
-    AC_MSG_CHECKING([for CUPS library v2.x])
-    AS_IF([test -n "$CUPSCONFIG"], [
-	CUPS_VERSION=`$CUPSCONFIG --version`
+
+    # CUPS 2.x.  Prefer pkg-config: CUPS 2.5 and newer dropped cups-config and
+    # ship only cups.pc.  Fall back to cups-config for older CUPS 2.x that does
+    # not provide a pkg-config file.
+    AC_MSG_CHECKING([for CUPS library v2.x via pkg-config])
+    AS_IF([$PKGCONFIG --exists cups], [
+	CUPS_VERSION="$($PKGCONFIG --modversion cups)"
 	AC_MSG_RESULT([yes, v$CUPS_VERSION])
 
 	AC_DEFINE([HAVE_LIBCUPS2], [1], [Use libcups2])
 
-	CUPS_CFLAGS=`$CUPSCONFIG --cflags`
-	CUPS_LIBS=`$CUPSCONFIG --image --libs`
+	CUPS_CFLAGS="$($PKGCONFIG --cflags cups)"
+	CUPS_LIBS="$LIBS $($PKGCONFIG --libs cups)"
+	AS_IF([$PKGCONFIG --exists cupsimage], [
+	    CUPS_LIBS="$CUPS_LIBS $($PKGCONFIG --libs cupsimage)"
+	])
 	AC_SUBST(CUPS_CFLAGS)
 	AC_SUBST(CUPS_LIBS)
 
-	CUPS_DATADIR="`$CUPSCONFIG --datadir`"
+	cups_prefix="$($PKGCONFIG --variable=prefix cups)"
+	AS_IF([test "x$cups_prefix" = x], [cups_prefix=/usr])
+
+	CUPS_DATADIR="$cups_prefix/share/cups"
 	AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
 	AC_SUBST(CUPS_DATADIR)
 
-	CUPS_SERVERROOT="`$CUPSCONFIG --serverroot`"
-	AC_DEFINE_UNQUOTED(CUPS_SERVERROOT, "$CUPS_SERVERROOT",
-			   [CUPS serverroot])
+	AS_IF([test x$host_os_name = xdarwin], [
+	    CUPS_SERVERROOT="/private/etc/cups"
+	], [
+	    AS_IF([test "x$cups_prefix" = x/usr], [
+		CUPS_SERVERROOT="/etc/cups"
+	    ], [
+		CUPS_SERVERROOT="$cups_prefix/etc/cups"
+	    ])
+	])
+	AC_DEFINE_UNQUOTED(CUPS_SERVERROOT, "$CUPS_SERVERROOT", [CUPS serverroot])
 	AC_SUBST(CUPS_SERVERROOT)
 
 	CUPS_FONTPATH="$CUPS_DATADIR/fonts"
-	AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$CUPS_FONTPATH",
-			   [Path to CUPS fonts dir])
+	AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$CUPS_FONTPATH", [Path to CUPS fonts dir])
 	AC_SUBST(CUPS_FONTPATH)
 
-	CUPS_SERVERBIN="`$CUPSCONFIG --serverbin`"
-	AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN",
-			   [Path to CUPS binaries dir])
+	CUPS_SERVERBIN="$cups_prefix/lib/cups"
+	AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN", [Path to CUPS binaries dir])
 	AC_SUBST(CUPS_SERVERBIN)
     ], [
 	AC_MSG_RESULT(no)
-	AC_MSG_ERROR([Required cups-config is missing. Please install CUPS developer packages.])
+	AC_ARG_WITH([cups-config],
+		[AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
+		[with_cups_config="$withval"],
+		[with_cups_config=system])
+	AS_IF([test "x$with_cups_config" != "xsystem"], [
+	    CUPSCONFIG=$with_cups_config
+	], [
+	    AC_PATH_TOOL(CUPSCONFIG, [cups-config])
+	])
+	AC_MSG_CHECKING([for CUPS library v2.x via cups-config])
+	AS_IF([test -n "$CUPSCONFIG"], [
+	    CUPS_VERSION=`$CUPSCONFIG --version`
+	    AC_MSG_RESULT([yes, v$CUPS_VERSION])
+
+	    AC_DEFINE([HAVE_LIBCUPS2], [1], [Use libcups2])
+
+	    CUPS_CFLAGS=`$CUPSCONFIG --cflags`
+	    CUPS_LIBS=`$CUPSCONFIG --image --libs`
+	    AC_SUBST(CUPS_CFLAGS)
+	    AC_SUBST(CUPS_LIBS)
+
+	    CUPS_DATADIR="`$CUPSCONFIG --datadir`"
+	    AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
+	    AC_SUBST(CUPS_DATADIR)
+
+	    CUPS_SERVERROOT="`$CUPSCONFIG --serverroot`"
+	    AC_DEFINE_UNQUOTED(CUPS_SERVERROOT, "$CUPS_SERVERROOT",
+			       [CUPS serverroot])
+	    AC_SUBST(CUPS_SERVERROOT)
+
+	    CUPS_FONTPATH="$CUPS_DATADIR/fonts"
+	    AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$CUPS_FONTPATH",
+			       [Path to CUPS fonts dir])
+	    AC_SUBST(CUPS_FONTPATH)
+
+	    CUPS_SERVERBIN="`$CUPSCONFIG --serverbin`"
+	    AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$CUPS_SERVERBIN",
+			       [Path to CUPS binaries dir])
+	    AC_SUBST(CUPS_SERVERBIN)
+	], [
+	    AC_MSG_RESULT(no)
+	    AC_MSG_ERROR([Required CUPS development files are missing. Please install CUPS developer packages.])
+	])
     ])
 ])
 
