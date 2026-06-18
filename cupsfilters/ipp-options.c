@@ -16,8 +16,6 @@
 #include <ctype.h>
 #include <limits.h>
 
-#    define _CUPS_INLINE static inline
-
 #  ifdef DEBUG
 #    define DEBUG_puts(x) _cups_debug_puts(x)
 #    define DEBUG_printf(...) _cups_debug_printf(__VA_ARGS__)
@@ -39,26 +37,6 @@
 #define DEFAULT_TYPE		"stationery"
 					// Default "media-type" value
 
-#  ifdef _CUPS_INLINE
-_CUPS_INLINE int                        // O - 1 on match, 0 otherwise
-_cups_isspace(int ch)                   // I - Character to test
-{
-  return (ch == ' ' || ch == '\f' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\v');
-}
-
-_CUPS_INLINE int                        // O - 1 on match, 0 otherwise
-_cups_isupper(int ch)                   // I - Character to test
-{
-  return (ch >= 'A' && ch <= 'Z');
-}
-
-_CUPS_INLINE int                        // O - Converted character
-_cups_tolower(int ch)                   // I - Character to convert
-{
-  return (_cups_isupper(ch) ? ch - 'A' + 'a' : ch);
-}
-
-#  endif
 
 
 cups_array_t *                          // O - Array
@@ -69,6 +47,17 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
              cups_acopy_cb_t  cf,       // I - Copy callback function or `NULL` for none
              cups_afree_cb_t  ff)       // I - Free callback function or `NULL` for none
 {
+#ifndef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
+  // CUPS 2.5 and libcups3 own the array implementation and keep the structure
+  // opaque, so defer to the native constructor instead of reaching into it.
+  // libcups3 renamed the 6-argument constructor to cupsArrayNew(); CUPS 2.5
+  // still calls it cupsArrayNew3() and takes an int hash size.
+#  if CUPS_VERSION_MAJOR >= 3
+  return (cupsArrayNew(f, d, hf, hsize, cf, ff));
+#  else
+  return (cupsArrayNew3(f, d, hf, (int)hsize, cf, ff));
+#  endif
+#else
   cups_array_t  *a;                     // Array
 
 
@@ -102,239 +91,13 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
   a->freefunc = ff;
   // cppcheck-suppress memleak
   return (a);
+#endif // !CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 }
 
-//
-// '_cups_strcpy()' - Copy a string allowing for overlapping strings.
-//
-
-void
-_cups_strcpy(char       *dst,           // I - Destination string
-             const char *src)           // I - Source string
-{
-  while (*src)
-    *dst++ = *src++;
-
-  *dst = '\0';
-}
-
-//
-// '_cups_strncasecmp()' - Do a case-insensitive comparison on up to N chars.
-//
-
-int                                     // O - Result of comparison (-1, 0, or 1)
-_cups_strncasecmp(const char *s,        // I - First string
-                  const char *t,        // I - Second string
-                  size_t     n)         // I - Maximum number of characters to compare
-{
-  while (*s != '\0' && *t != '\0' && n > 0)
-  {
-    if (_cups_tolower(*s) < _cups_tolower(*t))
-      return (-1);
-    else if (_cups_tolower(*s) > _cups_tolower(*t))
-      return (1);
-
-    s ++;
-    t ++;
-    n --;
-  }
-
-  if (n == 0)
-    return (0);
-  else if (*s == '\0' && *t == '\0')
-    return (0);
-  else if (*s != '\0')
-    return (1);
-  else
-    return (-1);
-}
-
-
-
-
-//
-// 'cupsParseOptions2()' - Parse options from a command-line argument.
-//
-// This function converts space-delimited name/value pairs according
-// to the PAPI text option ABNF specification. Collection values
-// ("name={a=... b=... c=...}") are stored with the curley brackets
-// intact - use @code cupsParseOptions2@ on the value to extract the
-// collection attributes.
-//
-// The "end" argument, if not `NULL`, receives a pointer to the end of the
-// options.
-//
-
-size_t					// O - Number of options found
-cupsParseOptions2(
-    const char    *arg,			// I - Argument to parse
-    const char    **end,		// O - Pointer to end of options or `NULL` for "don't care"
-    size_t        num_options,		// I - Number of options
-    cups_option_t **options)		// O - Options found
-{
-  char	*copyarg,			// Copy of input string
-	*ptr,				// Pointer into string
-	*name,				// Pointer to name
-	*value,				// Pointer to value
-	sep,				// Separator character
-	quote;				// Quote character
-
-
-  // Range check input...
-  if (end)
-    *end = NULL;
-
-  if (!arg)
-    return (num_options);
-
-  if (!options)
-    return (0);
-
-  // Make a copy of the argument string and then divide it up...
-  if ((copyarg = strdup(arg)) == NULL)
-  {
-    DEBUG_puts("1cupsParseOptions2: Unable to copy arg string");
-    return (num_options);
-  }
-
-  if (*copyarg == '{')
-    ptr  = copyarg + 1;
-  else
-    ptr = copyarg;
-
-  // Skip leading spaces...
-  while (_cups_isspace(*ptr))
-    ptr ++;
-
-  // Loop through the string...
-  while (*ptr != '\0')
-  {
-    // Get the name up to a SPACE, =, or end-of-string...
-    name = ptr;
-    while (!strchr("\f\n\r\t\v =", *ptr) && *ptr)
-      ptr ++;
-
-    // Avoid an empty name...
-    if (ptr == name)
-      break;
-
-    // End after the closing brace...
-    if (*ptr == '}' && *copyarg == '{')
-    {
-      *ptr++ = '\0';
-      break;
-    }
-
-    // Skip trailing spaces...
-    while (_cups_isspace(*ptr))
-      *ptr++ = '\0';
-
-    if ((sep = *ptr) == '=')
-      *ptr++ = '\0';
-
-    if (sep != '=')
-    {
-      // Boolean option...
-      if (!_cups_strncasecmp(name, "no", 2))
-        num_options = cupsAddOption(name + 2, "false", num_options, options);
-      else
-        num_options = cupsAddOption(name, "true", num_options, options);
-
-      continue;
-    }
-
-    // Remove = and parse the value...
-    value = ptr;
-
-    while (*ptr && !_cups_isspace(*ptr))
-    {
-      if (*ptr == ',')
-      {
-        ptr ++;
-      }
-      else if (*ptr == '\'' || *ptr == '\"')
-      {
-        // Quoted string constant...
-	quote = *ptr;
-	_cups_strcpy(ptr, ptr + 1);
-
-	while (*ptr != quote && *ptr)
-	{
-	  if (*ptr == '\\' && ptr[1])
-	    _cups_strcpy(ptr, ptr + 1);
-
-	  ptr ++;
-	}
-
-	if (*ptr)
-	  _cups_strcpy(ptr, ptr + 1);
-      }
-      else if (*ptr == '{')
-      {
-        // Collection value...
-	int depth;			// Nesting depth for braces
-
-	for (depth = 0; *ptr; ptr ++)
-	{
-	  if (*ptr == '{')
-	  {
-	    depth ++;
-	  }
-	  else if (*ptr == '}')
-	  {
-	    depth --;
-	    if (!depth)
-	    {
-	      ptr ++;
-	      break;
-	    }
-	  }
-	  else if (*ptr == '\\' && ptr[1])
-	  {
-	    _cups_strcpy(ptr, ptr + 1);
-	  }
-	}
-      }
-      else
-      {
-        // Normal space-delimited string...
-	while (*ptr && !_cups_isspace(*ptr))
-	{
-	  if (*ptr == '}' && *copyarg == '{')
-	  {
-	    *ptr++ = '\0';
-	    break;
-	  }
-
-	  if (*ptr == '\\' && ptr[1])
-	    _cups_strcpy(ptr, ptr + 1);
-
-	  ptr ++;
-	}
-      }
-    }
-
-    if (*ptr != '\0')
-      *ptr++ = '\0';
-
-    // Skip trailing whitespace...
-    while (_cups_isspace(*ptr))
-      ptr ++;
-
-    // Add the string value...
-    num_options = cupsAddOption(name, value, num_options, options);
-  }
-
-  // Save the progress in the input string...
-  if (end)
-    *end = arg + (ptr - copyarg);
-
-  // Free the copy of the argument we made and return the number of options found.
-  free(copyarg);
-
-  return (num_options);
-}
-
+// The helpers below (UTF-8 aware string copy/concat and the array element
+// accessors) became part of the public CUPS API in CUPS 2.5 and libcups3, so
+// only compile our own copies when building against older CUPS.
+#ifdef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 
 //
 // 'validate_end()' - Validate the last UTF-8 character in a buffer.
@@ -518,7 +281,8 @@ cupsCopyString(char       *dst,         // O - Destination string
 
   return (srclen);
 }
-     
+#endif // CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
+
 //
 // Local functions...
 //
@@ -743,7 +507,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
   if ((value = get_option("job-error-sheet", num_options, options)) != NULL)
   {
     // Parse job-error-sheet collection value...
-    num_col = cupsParseOptions2(value, /*end*/NULL, 0, &col);
+    num_col = cupsParseOptions(value, /*end*/NULL, 0, &col);
 
     if ((value = cupsGetOption("job-error-sheet-when", num_col, col)) != NULL)
     {
@@ -771,7 +535,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
   if ((value = get_option("job-sheets-col", num_options, options)) != NULL)
   {
     // Parse "job-sheets-col" collection value...
-    num_col = cupsParseOptions2(value, /*end*/NULL, 0, &col);
+    num_col = cupsParseOptions(value, /*end*/NULL, 0, &col);
 
     if ((value = cupsGetOption("media-col", num_col, col)) == NULL)
       value = cupsGetOption("media", num_col, col);
@@ -925,7 +689,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
   if ((value = get_option("separator-sheets", num_options, options)) != NULL)
   {
     // Parse separator-sheets collection value...
-    num_col = cupsParseOptions2(value, /*end*/NULL, 0, &col);
+    num_col = cupsParseOptions(value, /*end*/NULL, 0, &col);
 
     if ((value = cupsGetOption("media-col", num_col, col)) == NULL)
       value = cupsGetOption("media", num_col, col);
@@ -1031,7 +795,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
       if (*nextcol == ',')
         nextcol ++;
 
-      num_col = cupsParseOptions2(nextcol, &nextcol, 0, &col);
+      num_col = cupsParseOptions(nextcol, &nextcol, 0, &col);
 
       memset(&override, 0, sizeof(override));
 
@@ -1203,7 +967,7 @@ parse_media(const char   *value,	// I - "media" or "media-col" value
 		*top_margin,		// "media-top-margin" value
 		*type;			// "media-type" value
 
-    num_col = cupsParseOptions2(value, /*end*/NULL, 0, &col);
+    num_col = cupsParseOptions(value, /*end*/NULL, 0, &col);
     if ((size_name = cupsGetOption("media-size-name", num_col, col)) != NULL)
     {
       if ((pwg = pwgMediaForPWG(size_name)) != NULL)
@@ -1218,7 +982,7 @@ parse_media(const char   *value,	// I - "media" or "media-col" value
       const char	*x_dim,		// x-dimension
 			*y_dim;		// y-dimension
 
-      num_size = cupsParseOptions2(size_col, /*end*/NULL, 0, &size);
+      num_size = cupsParseOptions(size_col, /*end*/NULL, 0, &size);
       if ((x_dim = cupsGetOption("x-dimension", num_size, size)) != NULL && (y_dim = cupsGetOption("y-dimension", num_size, size)) != NULL && (pwg = pwgMediaForSize(atoi(x_dim), atoi(y_dim))) != NULL)
         cupsCopyString(media->media, pwg->pwg, sizeof(media->media));
       else

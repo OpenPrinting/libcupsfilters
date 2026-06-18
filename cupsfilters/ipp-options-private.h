@@ -20,6 +20,32 @@
 // Structures and types...
 //
 
+// CUPS 2.5 and libcups3 ship the array/option/string/media helpers used by
+// this code (cupsArrayNew3 / cupsArrayNew, cupsArrayGetElement/First/Next,
+// cupsCopyString, cupsConcatString, cups_media_t and the cups_array_cb_t /
+// cups_ahash_cb_t types) as part of their public API.  Only CUPS 2.4 and
+// older lack them, so libcupsfilters provides its own copies in that case.
+
+#if CUPS_VERSION_MAJOR < 2 || (CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5)
+#  define CUPSFILTERS_PROVIDE_LEGACY_CUPS_API 1
+#endif
+
+// This code calls the option parser by its libcups3 name cupsParseOptions()
+// (4 arguments, including the trailing "end" pointer).  Translate it for the
+// CUPS 2.x line, mirroring the defines in libcups2-private.h: CUPS 2.5 exposes
+// the same 4-argument parser as cupsParseOptions2(), while CUPS 2.4 only has
+// the 3-argument form and so drops the "end" argument.  (cups/cups.h is
+// included above, so the real prototypes are seen before these macros apply.)
+#if CUPS_VERSION_MAJOR < 3
+#  if CUPS_VERSION_MINOR >= 5
+#    define cupsParseOptions cupsParseOptions2
+#  else
+#    define cupsParseOptions(arg, end, num_options, options) \
+            cupsParseOptions(arg, num_options, options)
+#  endif
+#endif
+
+#ifdef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 typedef struct _cups_array_s cups_array_t;
                                         // CUPS array type
 typedef int (*cups_array_cb_t)(void *first, void *second, void *data);
@@ -56,7 +82,6 @@ struct _cups_array_s                    // CUPS array structure
   cups_afree_cb_t       freefunc;       // Free function
 };
 
-#if CUPS_VERSION_MAJOR < 3 && !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR == 5)
 typedef struct cups_media_s             // Media information
 {
   char          media[128],             // Media name to use
@@ -70,7 +95,7 @@ typedef struct cups_media_s             // Media information
                 right,                  // Right margin in hundredths of millimeters
                 top;                    // Top margin in hundredths of millimeters
 } cups_media_t;
-#endif
+#endif // CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 
 typedef enum cf_filter_delivery_e	// "page-delivery" values
 {
