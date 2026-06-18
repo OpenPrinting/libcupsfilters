@@ -30,11 +30,19 @@
 #  define CUPSFILTERS_PROVIDE_LEGACY_CUPS_API 1
 #endif
 
-// CUPS 2.5 ships the 4-argument option parser natively as cupsParseOptions2().
-// CUPS 2.4 lacks it and libcups3 renamed it to cupsParseOptions(), so we keep
-// our own copy in those two cases.
-#if !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR >= 5)
-#  define CUPSFILTERS_PROVIDE_PARSE_OPTIONS2 1
+// This code calls the option parser by its libcups3 name cupsParseOptions()
+// (4 arguments, including the trailing "end" pointer).  Translate it for the
+// CUPS 2.x line, mirroring the defines in libcups2-private.h: CUPS 2.5 exposes
+// the same 4-argument parser as cupsParseOptions2(), while CUPS 2.4 only has
+// the 3-argument form and so drops the "end" argument.  (cups/cups.h is
+// included above, so the real prototypes are seen before these macros apply.)
+#if CUPS_VERSION_MAJOR < 3
+#  if CUPS_VERSION_MINOR >= 5
+#    define cupsParseOptions cupsParseOptions2
+#  else
+#    define cupsParseOptions(arg, end, num_options, options) \
+            cupsParseOptions(arg, num_options, options)
+#  endif
 #endif
 
 #ifdef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
