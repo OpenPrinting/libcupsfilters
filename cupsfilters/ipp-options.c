@@ -164,6 +164,10 @@ _cups_strncasecmp(const char *s,        // I - First string
 
 
 
+// CUPS 2.5 ships cupsParseOptions2() in its public API; only compile our own
+// copy when the linked CUPS does not provide it (CUPS 2.4 and libcups3).
+#ifdef CUPSFILTERS_PROVIDE_PARSE_OPTIONS2
+
 //
 // 'cupsParseOptions2()' - Parse options from a command-line argument.
 //
@@ -346,6 +350,7 @@ cupsParseOptions2(
 
   return (num_options);
 }
+#endif // CUPSFILTERS_PROVIDE_PARSE_OPTIONS2
 
 
 // The helpers below (UTF-8 aware string copy/concat and the array element

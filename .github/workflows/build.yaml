@@ -67,9 +67,9 @@ jobs:
           sh ci/ci-setup.sh build-libcupsfilters
 
       - name: Autopkgtest (DESTDIR staging, native)
-        # Exercise the downstream autopkgtest suite against the distro CUPS it
-        # was validated for; the source-CUPS legs focus on build coverage.
-        if: matrix.use-qemu == false && matrix.cups == 'system-2x'
+        # Run the downstream autopkgtest suite (consumer compile/link/run +
+        # functionality) against every CUPS version under test.
+        if: matrix.use-qemu == false
         run: |
           set -ex
           make test-autopkgtest V=1
@@ -108,9 +108,7 @@ jobs:
             sh ci/ci-setup.sh cups "${{ matrix.cups }}"
             sh ci/ci-setup.sh pdfio
             sh ci/ci-setup.sh build-libcupsfilters
-            if [ "$CUPS_KIND" = system-2x ]; then
-              make test-autopkgtest V=1
-            fi
+            make test-autopkgtest V=1
 
       - name: Upload test artifacts (Emulated)
         if: matrix.use-qemu == true && always()

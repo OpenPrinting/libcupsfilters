@@ -30,6 +30,13 @@
 #  define CUPSFILTERS_PROVIDE_LEGACY_CUPS_API 1
 #endif
 
+// CUPS 2.5 ships the 4-argument option parser natively as cupsParseOptions2().
+// CUPS 2.4 lacks it and libcups3 renamed it to cupsParseOptions(), so we keep
+// our own copy in those two cases.
+#if !(CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR >= 5)
+#  define CUPSFILTERS_PROVIDE_PARSE_OPTIONS2 1
+#endif
+
 #ifdef CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 typedef struct _cups_array_s cups_array_t;
                                         // CUPS array type
