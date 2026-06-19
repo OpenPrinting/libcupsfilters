@@ -1980,7 +1980,8 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
       {
         if (h <= copy_height) 		// inside valid page/image area
 	{
-          memset(lineBuf, bg_color, doc->bytesPerLine);
+          if (doc->allocLineBuf)
+            memset(lineBuf, bg_color, doc->bytesPerLine);
           for (unsigned int band = 0; band < doc->nbands; band ++)
           {
             dp = convertLine(bp, lineBuf, h - 1, plane + band,
@@ -2008,9 +2009,10 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
       unsigned char *bp = colordata;
       for (unsigned int h = 0; h < doc->header.cupsHeight; h++)
       {
-        if (h <= copy_height) 		// inside valid page/image area
+        if (h < copy_height) 		// inside valid page/image area
 	{
-          memset(lineBuf, bg_color, doc->bytesPerLine);
+          if (doc->allocLineBuf)
+            memset(lineBuf, bg_color, doc->bytesPerLine);
 
           for (unsigned int band = 0; band < doc->nbands; band++)
           {

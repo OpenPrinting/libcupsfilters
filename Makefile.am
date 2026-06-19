@@ -96,7 +96,8 @@ lib_LTLIBRARIES = libcupsfilters.la
 
 check_SCRIPTS = \
 	cupsfilters/testfilters.sh \
-	cupsfilters/test-pclm-overflow.sh
+	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-pdftoraster-copy-height.sh
 
 check_PROGRAMS = \
 	testcmyk \
@@ -119,7 +120,8 @@ TESTS = \
 	test-pdf \
 	test-ps \
 	cupsfilters/testfilters.sh \
-	cupsfilters/test-pclm-overflow.sh
+	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-pdftoraster-copy-height.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
@@ -365,7 +367,9 @@ EXTRA_DIST += \
 	cupsfilters/test_files/test_file.pwg \
 	cupsfilters/test_files/test_file_1pg.pdf \
 	cupsfilters/test_files/test_file_2pg.pdf \
-	cupsfilters/test_files/test_file_4pg.pdf
+	cupsfilters/test_files/test_file_4pg.pdf \
+	cupsfilters/test-pdftoraster-copy-height.c \
+	cupsfilters/test-pdftoraster-copy-height.sh
 
 # =========
 # CUPS Data
