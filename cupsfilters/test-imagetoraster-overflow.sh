@@ -31,10 +31,63 @@ WORKDIR="$(mktemp -d "${TMP_PARENT%/}/imagetoraster-overflow.XXXXXX")"
 cleanup() { rm -rf "${WORKDIR}"; }
 trap cleanup EXIT
 
+MAKE_JPEG_SRC="${WORKDIR}/make_jpeg.c"
+MAKE_JPEG_BIN="${WORKDIR}/make_jpeg"
+INPUT_JPG="${WORKDIR}/test.jpg"
 HARNESS_SRC="${WORKDIR}/trigger.c"
 HARNESS_OBJ="${WORKDIR}/trigger.lo"
 HARNESS_BIN="${WORKDIR}/trigger"
 RUN_LOG="${WORKDIR}/trigger.log"
+
+cat > "${MAKE_JPEG_SRC}" <<'EOF_JPEG'
+#include <jpeglib.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    fprintf(stderr, "Usage: %s <output.jpg>\n", argv[0]);
+    return 1;
+  }
+
+  FILE *fp = fopen(argv[1], "wb");
+  if (!fp) { perror("fopen"); return 1; }
+
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_compress(&cinfo);
+  jpeg_stdio_dest(&cinfo, fp);
+
+  cinfo.image_width = 8;
+  cinfo.image_height = 8;
+  cinfo.input_components = 1;
+  cinfo.in_color_space = JCS_GRAYSCALE;
+  jpeg_set_defaults(&cinfo);
+  jpeg_set_quality(&cinfo, 75, TRUE);
+  jpeg_start_compress(&cinfo, TRUE);
+
+  JSAMPROW row[1];
+  unsigned char rowdata[8];
+  memset(rowdata, 255, 8);
+  row[0] = rowdata;
+  while (cinfo.next_scanline < cinfo.image_height)
+    jpeg_write_scanlines(&cinfo, row, 1);
+
+  jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
+  fclose(fp);
+  return 0;
+}
+EOF_JPEG
+
+"${CC}" -std=c11 -O0 -o "${MAKE_JPEG_BIN}" "${MAKE_JPEG_SRC}" -ljpeg >/dev/null 2>&1
+if [[ ! -x "${MAKE_JPEG_BIN}" ]]; then
+  echo "Failed to compile make_jpeg" >&2
+  exit 99
+fi
+"${MAKE_JPEG_BIN}" "${INPUT_JPG}"
 
 cat > "${HARNESS_SRC}" <<'EOF'
 /*
@@ -137,7 +190,7 @@ ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"
 set +e
 "${LIBTOOL}" --mode=execute \
   env ASAN_OPTIONS="${ASAN_OPTS}" \
-  "${HARNESS_BIN}" "${BUILD_ROOT}/cupsfilters/test_files/test_imagetoraster.jpg" \
+  "${HARNESS_BIN}" "${INPUT_JPG}" \
   >>"${RUN_LOG}" 2>&1
 STATUS=$?
 set -e

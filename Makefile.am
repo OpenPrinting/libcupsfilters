@@ -300,7 +300,8 @@ testimagetoraster_CFLAGS = \
 testimagetoraster_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS) \
-	-lm
+	-lm \
+	-ljpeg
 
 test1284_SOURCES = \
 	cupsfilters/test1284.c

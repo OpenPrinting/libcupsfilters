@@ -12,12 +12,54 @@
 #include <cupsfilters/filter.h>
 #include <cups/cups.h>
 #include <fcntl.h>
+#include <jpeglib.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+
+//
+// 'write_test_jpeg()' - Write a minimal 8×8 grayscale JPEG for testing.
+//
+// Generates a valid JPEG using libjpeg's compression API, ensuring proper
+// Huffman tables and entropy coding.  Returns 0 on success, -1 on failure.
+//
+
+static int
+write_test_jpeg(const char *path)
+{
+  FILE *fp = fopen(path, "wb");
+  if (!fp)
+    return -1;
+
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_compress(&cinfo);
+  jpeg_stdio_dest(&cinfo, fp);
+
+  cinfo.image_width = 8;
+  cinfo.image_height = 8;
+  cinfo.input_components = 1;
+  cinfo.in_color_space = JCS_GRAYSCALE;
+  jpeg_set_defaults(&cinfo);
+  jpeg_set_quality(&cinfo, 75, TRUE);
+  jpeg_start_compress(&cinfo, TRUE);
+
+  JSAMPROW row[1];
+  unsigned char rowdata[8];
+  memset(rowdata, 255, sizeof(rowdata));
+  row[0] = rowdata;
+  while (cinfo.next_scanline < cinfo.image_height)
+    jpeg_write_scanlines(&cinfo, row, 1);
+
+  jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
+  fclose(fp);
+  return 0;
+}
 
 //
 // 'main()' - Run cfFilterImageToRaster() end-to-end and verify it succeeds.
@@ -41,15 +83,30 @@ main(void)
   signal(SIGPIPE, SIG_IGN);
 
   //
-  // Open the bundled test JPEG image as the filter input.
+  // Generate a test JPEG in /tmp.
   //
 
-  inputfd = open("cupsfilters/test_files/test_imagetoraster.jpg", O_RDONLY);
+  char tmpjpg[256];
+  snprintf(tmpjpg, sizeof(tmpjpg), "/tmp/testimagetoraster_%d.jpg", getpid());
+
+  if (write_test_jpeg(tmpjpg) != 0)
+  {
+    fprintf(stderr,
+	    "ERROR: testimagetoraster: Cannot write test JPEG to %s\n",
+	    tmpjpg);
+    return (1);
+  }
+
+  //
+  // Open the generated test JPEG as the filter input.
+  //
+
+  inputfd = open(tmpjpg, O_RDONLY);
   if (inputfd < 0)
   {
     fprintf(stderr,
-	    "ERROR: testimagetoraster: Cannot open "
-	    "cupsfilters/test_files/test_imagetoraster.jpg\n");
+	    "ERROR: testimagetoraster: Cannot open %s\n", tmpjpg);
+    unlink(tmpjpg);
     return (1);
   }
 
@@ -105,6 +162,7 @@ main(void)
 
   close(inputfd);
   close(outputfd);
+  unlink(tmpjpg);
 
   return (failed ? 1 : 0);
 }
