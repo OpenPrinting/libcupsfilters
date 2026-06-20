@@ -296,12 +296,13 @@ testimagetoraster_SOURCES = \
 	cupsfilters/testimagetoraster.c \
 	$(pkgfiltersinclude_DATA)
 testimagetoraster_CFLAGS = \
+	$(LIBJPEG_CFLAGS) \
 	$(CUPS_CFLAGS)
 testimagetoraster_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS) \
-	-lm \
-	-ljpeg
+	$(LIBJPEG_LIBS) \
+	-lm
 
 test1284_SOURCES = \
 	cupsfilters/test1284.c
