@@ -26,6 +26,11 @@ if [[ ! -x "${LIBTOOL}" ]]; then
   exit 99
 fi
 
+# Discover CUPS include path (may differ from /usr/include on some distros).
+CUPS_INC="$(pkg-config --cflags-only-I libcups 2>/dev/null || \
+            pkg-config --cflags-only-I cups 2>/dev/null || \
+            cups-config --cflags 2>/dev/null || echo "")"
+
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORKDIR="$(mktemp -d "${TMP_PARENT%/}/imagetoraster-overflow.XXXXXX")"
 cleanup() { rm -rf "${WORKDIR}"; }
@@ -178,11 +183,19 @@ main(int argc, char **argv)
 EOF
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=c11 -O0 ${SAN_FLAGS} \
-  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" \
-  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null 2>&1
+  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_INC} \
+  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
+if [[ ! -f "${HARNESS_OBJ}" && ! -f "${WORKDIR}/trigger.o" ]]; then
+  echo "test-imagetoraster-overflow: failed to compile harness" >&2
+  exit 99
+fi
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null 2>&1
+  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null
+if [[ ! -x "${HARNESS_BIN}" ]]; then
+  echo "test-imagetoraster-overflow: failed to link harness" >&2
+  exit 99
+fi
 
 : > "${RUN_LOG}"
 ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"
