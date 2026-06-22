@@ -31,9 +31,9 @@ fi
 # pkg-config at test time, which may fail or return wrong paths depending
 # on the distro packaging (e.g. Ubuntu's libcups2 puts headers under
 # /usr/include/libcups2 which pkg-config --cflags-only-I does not expose).
-CUPS_CFLAGS_VAL="$(grep '^CUPS_CFLAGS' "${BUILD_ROOT}/Makefile" \
+CUPS_CFLAGS_VAL="$(grep '^CUPS_CFLAGS' "${BUILD_ROOT}/Makefile" 2>/dev/null \
                    | sed 's/^CUPS_CFLAGS[[:space:]]*=[[:space:]]*//' \
-                   | head -1)"
+                   | head -1 || true)"
 
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORKDIR="$(mktemp -d "${TMP_PARENT%/}/imagetoraster-overflow.XXXXXX")"
@@ -49,10 +49,10 @@ HARNESS_BIN="${WORKDIR}/trigger"
 RUN_LOG="${WORKDIR}/trigger.log"
 
 cat > "${MAKE_JPEG_SRC}" <<'EOF_JPEG'
-#include <jpeglib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <jpeglib.h>
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -91,9 +91,9 @@ int main(int argc, char **argv) {
 }
 EOF_JPEG
 
-"${CC}" -std=c11 -O0 -o "${MAKE_JPEG_BIN}" "${MAKE_JPEG_SRC}" -ljpeg >/dev/null 2>&1
+"${CC}" -std=c11 -O0 -o "${MAKE_JPEG_BIN}" "${MAKE_JPEG_SRC}" -ljpeg >/dev/null 2>&1 || true
 if [[ ! -x "${MAKE_JPEG_BIN}" ]]; then
-  echo "Failed to compile make_jpeg" >&2
+  echo "test-imagetoraster-overflow: failed to compile make_jpeg (libjpeg-dev missing?)" >&2
   exit 99
 fi
 "${MAKE_JPEG_BIN}" "${INPUT_JPG}"
@@ -188,18 +188,16 @@ EOF
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=c11 -O0 ${SAN_FLAGS} \
   -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_CFLAGS_VAL} \
-  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
-if [[ ! -f "${HARNESS_OBJ}" && ! -f "${WORKDIR}/trigger.o" ]]; then
+  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to compile harness" >&2
   exit 99
-fi
+}
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null
-if [[ ! -x "${HARNESS_BIN}" ]]; then
+  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to link harness" >&2
   exit 99
-fi
+}
 
 : > "${RUN_LOG}"
 ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"

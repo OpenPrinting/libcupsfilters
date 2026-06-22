@@ -9,14 +9,14 @@
 //
 
 #include <config.h>
-#include <cupsfilters/filter.h>
-#include <cups/cups.h>
-#include <fcntl.h>
-#include <jpeglib.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <jpeglib.h>
+#include <cupsfilters/filter.h>
+#include <cups/cups.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <unistd.h>
 
 
