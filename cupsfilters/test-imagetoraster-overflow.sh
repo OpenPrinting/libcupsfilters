@@ -26,10 +26,14 @@ if [[ ! -x "${LIBTOOL}" ]]; then
   exit 99
 fi
 
-# Discover CUPS include path (may differ from /usr/include on some distros).
-CUPS_INC="$(pkg-config --cflags-only-I libcups 2>/dev/null || \
-            pkg-config --cflags-only-I cups 2>/dev/null || \
-            cups-config --cflags 2>/dev/null || echo "")"
+# Read the CUPS compiler flags that configure already discovered and wrote
+# into the generated Makefile.  This is more reliable than re-running
+# pkg-config at test time, which may fail or return wrong paths depending
+# on the distro packaging (e.g. Ubuntu's libcups2 puts headers under
+# /usr/include/libcups2 which pkg-config --cflags-only-I does not expose).
+CUPS_CFLAGS_VAL="$(grep '^CUPS_CFLAGS' "${BUILD_ROOT}/Makefile" \
+                   | sed 's/^CUPS_CFLAGS[[:space:]]*=[[:space:]]*//' \
+                   | head -1)"
 
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORKDIR="$(mktemp -d "${TMP_PARENT%/}/imagetoraster-overflow.XXXXXX")"
@@ -183,7 +187,7 @@ main(int argc, char **argv)
 EOF
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=c11 -O0 ${SAN_FLAGS} \
-  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_INC} \
+  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_CFLAGS_VAL} \
   -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
 if [[ ! -f "${HARNESS_OBJ}" && ! -f "${WORKDIR}/trigger.o" ]]; then
   echo "test-imagetoraster-overflow: failed to compile harness" >&2
