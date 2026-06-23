@@ -26,6 +26,13 @@ if [[ ! -x "${LIBTOOL}" ]]; then
   exit 99
 fi
 
+# ASAN does not work reliably under QEMU emulation — it crashes internally
+# with CHECK failures. ci-setup.sh sets EMULATED=1 for QEMU runs; skip early.
+if [[ "${EMULATED:-0}" = "1" ]]; then
+  echo "test-imagetoraster-overflow: skipping ASAN test under emulation" >&2
+  exit 99
+fi
+
 # Read the CUPS compiler flags that configure already discovered and wrote
 # into the generated Makefile.  This is more reliable than re-running
 # pkg-config at test time, which may fail or return wrong paths depending
@@ -199,6 +206,21 @@ EOF
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
   "${BUILD_ROOT}/libcupsfilters.la" ${CUPS_LIBS_VAL} -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to link harness" >&2
+  exit 99
+}
+
+# Smoke-test that ASAN is actually functional in this environment.
+# Under QEMU it compiles but crashes at startup with an internal CHECK failure.
+ASAN_TEST_SRC="${WORKDIR}/asan_test.c"
+ASAN_TEST_BIN="${WORKDIR}/asan_test"
+printf 'int main(void){return 0;}\n' > "${ASAN_TEST_SRC}"
+"${CC}" -fsanitize=address -fno-omit-frame-pointer \
+  -o "${ASAN_TEST_BIN}" "${ASAN_TEST_SRC}" >/dev/null 2>&1 || {
+  echo "test-imagetoraster-overflow: ASAN not available" >&2
+  exit 99
+}
+ASAN_OPTIONS="detect_leaks=0" "${ASAN_TEST_BIN}" >/dev/null 2>&1 || {
+  echo "test-imagetoraster-overflow: ASAN not functional in this environment" >&2
   exit 99
 }
 
