@@ -1920,7 +1920,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 		 "cfFilterGhostscript: Ghostscript using Spot halftone (frequency=%d angle=%d dotshape=%d).\n",
 		 ht_frequency, ht_angle, shape);
     snprintf(tmpstr, sizeof(tmpstr),
-	     "<< /HalftoneType 1 /Frequency %d /Angle %d /SpotFunction %s >> /Default exch /Halftone defineresource sethalftone",
+	     "<< /HalftoneType 1 /Frequency %d /Angle %d /SpotFunction %s >> /Default exch /Halftone defineresource sethalftone { } settransfer 0.003 setsmoothness",
 	     ht_frequency, ht_angle, ht_spot_functions[shape]);
     cupsArrayAdd(gs_args, strdup(tmpstr));
   }
