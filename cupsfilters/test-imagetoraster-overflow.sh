@@ -34,6 +34,9 @@ fi
 CUPS_CFLAGS_VAL="$(grep '^CUPS_CFLAGS' "${BUILD_ROOT}/Makefile" 2>/dev/null \
                    | sed 's/^CUPS_CFLAGS[[:space:]]*=[[:space:]]*//' \
                    | head -1 || true)"
+CUPS_LIBS_VAL="$(grep '^CUPS_LIBS' "${BUILD_ROOT}/Makefile" 2>/dev/null \
+                 | sed 's/^CUPS_LIBS[[:space:]]*=[[:space:]]*//' \
+                 | head -1 || true)"
 
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORKDIR="$(mktemp -d "${TMP_PARENT%/}/imagetoraster-overflow.XXXXXX")"
@@ -194,7 +197,7 @@ EOF
 }
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
+  "${BUILD_ROOT}/libcupsfilters.la" ${CUPS_LIBS_VAL} -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to link harness" >&2
   exit 99
 }
