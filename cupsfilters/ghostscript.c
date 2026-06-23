@@ -867,7 +867,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   cf_cm_calibration_t cm_calibrate;
   int pxlcolor = 0; // 1 if printer is color printer otherwise 0.
   cups_halftone_type_t halftonetype = HALFTONE_DEFAULT;
-  int ht_frequency = 133, ht_angle = 45, ht_dotshape = 0;
+  int ht_frequency = 133, ht_angle = 45, ht_dotshape = 0, ht_gamma = 0;
   ipp_attribute_t *ipp_attr;
   cf_logfunc_t log = data->logfunc;
   void          *ld = data->logdata;
@@ -1701,7 +1701,13 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 	  {
 	    p++;
 	    v = strtol(p, &endp, 10);
-	    if (endp != p) ht_dotshape = (int)v;
+	    if (endp != p) { ht_dotshape = (int)v; p = endp; }
+	    if (*p == '-')
+	    {
+	      p++;
+	      v = strtol(p, &endp, 10);
+	      if (endp != p) ht_gamma = (int)v;
+	    }
 	  }
 	}
       }
@@ -1726,7 +1732,13 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
 	  {
 	    p++;
 	    v = strtol(p, &endp, 10);
-	    if (endp != p) ht_dotshape = (int)v;
+	    if (endp != p) { ht_dotshape = (int)v; p = endp; }
+	    if (*p == '-')
+	    {
+	      p++;
+	      v = strtol(p, &endp, 10);
+	      if (endp != p) ht_gamma = (int)v;
+	    }
 	  }
 	}
       }
@@ -1896,13 +1908,18 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   // 0=CIRCLE, 1=REDBOOK, 2=INVERTED, 3=RHOMBOID, 4=LINE_X, 5=LINE_Y,
   // 6=DIAMOND1, 7=DIAMOND2, 8=ROUNDSPOT */
   //
-  if (halftonetype == HALFTONE_GENORDERED) {
+  if (halftonetype == HALFTONE_GENORDERED)
+  {
+    char ht_transfer[16] = {0};
+    if (ht_gamma >= 1 && ht_gamma <= 99)
+      snprintf(ht_transfer, sizeof(ht_transfer), "0.%02d exp", ht_gamma);
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		 "cfFilterGhostscript: Ghostscript using .genordered halftone (frequency=%d angle=%d dotshape=%d).",
-		 ht_frequency, ht_angle, ht_dotshape);
+		 "cfFilterGhostscript: Ghostscript using .genordered halftone (frequency=%d angle=%d dotshape=%d gamma=%s).",
+		 ht_frequency, ht_angle, ht_dotshape,
+		 ht_transfer[0] ? ht_transfer : "default");
     snprintf(tmpstr, sizeof(tmpstr),
-	     "<< /Frequency %d /Angle %d /DotShape %d >> .genordered /Default exch /Halftone defineresource sethalftone { } settransfer 0.003 setsmoothness",
-	     ht_frequency, ht_angle, ht_dotshape);
+	     "<< /Frequency %d /Angle %d /DotShape %d >> .genordered /Default exch /Halftone defineresource sethalftone { %s } settransfer 0.003 setsmoothness",
+	     ht_frequency, ht_angle, ht_dotshape, ht_transfer);
     cupsArrayAdd(gs_args, strdup(tmpstr));
   }
 
@@ -1914,14 +1931,18 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   if (halftonetype == HALFTONE_SPOT)
   {
     int shape = ht_dotshape;
+    char ht_transfer[16] = {0};
     if (shape < 0) shape = 0;
     if (shape >= HT_SPOT_FUNCTIONS_COUNT) shape = HT_SPOT_FUNCTIONS_COUNT - 1;
+    if (ht_gamma >= 1 && ht_gamma <= 99)
+      snprintf(ht_transfer, sizeof(ht_transfer), "0.%02d exp", ht_gamma);
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		 "cfFilterGhostscript: Ghostscript using Spot halftone (frequency=%d angle=%d dotshape=%d).\n",
-		 ht_frequency, ht_angle, shape);
+		 "cfFilterGhostscript: Ghostscript using Spot halftone (frequency=%d angle=%d dotshape=%d gamma=%s).\n",
+		 ht_frequency, ht_angle, shape,
+		 ht_transfer[0] ? ht_transfer : "default");
     snprintf(tmpstr, sizeof(tmpstr),
-	     "<< /HalftoneType 1 /Frequency %d /Angle %d /SpotFunction %s >> /Default exch /Halftone defineresource sethalftone { } settransfer 0.003 setsmoothness",
-	     ht_frequency, ht_angle, ht_spot_functions[shape]);
+	     "<< /HalftoneType 1 /Frequency %d /Angle %d /SpotFunction %s >> /Default exch /Halftone defineresource sethalftone { %s } settransfer 0.003 setsmoothness",
+	     ht_frequency, ht_angle, ht_spot_functions[shape], ht_transfer);
     cupsArrayAdd(gs_args, strdup(tmpstr));
   }
 
