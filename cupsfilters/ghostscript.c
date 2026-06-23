@@ -49,8 +49,50 @@ typedef enum cups_halftone_type_e
   HALFTONE_DEFAULT,
   HALFTONE_STOCHASTIC,
   HALFTONE_FOO2ZJS,
-  HALFTONE_BI_LEVEL
+  HALFTONE_BI_LEVEL,
+  HALFTONE_DITHERING,
+  HALFTONE_GENORDERED,
+  HALFTONE_SPOT
 } cups_halftone_type_t;
+
+static const char *ht_spot_functions[] =
+{
+  "{dup mul exch dup mul add 1 exch sub}",         /* 0  SimpleDot */
+  "{dup mul exch dup mul add 1 sub}",              /* 1  InvertedSimpleDot */
+  "{360 mul sin 2 div exch 360 mul sin 2 div add}",/* 2  DoubleDot */
+  "{360 mul sin 2 div exch 360 mul sin 2 div add neg}",/* 3 InvertedDoubleDot */
+  "{180 mul cos exch 180 mul cos add 2 div}",      /* 4  CosineDot */
+  "{360 mul sin 2 div exch 2 div 360 mul sin 2 div add}",    /* 5  Double */
+  "{360 mul sin 2 div exch 2 div 360 mul sin 2 div add neg}",/* 6  InvertedDouble */
+  "{exch pop abs neg}",                            /* 7  Line */
+  "{pop}",                                         /* 8  LineX */
+  "{exch pop}",                                    /* 9  LineY */
+  "{abs exch abs 2 copy add 1.0 le"
+  " {dup mul exch dup mul add 1 exch sub}"
+  " {1 sub dup mul exch 1 sub dup mul add 1 sub}"
+  " ifelse}",                                      /* 10 Round */
+  "{abs exch abs 2 copy 3 mul exch 4 mul add 3 sub dup 0 lt"
+  " {pop dup mul exch 0.75 div dup mul add 4 div 1 exch sub}"
+  " {dup 1 gt"
+  " {pop 1 exch sub dup mul exch 1 exch sub 0.75 div dup mul add 4 div 1 sub}"
+  " {0.5 exch sub exch pop exch pop}}"
+  " ifelse}ifelse}",                               /* 11 Ellipse */
+  "{dup mul 0.9 mul exch dup mul add 1 exch sub}", /* 12 EllipseA */
+  "{dup mul 0.9 mul exch dup mul add 1 sub}",      /* 13 InvertedEllipseA */
+  "{dup 5 mul 8 div mul exch dup mul exch add sqrt 1 exch sub}", /* 14 EllipseB */
+  "{dup mul exch dup mul 0.9 mul add 1 exch sub}", /* 15 EllipseC */
+  "{dup mul exch dup mul 0.9 mul add 1 sub}",      /* 16 InvertedEllipseC */
+  "{abs exch abs 2 copy lt {exch} if pop neg}",    /* 17 Square */
+  "{abs exch abs 2 copy gt {exch} if pop neg}",    /* 18 Cross */
+  "{abs exch abs 0.9 mul add 2 div}",              /* 19 Rhomboid */
+  "{abs exch abs 2 copy add 0.75 le"
+  " {dup mul exch dup mul add 1 exch sub}"
+  " {2 copy add 1.23 le"
+  " {0.85 mul add 1 exch sub}"
+  " {1 sub dup mul exch 1 sub dup mul add 1 sub}"
+  " ifelse} ifelse}"                               /* 20 Diamond */
+};
+#define HT_SPOT_FUNCTIONS_COUNT ((int)(sizeof(ht_spot_functions)/sizeof(ht_spot_functions[0])))
 
 static gs_doc_t
 parse_doc_type(FILE *fp)
@@ -825,6 +867,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
   cf_cm_calibration_t cm_calibrate;
   int pxlcolor = 0; // 1 if printer is color printer otherwise 0.
   cups_halftone_type_t halftonetype = HALFTONE_DEFAULT;
+  int ht_frequency = 133, ht_angle = 45, ht_dotshape = 0;
   ipp_attribute_t *ipp_attr;
   cf_logfunc_t log = data->logfunc;
   void          *ld = data->logdata;
@@ -1636,6 +1679,58 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
       halftonetype = HALFTONE_FOO2ZJS;
     else if (!strcasecmp(t, "bi-level"))
       halftonetype = HALFTONE_BI_LEVEL;
+    else if (!strcasecmp(t, "dithering"))
+      halftonetype = HALFTONE_DITHERING;
+    else if (!strncasecmp(t, "genordered", 10) &&
+	    (t[10] == '-' || t[10] == '\0'))
+    {
+      halftonetype = HALFTONE_GENORDERED;
+      if (t[10] == '-')
+      {
+	const char *p = t + 11;
+	char *endp;
+	long v;
+	v = strtol(p, &endp, 10);
+	if (endp != p) { ht_frequency = (int)v; p = endp; }
+	if (*p == '-')
+	{
+	  p++;
+	  v = strtol(p, &endp, 10);
+	  if (endp != p) { ht_angle = (int)v; p = endp; }
+	  if (*p == '-')
+	  {
+	    p++;
+	    v = strtol(p, &endp, 10);
+	    if (endp != p) ht_dotshape = (int)v;
+	  }
+	}
+      }
+    }
+    else if (!strncasecmp(t, "spot", 4) &&
+	    (t[4] == '-' || t[4] == '\0'))
+    {
+      halftonetype = HALFTONE_SPOT;
+      if (t[4] == '-')
+      {
+	const char *p = t + 5;
+	char *endp;
+	long v;
+	v = strtol(p, &endp, 10);
+	if (endp != p) { ht_frequency = (int)v; p = endp; }
+	if (*p == '-')
+	{
+	  p++;
+	  v = strtol(p, &endp, 10);
+	  if (endp != p) { ht_angle = (int)v; p = endp; }
+	  if (*p == '-')
+	  {
+	    p++;
+	    v = strtol(p, &endp, 10);
+	    if (endp != p) ht_dotshape = (int)v;
+	  }
+	}
+      }
+    }
   }
 
   //
@@ -1769,6 +1864,65 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		 "cfFilterGhostscript: Ghostscript using Bi-Level Halftone dithering.");
     cupsArrayAdd(gs_args, strdup("{ .5 gt { 1 } { 0 } ifelse} settransfer"));
+  }
+
+  //
+  // Use 8x8 ordered dithering.
+  //
+  // This uses .setloresscreen Ghostscript setup function which is a part
+  // of dithering vs halftoning automatic selection code and is used only
+  // if DPI of the output device is low (< 150).
+  // To correctly force it, we need to call it in Install function of
+  // Page Device.
+  // DPI is auto-detected and passed for screen frequency calculation.
+  //
+  // Particularly useful for printing images on label printers (203 DPI).
+  //
+  if (halftonetype == HALFTONE_DITHERING)
+  {
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: Ghostscript using 8x8 ordered dithering.");
+    cupsArrayAdd(gs_args, strdup("<< /Install { 72 72 matrix defaultmatrix dtransform abs exch abs .min .setloresscreen } >> setpagedevice"));
+  }
+
+  //
+  // Ghostscript .genordered advanced ordered dithering
+  // PostScript HalftoneType 3 (threshold array based).
+  //
+  // This uses the .genordered operator to generate an ordered dither
+  // halftone screen with configurable frequency, angle and dot shape.
+  //
+  // Dot shapes:
+  // 0=CIRCLE, 1=REDBOOK, 2=INVERTED, 3=RHOMBOID, 4=LINE_X, 5=LINE_Y,
+  // 6=DIAMOND1, 7=DIAMOND2, 8=ROUNDSPOT */
+  //
+  if (halftonetype == HALFTONE_GENORDERED) {
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: Ghostscript using .genordered halftone (frequency=%d angle=%d dotshape=%d).",
+		 ht_frequency, ht_angle, ht_dotshape);
+    snprintf(tmpstr, sizeof(tmpstr),
+	     "<< /Frequency %d /Angle %d /DotShape %d >> .genordered /Default exch /Halftone defineresource sethalftone { } settransfer 0.003 setsmoothness",
+	     ht_frequency, ht_angle, ht_dotshape);
+    cupsArrayAdd(gs_args, strdup(tmpstr));
+  }
+
+  //
+  // PostScript HalftoneType 1 spot-function halftone algorithm.
+  //
+  // Spot functions are from PDF specification, see ht_spot_functions array.
+  //
+  if (halftonetype == HALFTONE_SPOT)
+  {
+    int shape = ht_dotshape;
+    if (shape < 0) shape = 0;
+    if (shape >= HT_SPOT_FUNCTIONS_COUNT) shape = HT_SPOT_FUNCTIONS_COUNT - 1;
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: Ghostscript using Spot halftone (frequency=%d angle=%d dotshape=%d).\n",
+		 ht_frequency, ht_angle, shape);
+    snprintf(tmpstr, sizeof(tmpstr),
+	     "<< /HalftoneType 1 /Frequency %d /Angle %d /SpotFunction %s >> /Default exch /Halftone defineresource sethalftone",
+	     ht_frequency, ht_angle, ht_spot_functions[shape]);
+    cupsArrayAdd(gs_args, strdup(tmpstr));
   }
 
   // Mark the end of PostScript commands supplied on the Ghostscript command
