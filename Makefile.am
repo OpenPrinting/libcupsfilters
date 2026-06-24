@@ -97,7 +97,8 @@ lib_LTLIBRARIES = libcupsfilters.la
 check_SCRIPTS = \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
-	cupsfilters/test-pdftoraster-copy-height.sh
+	cupsfilters/test-pdftoraster-copy-height.sh \
+	cupsfilters/test-imagetoraster-overflow.sh
 
 check_PROGRAMS = \
 	testcmyk \
@@ -110,6 +111,7 @@ check_PROGRAMS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
+	testimagetoraster \
 	testfilters
 
 TESTS = \
@@ -119,9 +121,11 @@ TESTS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
+	testimagetoraster \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
-	cupsfilters/test-pdftoraster-copy-height.sh
+	cupsfilters/test-pdftoraster-copy-height.sh \
+	cupsfilters/test-imagetoraster-overflow.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
@@ -287,6 +291,18 @@ testrgb_LDADD = \
 	-lm
 testrgb_CFLAGS = \
 	$(CUPS_CFLAGS)
+
+testimagetoraster_SOURCES = \
+	cupsfilters/testimagetoraster.c \
+	$(pkgfiltersinclude_DATA)
+testimagetoraster_CFLAGS = \
+	$(LIBJPEG_CFLAGS) \
+	$(CUPS_CFLAGS)
+testimagetoraster_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS) \
+	$(LIBJPEG_LIBS) \
+	-lm
 
 test1284_SOURCES = \
 	cupsfilters/test1284.c
