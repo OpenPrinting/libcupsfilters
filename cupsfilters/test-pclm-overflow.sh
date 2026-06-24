@@ -8,9 +8,25 @@ CC="${CC:-cc}"
 SAN_FLAGS="${SAN_FLAGS:--fsanitize=address -fno-omit-frame-pointer}"
 
 if [[ ! -x "${LIBTOOL}" ]]; then
-  echo "libtool helper not found at ${LIBTOOL}" >&2
-  exit 99
+  echo "test-pclm-overflow: libtool helper not found at ${LIBTOOL}" >&2
+  exit 77
 fi
+
+# ASAN does not work reliably under QEMU emulation — it crashes internally
+# with CHECK failures. ci-setup.sh sets EMULATED=1 for QEMU runs; skip early.
+if [[ "${EMULATED:-0}" = "1" ]]; then
+  echo "test-pclm-overflow: skipping ASAN test under emulation" >&2
+  exit 77
+fi
+
+# Read CUPS compiler/linker flags from the generated Makefile.  Required for
+# source-built CUPS where headers are not in the default include path.
+CUPS_CFLAGS_VAL="$(grep '^CUPS_CFLAGS' "${BUILD_ROOT}/Makefile" 2>/dev/null \
+                   | sed 's/^CUPS_CFLAGS[[:space:]]*=[[:space:]]*//' \
+                   | head -1 || true)"
+CUPS_LIBS_VAL="$(grep '^CUPS_LIBS' "${BUILD_ROOT}/Makefile" 2>/dev/null \
+                 | sed 's/^CUPS_LIBS[[:space:]]*=[[:space:]]*//' \
+                 | head -1 || true)"
 
 TMP_PARENT="${TMPDIR:-/tmp}"
 WORKDIR="$(mktemp -d "${TMP_PARENT%/}/pclm-overflow.XXXXXX")"
@@ -121,7 +137,11 @@ int main(int argc, char **argv) {
 }
 EOF
 
-"${CC}" -std=c11 -O0 ${SAN_FLAGS} -o "${PWG_BIN}" "${PWG_SRC}" -lcups
+"${CC}" -std=c11 -O0 ${SAN_FLAGS} ${CUPS_CFLAGS_VAL} \
+  -o "${PWG_BIN}" "${PWG_SRC}" ${CUPS_LIBS_VAL} 2>/dev/null || {
+  echo "test-pclm-overflow: failed to compile make_pwg helper (CUPS headers missing?)" >&2
+  exit 77
+}
 "${PWG_BIN}" 1024 8000 "${INPUT_PWG}" >/dev/null
 
 cat > "${HARNESS_SRC}" <<'EOF'
@@ -205,11 +225,31 @@ int main(int argc, char **argv) {
 EOF
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=c11 -O0 ${SAN_FLAGS} \
-  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" \
-  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
+  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_CFLAGS_VAL} \
+  -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null 2>&1 || {
+  echo "test-pclm-overflow: failed to compile harness" >&2
+  exit 77
+}
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null
+  "${BUILD_ROOT}/libcupsfilters.la" ${CUPS_LIBS_VAL} -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
+  echo "test-pclm-overflow: failed to link harness" >&2
+  exit 77
+}
+
+# Smoke-test that ASAN is actually functional in this environment.
+ASAN_TEST_SRC="${WORKDIR}/asan_test.c"
+ASAN_TEST_BIN="${WORKDIR}/asan_test"
+printf 'int main(void){return 0;}\n' > "${ASAN_TEST_SRC}"
+"${CC}" -fsanitize=address -fno-omit-frame-pointer \
+  -o "${ASAN_TEST_BIN}" "${ASAN_TEST_SRC}" >/dev/null 2>&1 || {
+  echo "test-pclm-overflow: ASAN not available" >&2
+  exit 77
+}
+ASAN_OPTIONS="detect_leaks=0" "${ASAN_TEST_BIN}" >/dev/null 2>&1 || {
+  echo "test-pclm-overflow: ASAN not functional in this environment" >&2
+  exit 77
+}
 
 : > "${RUN_LOG}"
 ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"

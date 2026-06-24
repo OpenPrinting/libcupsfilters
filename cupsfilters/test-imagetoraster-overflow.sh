@@ -23,14 +23,14 @@ SAN_FLAGS="${SAN_FLAGS:--fsanitize=address -fno-omit-frame-pointer}"
 
 if [[ ! -x "${LIBTOOL}" ]]; then
   echo "libtool helper not found at ${LIBTOOL}" >&2
-  exit 99
+  exit 77
 fi
 
 # ASAN does not work reliably under QEMU emulation — it crashes internally
 # with CHECK failures. ci-setup.sh sets EMULATED=1 for QEMU runs; skip early.
 if [[ "${EMULATED:-0}" = "1" ]]; then
   echo "test-imagetoraster-overflow: skipping ASAN test under emulation" >&2
-  exit 99
+  exit 77
 fi
 
 # Read the CUPS compiler flags that configure already discovered and wrote
@@ -104,7 +104,7 @@ EOF_JPEG
 "${CC}" -std=c11 -O0 -o "${MAKE_JPEG_BIN}" "${MAKE_JPEG_SRC}" -ljpeg >/dev/null 2>&1 || true
 if [[ ! -x "${MAKE_JPEG_BIN}" ]]; then
   echo "test-imagetoraster-overflow: failed to compile make_jpeg (libjpeg-dev missing?)" >&2
-  exit 99
+  exit 77
 fi
 "${MAKE_JPEG_BIN}" "${INPUT_JPG}"
 
@@ -200,13 +200,13 @@ EOF
   -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" ${CUPS_CFLAGS_VAL} \
   -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to compile harness" >&2
-  exit 99
+  exit 77
 }
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
   "${BUILD_ROOT}/libcupsfilters.la" ${CUPS_LIBS_VAL} -o "${HARNESS_BIN}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: failed to link harness" >&2
-  exit 99
+  exit 77
 }
 
 # Smoke-test that ASAN is actually functional in this environment.
@@ -217,11 +217,11 @@ printf 'int main(void){return 0;}\n' > "${ASAN_TEST_SRC}"
 "${CC}" -fsanitize=address -fno-omit-frame-pointer \
   -o "${ASAN_TEST_BIN}" "${ASAN_TEST_SRC}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: ASAN not available" >&2
-  exit 99
+  exit 77
 }
 ASAN_OPTIONS="detect_leaks=0" "${ASAN_TEST_BIN}" >/dev/null 2>&1 || {
   echo "test-imagetoraster-overflow: ASAN not functional in this environment" >&2
-  exit 99
+  exit 77
 }
 
 : > "${RUN_LOG}"
