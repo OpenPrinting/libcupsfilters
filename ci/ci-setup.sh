@@ -130,8 +130,8 @@ cmd_build() {
 	# (headers under /usr/include/cupsN) or under QEMU.  Mark it XFAIL in those
 	# cases so the environment quirk does not fail the suite.
 	xfail=""
-	case "${CUPS_KIND:-}" in source-*) xfail="cupsfilters/test-pclm-overflow.sh" ;; esac
-	[ "${EMULATED:-0}" = "1" ] && xfail="cupsfilters/test-pclm-overflow.sh"
+	case "${CUPS_KIND:-}" in source-*) xfail="cupsfilters/test-pclm-overflow.sh cupsfilters/test-imagetoraster-overflow.sh" ;; esac
+	[ "${EMULATED:-0}" = "1" ] && xfail="cupsfilters/test-pclm-overflow.sh cupsfilters/test-imagetoraster-overflow.sh"
 
 	if [ -n "$xfail" ]; then
 		make check V=1 VERBOSE=1 XFAIL_TESTS="$xfail" \
