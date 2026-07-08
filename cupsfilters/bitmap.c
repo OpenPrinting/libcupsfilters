@@ -76,8 +76,7 @@ cfConvertBits(unsigned char *src,        // I - Input string
 	      unsigned char *dst,        // I - Destination string
 	      unsigned int x,            // I - Column
 	      unsigned int y,            // I - Row
-	      unsigned int cupsNumColors,// I - Number of color components of
-	                                 //     output data
+	      unsigned int cupsNumColors,// I - Number of color components of output data
 	      unsigned int bitspercolor) // I - Bitspercolor of output data
 {
   // assumed that max number of colors is 4
@@ -156,13 +155,12 @@ cfConvertBits(unsigned char *src,        // I - Input string
 //                    color order.
 //
 
-void                                    // O - Exit status
+void                                    
 cfWritePixel(unsigned char *dst,        // I - Destination string
 	     unsigned int plane,        // I - Plane/Band
 	     unsigned int pixeli,       // I - Pixel
 	     unsigned char *pixelBuf,   // I - Input string
-	     unsigned int cupsNumColors,// I - Number of color components of
-	                                //     output data
+	     unsigned int cupsNumColors,// I - Number of color components of output data
 	     unsigned int bitspercolor, // I - Bitspercolor of output data
 	     cups_order_t colororder)   // I - Color Order of output data
 {
@@ -395,7 +393,7 @@ cfReverseOneBitLineSwap(unsigned char *src, // I - Input line
 //                    raster data using ordered dithering.
 //
 
-void    			  // O - Output line
+void    			  
 cfOneBitLine(unsigned char *src,  // I - Input line
 	     unsigned char *dst,  // O - Destination line
 	     unsigned int width,  // I - Width of raster image in pixels
@@ -434,11 +432,10 @@ cfOneBitLine(unsigned char *src,  // I - Input line
 //                          8-bit raster data.
 //
 
-void    			        // O - Output line
+void    			                    
 cfOneBitToGrayLine(unsigned char *src,  // I - Input line
 		   unsigned char *dst,  // O - Destination line
-		   unsigned int width)  // I - Width of raster image in
-                                        //     pixels
+		   unsigned int width)  // I - Width of raster image in pixels
 {
   unsigned char mask = 0x80;
   for (unsigned int w = 0; w < width; w += 1)
@@ -460,13 +457,13 @@ cfOneBitToGrayLine(unsigned char *src,  // I - Input line
 //                      raster data.
 //
 
-unsigned char
-*cfRGB8toKCMYcm(unsigned char *src,
-		unsigned char *dst,
-		unsigned int x,
-		unsigned int y)
+unsigned char                             // O - Output pixel
+*cfRGB8toKCMYcm(unsigned char *src,       // I - Input pixel (RGB)
+		unsigned char *dst,               // I - Destination pixel (KCMYcm)
+		unsigned int x,                   // I - Column 
+		unsigned int y)                   // I - Row
 {
-  unsigned char cmyk[4];
+  unsigned char cmyk[4];                  
   unsigned char c;
   unsigned char d;
 
