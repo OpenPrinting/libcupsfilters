@@ -883,14 +883,17 @@ generate_banner_pdf(banner_t *banner,
   return (0);
 }
 
+//
+// 'cfFilterBannerToPDF()' - Convert banner instructions to PDF.
+//
+
 int
 cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 		    int outputfd,        // I - File descriptor output stream
 		    int inputseekable,   // I - Is input stream seekable?
 		                         //     (unused)
 		    cf_filter_data_t *data, // I - Job and printer data
-		    void *parameters)    // I - Filter-specific parameters -
-                                         //     Template/Banner data directory
+		    void *parameters)    // I - Filter-specific parameters (Template/Banner data directory)
 {
   banner_t *banner;
   int num_options = 0;
