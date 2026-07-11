@@ -72,7 +72,7 @@ fcntl_add_nonblock(int fd) // File descriptor to add O_NONBLOCK to
 //                     ", ....
 //
 
-void                                 // O - None
+void                                             
 cfCUPSLogFunc(void *data,            // I - User data (not used)
 	     cf_loglevel_t level,          // I - Log level
 	     const char *message,          // I - Message format string
