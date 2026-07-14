@@ -472,6 +472,17 @@ cfResolveURI2(const char *raw_uri, int is_fax)
 #endif // !HAVE_LIBCUPS2
 
 
+// Returns 1 if the attribute's value tag is a string type whose values can
+// safely be read with ippGetString(); 0 otherwise. Guards against wrong-tag
+// (e.g. integer/enum) attributes supplied by malformed printer or IPP data.
+static int 
+is_string_tag(ipp_attribute_t *attr)  // I - Attribute to check
+{
+  ipp_tag_t tag = ippGetValueTag(attr);
+  return (tag == IPP_TAG_NAME || tag == IPP_TAG_NAMELANG ||
+	  tag == IPP_TAG_KEYWORD);
+}
+
 const char* // O - Attribute value as string
 cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
 			                         //     as to respond
@@ -492,7 +503,8 @@ cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
   // Check whether job got supplied the named attribute and read out its value
   // as string
   if (job_attrs == NULL ||
-      (attr = ippFindAttribute(job_attrs, attr_name, IPP_TAG_ZERO)) == NULL)
+      (attr = ippFindAttribute(job_attrs, attr_name, IPP_TAG_ZERO)) == NULL ||
+      !is_string_tag(attr))
     res = NULL;
   else
     res = ippGetString(attr, 0, NULL);
@@ -513,8 +525,11 @@ cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
 				   IPP_TAG_ZERO)) != NULL)
       {
 	for (i = 0; i < ippGetCount(attr); i ++)
-	  if (strcasecmp(res, ippGetString(attr, i, NULL)) == 0)
+	{
+	  const char *sup = ippGetString(attr, i, NULL);
+	  if (sup && strcasecmp(res, sup) == 0)
 	    break; // Job attribute value is valid
+	}
 	if (i == ippGetCount(attr))
 	  res = NULL; // Job attribute value is not valid
       }
@@ -525,7 +540,8 @@ cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
       snprintf(printer_attr_name, sizeof(printer_attr_name) - 1,
 	       "%s-default", attr_name);
       if ((attr = ippFindAttribute(printer_attrs, printer_attr_name,
-				   IPP_TAG_ZERO)) != NULL)
+				   IPP_TAG_ZERO)) != NULL &&
+	  is_string_tag(attr))
 	res = ippGetString(attr, 0, NULL);
     }
   }
