@@ -21,15 +21,13 @@ extern "C" {
 #include <cupsfilters/filter.h>
 
 
-#define CF_CM_CALIBRATION_STRING "cm-calibration"  // String for "Color
-						   // Calibration Mode"
+#define CF_CM_CALIBRATION_STRING "cm-calibration"  // String for "Color Calibration Mode"
 
 
 // Enum for status of CUPS color calibration
 typedef enum cf_cm_calibration_e
 { 
-  CF_CM_CALIBRATION_DISABLED = 0,                  // "cm-calibration" option
-						   // not found
+  CF_CM_CALIBRATION_DISABLED = 0,                  // "cm-calibration" option not found
   CF_CM_CALIBRATION_ENABLED = 1                    // "cm-calibration" found
 } cf_cm_calibration_t;
 
