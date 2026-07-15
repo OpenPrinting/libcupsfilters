@@ -840,11 +840,13 @@ cfGetBackSideOrientation(cf_filter_data_t *data) // I - Filter data
       if (final_content_type &&
 	  strcasestr(final_content_type, "/urf") &&
 	  (ipp_attr = ippFindAttribute(printer_attrs, "urf-supported",
-				       IPP_TAG_ZERO)) != NULL)
+				       IPP_TAG_KEYWORD)) != NULL)
       {
 	for (i = 0, count = ippGetCount(ipp_attr); i < count; i ++)
 	{
 	  const char *dm = ippGetString(ipp_attr, i, NULL); // DM value
+	  if (!dm)
+	    continue;
 	  if (!strcasecmp(dm, "DM1"))
 	  {
 	    backside = CF_BACKSIDE_NORMAL;
@@ -871,26 +873,29 @@ cfGetBackSideOrientation(cf_filter_data_t *data) // I - Filter data
 		strcasestr(final_content_type, "/vnd.pwg-raster") &&
 		(ipp_attr = ippFindAttribute(printer_attrs,
 					     "pwg-raster-document-sheet-back",
-					     IPP_TAG_ZERO)) != NULL) ||
+					     IPP_TAG_KEYWORD)) != NULL) ||
 	       (final_content_type &&
 		strcasestr(final_content_type, "/pclm") &&
 		(ipp_attr = ippFindAttribute(printer_attrs,
 					     "pclm-raster-back-side",
-					     IPP_TAG_ZERO)) != NULL) ||
+					     IPP_TAG_KEYWORD)) != NULL) ||
 	       ((ipp_attr = NULL) ||
 		(keyword = cupsGetOption("back-side-orientation",
 					 num_options, options)) != NULL))
       {
 	if (ipp_attr)
 	  keyword = ippGetString(ipp_attr, 0, NULL);
-	if (!strcasecmp(keyword, "flipped"))
-	  backside = CF_BACKSIDE_FLIPPED;
-	else if (!strncasecmp(keyword, "manual", 6))
-	  backside = CF_BACKSIDE_MANUAL_TUMBLE;
-	else if (!strcasecmp(keyword, "normal"))
-	  backside = CF_BACKSIDE_NORMAL;
-	else if (!strcasecmp(keyword, "rotated"))
-	  backside = CF_BACKSIDE_ROTATED;
+	if (keyword)
+	{
+	  if (!strcasecmp(keyword, "flipped"))
+	    backside = CF_BACKSIDE_FLIPPED;
+	  else if (!strncasecmp(keyword, "manual", 6))
+	    backside = CF_BACKSIDE_MANUAL_TUMBLE;
+	  else if (!strcasecmp(keyword, "normal"))
+	    backside = CF_BACKSIDE_NORMAL;
+	  else if (!strcasecmp(keyword, "rotated"))
+	    backside = CF_BACKSIDE_ROTATED;
+	}
       }
 
       if (backside == -1)
@@ -951,7 +956,7 @@ cfGetPrintRenderIntent(cf_filter_data_t *data,
 
   if ((ipp_attr = ippFindAttribute(printer_attrs,
 				   "print-rendering-intent-supported",
-				   IPP_TAG_ZERO)) != NULL)
+				   IPP_TAG_KEYWORD)) != NULL)
   {
     int autoRender = 0;
     int count;
@@ -961,6 +966,8 @@ cfGetPrintRenderIntent(cf_filter_data_t *data,
       for (i = 0; i < count; i ++)
       {
 	const char *temp = ippGetString(ipp_attr, i, NULL);
+	if (!temp)
+	  continue;
 	if (!strcasecmp(temp, "auto")) autoRender = 1;
 	if (ri[0] != '\0')
 	  // User has supplied a setting
@@ -977,10 +984,13 @@ cfGetPrintRenderIntent(cf_filter_data_t *data,
       if (ri[0] == '\0')
       {	// Either user has not supplied any setting
 	// or user supplied value is not supported by printer
+	const char *def = NULL;	// Default rendering intent
+
 	if ((ipp_attr = ippFindAttribute(printer_attrs,
 					 "print-rendering-intent-default",
-					 IPP_TAG_ZERO)) != NULL)
-	  snprintf(ri, ri_len, "%s", ippGetString(ipp_attr, 0, NULL));
+					 IPP_TAG_KEYWORD)) != NULL &&
+	    (def = ippGetString(ipp_attr, 0, NULL)) != NULL)
+	  snprintf(ri, ri_len, "%s", def);
 	else if (autoRender == 1)
 	  snprintf(ri, ri_len, "%s", "auto");
       }
