@@ -33,15 +33,11 @@ double    blackpoint_default[3] = {0.0, 0.0, 0.0};
 
 
 //
-// Public functions
+// 'cfCmIsPrinterCmDisabled()' - Check if color management is disabled for the printer.
 //
 
-//
-// Get printer color management status from the system's color manager
-//
-
-int          
-cfCmIsPrinterCmDisabled(cf_filter_data_t *data)
+int                                                 // O - Non-zero if disabled, 0 otherwise
+cfCmIsPrinterCmDisabled(cf_filter_data_t *data)     // I - Filter data
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -72,16 +68,16 @@ cfCmIsPrinterCmDisabled(cf_filter_data_t *data)
 
 
 //
-// Get printer ICC profile from the system's color manager
+// 'cfCmGetPrinterIccProfile()' - Get the ICC profile for the printer from colord or fallback option.
 //
 
-int 
-cfCmGetPrinterIccProfile(cf_filter_data_t *data,
-			 const char *color_space,
-			 const char *media_type,
-			 int x_res,
-			 int y_res,
-			 char **profile)      // ICC Profile Path
+int                                                         // O - Non-zero if profile found, 0 otherwise
+cfCmGetPrinterIccProfile(cf_filter_data_t *data,            // I - Filter data
+			 const char *color_space,                             // I - Color space string
+			 const char *media_type,                            // I - Media type string                 
+			 int x_res,                                         // I - X resolution
+			 int y_res,                                         // I - Y resolution
+			 char **profile)                                    // I - ICC profile path string
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -152,11 +148,11 @@ cfCmGetPrinterIccProfile(cf_filter_data_t *data,
 
 
 //
-// Find the "cm-calibration" CUPS option
+// 'cfCmGetCupsColorCalibrateMode()' - Get the color calibration mode from CUPS options.
 //
 
-cf_cm_calibration_t    
-cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)
+cf_cm_calibration_t                                         // O - Color calibration mode
+cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)       // I - Filter data
 {
   int 			num_options = 0;
   cups_option_t 	*options = NULL;
