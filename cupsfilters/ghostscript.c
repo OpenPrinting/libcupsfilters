@@ -51,7 +51,7 @@ typedef enum cups_halftone_type_e
   HALFTONE_DEFAULT,         // Default halftone type
   HALFTONE_STOCHASTIC,      // Stochastic halftone type
   HALFTONE_FOO2ZJS,         // foo2zjs halftone type
-  HALFTONE_BI_LEVEL         // Bi-level halftone type
+  HALFTONE_BI_LEVEL,         // Bi-level halftone type
   HALFTONE_DITHERING,         // Dithering halftone type
   HALFTONE_GENORDERED,      // Generalized ordered halftone type
   HALFTONE_SPOT,           // Spot halftone type
