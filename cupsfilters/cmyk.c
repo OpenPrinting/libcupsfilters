@@ -61,14 +61,10 @@ cfCMYKDelete(cf_cmyk_t *cmyk)	// I - Color separation
 //
 
 void
-cfCMYKDoBlack(const cf_cmyk_t     *cmyk,
-					// I - Color separation
-	      const unsigned char *input,
-					// I - Input grayscale pixels
-	      short               *output,
-					// O - Output Device-N pixels
-	      int                 num_pixels)
-					// I - Number of pixels
+cfCMYKDoBlack(const cf_cmyk_t     *cmyk, 	// I - Color separation
+	      const unsigned char *input,		// I - Input grayscale pixels
+	      short               *output,		// O - Output Device-N pixels
+	      int                 num_pixels)	// I - Number of pixels
 {
   int			k;		// Current black value
   const short		**channels;	// Copy of channel LUTs
@@ -244,14 +240,10 @@ cfCMYKDoBlack(const cf_cmyk_t     *cmyk,
 //
 
 void
-cfCMYKDoCMYK(const cf_cmyk_t     *cmyk,
-					// I - Color separation
-	     const unsigned char *input,
-					// I - Input grayscale pixels
-	     short               *output,
-					// O - Output Device-N pixels
-	     int                 num_pixels)
-					// I - Number of pixels
+cfCMYKDoCMYK(const cf_cmyk_t     *cmyk,			// I - Color separation
+	     const unsigned char *input,			// I - Input grayscale pixels
+	     short               *output,			// O - Output Device-N pixels
+	     int                 num_pixels)		// I - Number of pixels
 {
   int			c,		// Current cyan value
 			m,		// Current magenta value
@@ -516,14 +508,10 @@ cfCMYKDoCMYK(const cf_cmyk_t     *cmyk,
 //
 
 void
-cfCMYKDoGray(const cf_cmyk_t     *cmyk,
-					// I - Color separation
-	     const unsigned char *input,
-					// I - Input grayscale pixels
-	     short               *output,
-					// O - Output Device-N pixels
-	     int                 num_pixels)
-					// I - Number of pixels
+cfCMYKDoGray(const cf_cmyk_t     *cmyk,		// I - Color separation
+	     const unsigned char *input,		// I - Input grayscale pixels
+	     short               *output,		// O - Output Device-N pixels
+	     int                 num_pixels)	// I - Number of pixels
 {
   int			k,		// Current black value
 			kc;		// Current black color value
@@ -743,14 +731,10 @@ cfCMYKDoGray(const cf_cmyk_t     *cmyk,
 //
 
 void
-cfCMYKDoRGB(const cf_cmyk_t     *cmyk,
-					// I - Color separation
-	    const unsigned char *input,
-					// I - Input grayscale pixels
-	    short               *output,
-					// O - Output Device-N pixels
-	    int                 num_pixels)
-					// I - Number of pixels
+cfCMYKDoRGB(const cf_cmyk_t     *cmyk,		// I - Color separation
+	    const unsigned char *input,			// I - Input grayscale pixels
+	    short               *output,		// O - Output Device-N pixels
+	    int                 num_pixels)		// I - Number of pixels
 {
   int			c,		// Current cyan value
 			m,		// Current magenta value
@@ -1188,8 +1172,7 @@ cfCMYKSetBlack(cf_cmyk_t    *cmyk,	// I - CMYK color separation
 void
 cfCMYKSetCurve(cf_cmyk_t    *cmyk,	// I - CMYK color separation
 	       int          channel,	// I - Color channel
-	       int          num_xypoints,
-					// I - Number of X,Y points
+	       int          num_xypoints, // I - Number of X,Y points
 	       const float  *xypoints,	// I - X,Y points
 	       cf_logfunc_t log,	// I - Log function
 	       void         *ld)	// I - Log function data
