@@ -25,8 +25,6 @@
 //
 // 'cfDitherDelete()' - Free a dithering buffer.
 //
-// Returns 0 on success, -1 on failure.
-//
 
 void
 cfDitherDelete(cf_dither_t *d)	// I - Dithering buffer
@@ -41,12 +39,11 @@ cfDitherDelete(cf_dither_t *d)	// I - Dithering buffer
 //
 
 void
-cfDitherLine(cf_dither_t      *d,	// I - Dither data
-	     const cf_lut_t   *lut,	// I - Lookup table
-	     const short      *data,	// I - Separation data
-	     int              num_channels,
-					// I - Number of components
-	     unsigned char    *p)	// O - Pixels
+cfDitherLine(cf_dither_t      *d,         	// I - Dither data
+	     const cf_lut_t   *lut,             	// I - Lookup table
+	     const short      *data,            	// I - Separation data
+	     int              num_channels,       // I - Number of components
+	     unsigned char    *p)               	// O - Pixels
 {
   register int	x,			// Horizontal position in line...
 		pixel,			// Current adjusted pixel...
