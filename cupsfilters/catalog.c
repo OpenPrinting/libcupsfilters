@@ -565,11 +565,14 @@ cfCatalogLookUpChoice(char *name,    // I - Choice name
     return (NULL);
 }
 
+//
+// 'cfCatalogLoad()' - Load a catalog file.
+//
 
 void
-cfCatalogLoad(const char *location,
-              const char *preferredlocale,
-	      cups_array_t *options)
+cfCatalogLoad(const char *location,             // I - Catalog file location (path or URL)
+              const char *preferredlocale,        // I - Preferred locale name
+	      cups_array_t *options)                    // I - Catalog option array
 {
   char tmpfile[1024];
   const char *filename = NULL;
