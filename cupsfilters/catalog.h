@@ -73,15 +73,15 @@ extern "C" {
 
 // Data structure for IPP choice name and human-readable string
 typedef struct catalog_choice_strings_s {
-  char *name,
-       *human_readable;
+  char *name,                   // I - IPP choice name
+       *human_readable;			// I - Human-readable string
 } catalog_choice_strings_t;
 
 // Data structure for IPP option name, human-readable string, and choice list
 typedef struct catalog_opt_strings_s {
-  char *name,
-       *human_readable;
-  cups_array_t *choices;
+  char *name,				// I - IPP option name
+       *human_readable;		// I - Human-readable string
+  cups_array_t *choices;	// I - Array of choices for this option
 } catalog_opt_strings_t;
 
 
