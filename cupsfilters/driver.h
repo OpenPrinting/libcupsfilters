@@ -86,10 +86,8 @@ typedef struct cf_rgb_s			// *** Color separation lookup table ***
   int		cube_size;		// Size of color cube (2-N) on a side
   int		num_channels;		// Number of colors per sample
   unsigned char	****colors;		// 4-D array of sample values
-  int		cube_index[256];	// Index into cube for a given sRGB
-                                        // value
-  int		cube_mult[256];		// Multiplier value for a given sRGB
-                                        // value
+  int		cube_index[256];	// Index into cube for a given sRGB value
+  int		cube_mult[256];		// Multiplier value for a given sRGB value
   int		cache_init;		// Are cached values initialized?
   unsigned char	black[CF_MAX_RGB];	// Cached black (sRGB = 0,0,0)
   unsigned char	white[CF_MAX_RGB];	// Cached white (sRGB = 255,255,255)
