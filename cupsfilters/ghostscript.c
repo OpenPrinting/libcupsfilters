@@ -34,26 +34,28 @@
 
 #define PDF_MAX_CHECK_COMMENT_LINES	20
 
+// Ghostscript document type.
 typedef enum gs_doc_e
 {
-  GS_DOC_TYPE_PDF,
-  GS_DOC_TYPE_PS,
-  GS_DOC_TYPE_EMPTY,
-  GS_DOC_TYPE_UNKNOWN
-} gs_doc_t;
+  GS_DOC_TYPE_PDF,      // PDF document
+  GS_DOC_TYPE_PS,       // PostScript document
+  GS_DOC_TYPE_EMPTY,    // Empty document
+  GS_DOC_TYPE_UNKNOWN   // Unknown document type
+} gs_doc_t;             
 
 typedef cups_page_header_t gs_page_header;
 
+// Ghostscript halftone type.
 typedef enum cups_halftone_type_e
 {
-  HALFTONE_DEFAULT,
-  HALFTONE_STOCHASTIC,
-  HALFTONE_FOO2ZJS,
-  HALFTONE_BI_LEVEL,
-  HALFTONE_DITHERING,
-  HALFTONE_GENORDERED,
-  HALFTONE_SPOT
-} cups_halftone_type_t;
+  HALFTONE_DEFAULT,         // Default halftone type
+  HALFTONE_STOCHASTIC,      // Stochastic halftone type
+  HALFTONE_FOO2ZJS,         // foo2zjs halftone type
+  HALFTONE_BI_LEVEL         // Bi-level halftone type
+  HALFTONE_DITHERING,         // Dithering halftone type
+  HALFTONE_GENORDERED,      // Generalized ordered halftone type
+  HALFTONE_SPOT,           // Spot halftone type
+} cups_halftone_type_t;     
 
 static const char *ht_spot_functions[] =
 {
@@ -831,10 +833,8 @@ gs_spawn (const char *filename,
 //
 
 int                                         // O - Error status
-cfFilterGhostscript(int inputfd,            // I - File descriptor input
-					    //     stream
-		    int outputfd,           // I - File descriptor output
-					    //     stream
+cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
+		    int outputfd,           // I - File descriptor output stream
 		    int inputseekable,      // I - Is input stream seekable?
 		    cf_filter_data_t *data, // I - Job and printer data
 		    void *parameters)       // I - Filter-specific parameters
