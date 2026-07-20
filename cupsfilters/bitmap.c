@@ -432,7 +432,7 @@ cfOneBitLine(unsigned char *src,  // I - Input line
 //                          8-bit raster data.
 //
 
-void    			                    
+void
 cfOneBitToGrayLine(unsigned char *src,  // I - Input line
 		   unsigned char *dst,  // O - Destination line
 		   unsigned int width)  // I - Width of raster image in pixels
@@ -463,7 +463,7 @@ unsigned char                             // O - Output pixel
 		unsigned int x,                   // I - Column 
 		unsigned int y)                   // I - Row
 {
-  unsigned char cmyk[4];                  
+  unsigned char cmyk[4];
   unsigned char c;
   unsigned char d;
 

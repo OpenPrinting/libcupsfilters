@@ -29,7 +29,7 @@
 #include <cups/pwg.h>
 
 // Banner information flags.
-typedef enum banner_info_e   
+typedef enum banner_info_e
 {
   INFO_IMAGEABLE_AREA = 1,            // I - Imageable area
   INFO_JOB_BILLING = 1 << 1,          // I - Job billing

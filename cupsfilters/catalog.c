@@ -355,7 +355,7 @@ compare_options(void *a,
 //                                   localized human-readable choice name.
 //
 
-void                                            
+void
 cfCatalogFreeChoiceStrings(void* entry,          // I - Choice strings entry
 			   void* user_data)                       // I - User data (unused)
 {
