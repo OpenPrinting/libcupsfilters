@@ -41,7 +41,7 @@ typedef enum gs_doc_e
   GS_DOC_TYPE_PS,       // PostScript document
   GS_DOC_TYPE_EMPTY,    // Empty document
   GS_DOC_TYPE_UNKNOWN   // Unknown document type
-} gs_doc_t;             
+} gs_doc_t;
 
 typedef cups_page_header_t gs_page_header;
 
@@ -55,7 +55,7 @@ typedef enum cups_halftone_type_e
   HALFTONE_DITHERING,         // Dithering halftone type
   HALFTONE_GENORDERED,      // Generalized ordered halftone type
   HALFTONE_SPOT,           // Spot halftone type
-} cups_halftone_type_t;     
+} cups_halftone_type_t;
 
 static const char *ht_spot_functions[] =
 {
