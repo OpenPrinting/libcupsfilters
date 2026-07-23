@@ -29,7 +29,7 @@
 #define MAX_BYTES_PER_PIXEL 32
 
 // Structure to hold filter data and state
-typedef struct pclmtoraster_data_s 
+typedef struct pclmtoraster_data_s
 {
   int outformat;		// Output Format
   int numcolors;		// number of Colour components(e.g. 3 for RGB, 4 for CYMK..)
@@ -40,13 +40,15 @@ typedef struct pclmtoraster_data_s
   // image swapping
   int swap_image_x;
   int swap_image_y;
-  // margin swapping 
+  // margin swapping
   int swap_margin_x;
   int swap_margin_y;
   unsigned int nplanes;		// Number of colour planes
   unsigned int nbands;		// Number of colour bands
   unsigned int bytesPerLine;	// bytes per line in output
   char colorspace[32]; 		// Colourspace string(Use fixed-size string)
+  int pixel_count;		// Accumulated pixel byte count for bitmap
+  unsigned char *bitmap;	// Accumulated image bitmap data
 } pclmtoraster_data_t;
 
 //
@@ -69,6 +71,8 @@ init_pclmtoraster_data_t(pclmtoraster_data_t *data)	// I - pclm data to initiali
   // Note: When CUPS_ORDER_BANDED,
   //   cupsBytesPerLine = bytesPerLine * cupsNumColors
   strncpy(data->colorspace, "\0", sizeof(data->colorspace));
+  data->pixel_count = 0;
+  data->bitmap = NULL;
 }
 
 // function pointer for color space conversion
@@ -830,42 +834,39 @@ select_convert_func(int			pgno,	 // I - Page number
 // 		       NOTE: no error code, be sure to upload image object only.
 //
 
-bool						  // O - 1 if success, 0 if fail
+static bool					  // O - 1 if success, 0 if fail
 process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
 	      const char *key, 			// I - key names of xobjects
-	      pclmtoraster_data_t *data, 	// I - conversion data
-	      int pixel_count, 			// I - pixel count for bitmap
-	      unsigned char *bitmap)		// O - bitmap values
+	      void *cb_data)			// I - conversion data
 {
+  pclmtoraster_data_t *data = (pclmtoraster_data_t *)cb_data;
   char *buffer[4096];
   pdfio_obj_t *image = pdfioDictGetObj(dict, key);
-
-  //... verify the object has type "Image", then do something with the image object ...
 
   if (strcmp(pdfioObjGetType(image), "image") == 0)
   {
     pdfio_dict_t *imgdict = pdfioObjGetDict(image);
-    if (!imgdict) 
+    if (!imgdict)
        return true;
 
     // Read the raw image stream
     pdfio_stream_t *img_str = pdfioObjOpenStream(image, true);
     size_t bufsize = pdfioStreamRead(img_str, buffer, sizeof(buffer));
-    
+
     int width = pdfioDictGetNumber(imgdict, "Width");
     int height = pdfioDictGetNumber(imgdict, "Height");
 
     data->header.cupsHeight += height;
 
     // Allocate memory for the bitmap data
-    if (pixel_count == 0)
-      bitmap = (unsigned char *)malloc(bufsize);
-    
+    if (data->pixel_count == 0)
+      data->bitmap = (unsigned char *)malloc(bufsize);
     else
-      bitmap = (unsigned char *)realloc(bitmap, pixel_count + bufsize);
+      data->bitmap = (unsigned char *)realloc(data->bitmap,
+                                              data->pixel_count + bufsize);
 
-    memcpy(bitmap + pixel_count, buffer, bufsize);
-    pixel_count += bufsize;
+    memcpy(data->bitmap + data->pixel_count, buffer, bufsize);
+    data->pixel_count += bufsize;
 
     // Track maximum width
     if (width > data->header.cupsWidth)
@@ -893,10 +894,9 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   int                   i;
   long long		rotate = 0;
   float			paperdimensions[2], margins[4], l, swap;
-  int			pixel_count = 0, temp = 0;
+  int			temp = 0;
   float 		mediaBox[4];
-  unsigned char 	*bitmap = NULL,
-			*colordata = NULL,
+  unsigned char 	*colordata = NULL,
 			*lineBuf = NULL,
 			*line = NULL,
 			*dp = NULL;
@@ -1032,7 +1032,9 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   pdfio_dict_t *xobjects = pdfioDictGetDict(resources, "XObject");
  
   // Iterate over the XObject dictionary to find images
-  pdfioDictIterateKeys(xobjects, (pdfio_dict_cb_t)process_image, data);
+  data->pixel_count = 0;
+  data->bitmap = NULL;
+  pdfioDictIterateKeys(xobjects, process_image, data);
 
   // Swap width and height in landscape images
   if(rotate == 270 || rotate == 90)
@@ -1079,15 +1081,16 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   // Rotate Bitmap
   if (rotate)
   {
-    unsigned char *bitmap2 = (unsigned char *) malloc(pixel_count);
-    bitmap2 = rotate_bitmap(bitmap, bitmap2, rotate, data->header.cupsHeight,
+    unsigned char *bitmap2 = (unsigned char *) malloc(data->pixel_count);
+    bitmap2 = rotate_bitmap(data->bitmap, bitmap2, rotate,
+			    data->header.cupsHeight,
 			    data->header.cupsWidth, data->rowsize,
 			    data->colorspace, log, ld);
-    free(bitmap);
-    bitmap = bitmap2;
+    free(data->bitmap);
+    data->bitmap = bitmap2;
   }
 
-  colordata = bitmap;
+  colordata = data->bitmap;
 
   // Write page image
   lineBuf = (unsigned char *)malloc(data->bytesPerLine * sizeof(unsigned char));
@@ -1130,7 +1133,9 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   }
   free(lineBuf);
   free(line);
-  free(bitmap);
+  free(data->bitmap);
+  data->bitmap = NULL;
+  data->pixel_count = 0;
 
   return (0);
 }
