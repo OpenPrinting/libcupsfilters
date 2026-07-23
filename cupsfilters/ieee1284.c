@@ -407,6 +407,12 @@ cfIEEE1284GetMakeModel(
 
   num_values = cfIEEE1284GetValues(device_id, &values);
 
+  if (!num_values)
+  {
+    DEBUG_puts("cfIEEE1284GetMakeModel: no key:value pairs");
+    return (-1);
+  }
+
   if ((mdl = cupsGetOption("MODEL", num_values, values)) == NULL)
     mdl = cupsGetOption("MDL", num_values, values);
 
@@ -573,6 +579,9 @@ cfIEEE1284GetValues(
     *ptr = '\0';
     device_id ++;
 
+    if (!key[0] || !value[0])
+      continue;
+
     num_values = cupsAddOption(key, value, num_values, values);
   }
 
@@ -668,6 +677,7 @@ cfIEEE1284NormalizeMakeModel(
   char	*bufptr;			// Pointer into buffer
   char  sepchr = ' ';                   // Word separator character
   int   compare = 0,                    // Format for comparing
+        compare_len = 0,                // Length of compared buffer
         human = 0,                      // Format for human-readable string
         lower = 0,                      // All letters lowercase
         upper = 0,                      // All letters uppercase
@@ -1151,7 +1161,8 @@ cfIEEE1284NormalizeMakeModel(
     // Remove repeated manufacturer names...
     //
 
-    while (strncasecmp(buffer, modelptr, modelptr - buffer) == 0)
+    compare_len = modelptr - buffer;
+    while (compare_len > 0 && strncasecmp(buffer, modelptr, compare_len) == 0)
       move_right_part(buffer, bufsize, modelptr, buffer - modelptr);
 
     //
