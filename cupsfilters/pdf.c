@@ -165,6 +165,11 @@ cfPDFPagesFP(FILE *file) 	// I - File pointer of PDF
     fwrite(buffer, 1, bytes_read, temp_fp);
   }
 
+  // call fflush(temp_fp) to flush the stdio buffer; 
+  // otherwise pdfioFileOpen() may not see the complete contents of temp_filename because 
+  // some data may still be buffered and not yet written to the file.
+  fflush(temp_fp);  
+
   // Open the temp file with pdfio
   pdfio_file_t *pdf = pdfioFileOpen(temp_filename, NULL, NULL, NULL, NULL);
 
