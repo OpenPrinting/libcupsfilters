@@ -28,34 +28,34 @@
 #include <cups/cups.h>
 #include <cups/pwg.h>
 
-
+// Banner information flags.
 typedef enum banner_info_e
 {
-  INFO_IMAGEABLE_AREA = 1,
-  INFO_JOB_BILLING = 1 << 1,
-  INFO_JOB_ID = 1 << 2,
-  INFO_JOB_NAME = 1 << 3,
-  INFO_JOB_ORIGINATING_HOST_NAME = 1 << 4,
-  INFO_JOB_ORIGINATING_USER_NAME = 1 << 5,
-  INFO_JOB_UUID = 1 << 6,
-  INFO_OPTIONS = 1 << 7,
-  INFO_PAPER_NAME = 1 << 8,
-  INFO_PAPER_SIZE = 1 << 9,
-  INFO_PRINTER_DRIVER_NAME = 1 << 10,
-  INFO_PRINTER_DRIVER_VERSION = 1 << 11,
-  INFO_PRINTER_INFO = 1 << 12,
-  INFO_PRINTER_LOCATION = 1 << 13,
-  INFO_PRINTER_MAKE_AND_MODEL = 1 << 14,
-  INFO_PRINTER_NAME = 1 << 15,
-  INFO_TIME_AT_CREATION = 1 << 16,
-  INFO_TIME_AT_PROCESSING = 1 << 17
+  INFO_IMAGEABLE_AREA = 1,            // I - Imageable area
+  INFO_JOB_BILLING = 1 << 1,          // I - Job billing
+  INFO_JOB_ID = 1 << 2,               // I - Job ID
+  INFO_JOB_NAME = 1 << 3,             // I - Job name
+  INFO_JOB_ORIGINATING_HOST_NAME = 1 << 4, // I - Job originating host name
+  INFO_JOB_ORIGINATING_USER_NAME = 1 << 5, // I - Job originating user name
+  INFO_JOB_UUID = 1 << 6,             // I - Job UUID
+  INFO_OPTIONS = 1 << 7,              // I - Options  
+  INFO_PAPER_NAME = 1 << 8,           // I - Paper name
+  INFO_PAPER_SIZE = 1 << 9,            // I - Paper size
+  INFO_PRINTER_DRIVER_NAME = 1 << 10,   // I - Printer driver name
+  INFO_PRINTER_DRIVER_VERSION = 1 << 11,  // I - Printer driver version
+  INFO_PRINTER_INFO = 1 << 12,            // I - Printer info
+  INFO_PRINTER_LOCATION = 1 << 13,        // I - Printer location
+  INFO_PRINTER_MAKE_AND_MODEL = 1 << 14,    // I - Printer make and model
+  INFO_PRINTER_NAME = 1 << 15,            // I - Printer name
+  INFO_TIME_AT_CREATION = 1 << 16,        // I - Time at creation
+  INFO_TIME_AT_PROCESSING = 1 << 17       // I - Time at processing
 } banner_info_t;
 
-typedef struct banner_s
+typedef struct banner_s         //*** Banner data structure *** //
 {
-  char *template_file;
-  char *header, *footer;
-  unsigned infos;
+  char *template_file;      // I - Template file path
+  char *header, *footer;    // I - Header and footer text
+  unsigned infos;           // I - Banner information flags
 } banner_t;
 
 static void
@@ -883,14 +883,17 @@ generate_banner_pdf(banner_t *banner,
   return (0);
 }
 
+//
+// 'cfFilterBannerToPDF()' - Convert banner instructions to PDF.
+//
+
 int
 cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 		    int outputfd,        // I - File descriptor output stream
 		    int inputseekable,   // I - Is input stream seekable?
 		                         //     (unused)
 		    cf_filter_data_t *data, // I - Job and printer data
-		    void *parameters)    // I - Filter-specific parameters -
-                                         //     Template/Banner data directory
+		    void *parameters)    // I - Filter-specific parameters (Template/Banner data directory)
 {
   banner_t *banner;
   int num_options = 0;
