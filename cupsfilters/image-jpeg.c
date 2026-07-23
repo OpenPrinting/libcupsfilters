@@ -20,8 +20,38 @@
 
 #ifdef HAVE_LIBJPEG
 #  include <jpeglib.h> // JPEG/JFIF image definitions
+#  include <setjmp.h>
 
 #define JPEG_APP0 0xE0 // APP0 marker code
+
+
+//
+// Error manager struct that extends jpeg_error_mgr with a jmp_buf,
+// so our error handler can longjmp() back to the caller.
+//
+
+typedef struct
+{
+  struct jpeg_error_mgr errmgr;		// Standard libjpeg error manager
+  jmp_buf		jmpbuf;		// setjmp/longjmp buffer
+} cf_image_jpeg_err_t;
+
+
+//
+// Custom error handler for libjpeg — longjmp() back to the setjmp()
+// point in the caller instead of the default exit(), so a malformed
+// JPEG results in a graceful error return.
+//
+
+static void
+cf_image_jpeg_error_callback(j_common_ptr cinfo)
+{
+  cf_image_jpeg_err_t *err = (cf_image_jpeg_err_t *)cinfo->err;
+
+  (*cinfo->err->output_message)(cinfo);
+  longjmp(err->jmpbuf, 1);
+}
+
 
 //
 // '_cfImageReadJPEG()' - Read a JPEG image file.
@@ -39,9 +69,9 @@ _cfImageReadJPEG(
                                         //      gamma/brightness
 {
   struct jpeg_decompress_struct	cinfo;	// Decompressor info
-  struct jpeg_error_mgr	jerr;		// Error handler info
-  cf_ib_t		*in,		// Input pixels
-			*out;		// Output pixels
+  cf_image_jpeg_err_t	jerr;		// Error handler with jmp_buf
+  cf_ib_t		*volatile in = NULL,	// Input pixels
+			*volatile out = NULL;	// Output pixels
   jpeg_saved_marker_ptr	marker;		// Pointer to marker data
   int			psjpeg = 0;	// Non-zero if Photoshop CMYK JPEG
   static const char	*cspaces[] =
@@ -57,11 +87,35 @@ _cfImageReadJPEG(
   (void)cspaces;
 
   //
+  // Setup the JPEG decompressor with custom error handler so that
+  // a malformed JPEG causes an error return instead of exit().
+  // setjmp() must be called before jpeg_create_decompress() so
+  // that even allocation failures during creation are caught.
+  //
+
+  cinfo.err = jpeg_std_error(&jerr.errmgr);
+  jerr.errmgr.error_exit = cf_image_jpeg_error_callback;
+
+  //
+  // Error handling jump point — if any jpeg_*() call below triggers
+  // a fatal error, our callback longjmp()s back here.
+  //
+
+  if (setjmp(jerr.jmpbuf))
+  {
+    free(in);
+    free(out);
+    jpeg_destroy_decompress(&cinfo);
+    fclose(fp);
+    return (1);
+  }
+
+  jpeg_create_decompress(&cinfo);
+
+  //
   // Read the JPEG header...
   //
 
-  cinfo.err = jpeg_std_error(&jerr);
-  jpeg_create_decompress(&cinfo);
   jpeg_save_markers(&cinfo, JPEG_APP0 + 14, 0xffff); // Adobe JPEG
   jpeg_stdio_src(&cinfo, fp);
   jpeg_read_header(&cinfo, 1);
