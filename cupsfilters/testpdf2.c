@@ -43,12 +43,14 @@ write_string(_cf_pdf_out_t *pdf,
     _cfPDFOutputString(pdf, str, -1);
   }
 }
-// }}}
 
+//
+// 'main()' - Main entry point for the test program.
+//
 
-int
-main(int  argc,
-     char *argv[])
+int                 // O - Exit status
+main(int  argc,       // I - Number of command-line args
+     char *argv[])      // I - Command-line arguments
 {
   _cf_pdf_out_t *pdf;
 

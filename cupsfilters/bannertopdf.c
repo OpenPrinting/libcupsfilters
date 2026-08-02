@@ -51,7 +51,7 @@ typedef enum banner_info_e
   INFO_TIME_AT_PROCESSING = 1 << 17       // I - Time at processing
 } banner_info_t;
 
-typedef struct banner_s         //*** Banner data structure *** //
+typedef struct banner_s         //*** Banner data structure ***
 {
   char *template_file;      // I - Template file path
   char *header, *footer;    // I - Header and footer text
@@ -887,11 +887,10 @@ generate_banner_pdf(banner_t *banner,
 // 'cfFilterBannerToPDF()' - Convert banner instructions to PDF.
 //
 
-int
+int                                       // O - 0 on success, 1 on error
 cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
 		    int outputfd,        // I - File descriptor output stream
-		    int inputseekable,   // I - Is input stream seekable?
-		                         //     (unused)
+		    int inputseekable,   // I - Is input stream seekable? (unused)
 		    cf_filter_data_t *data, // I - Job and printer data
 		    void *parameters)    // I - Filter-specific parameters (Template/Banner data directory)
 {

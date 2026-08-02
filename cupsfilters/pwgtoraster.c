@@ -67,40 +67,40 @@
 
 #define MAX_BYTES_PER_PIXEL 32
 
-typedef struct cms_profile_s
+typedef struct cms_profile_s      // *** for color management ***
 {
   // for color profiles
-  cmsHPROFILE colorProfile;
-  cmsHPROFILE outputColorProfile;
-  cmsHTRANSFORM colorTransform;
-  cmsCIEXYZ D65WhitePoint;
-  int renderingIntent;
-  int cm_disabled;
-  cf_cm_calibration_t cm_calibrate;
+  cmsHPROFILE colorProfile;         // ICC profile
+  cmsHPROFILE outputColorProfile;     // ICC profile for output device
+  cmsHTRANSFORM colorTransform;       // Color transform for color management
+  cmsCIEXYZ D65WhitePoint;              // D65 white point
+  int renderingIntent;        // Rendering intent for color management
+  int cm_disabled;            // Flag raised if color management is disabled
+  cf_cm_calibration_t cm_calibrate;   // Status of CUPS color management
 } cms_profile_t;
 
-typedef struct pwgtoraster_doc_s
-{                // **** Document information ****
-  cf_filter_data_t *data;
-  bool page_size_requested;
-  int bi_level;
-  bool allocLineBuf;
-  unsigned int bitspercolor;
-  unsigned int outputNumColors; 
-  unsigned int bitmapoffset[2];
-  cups_page_header_t inheader;
-  cups_page_header_t outheader;
+typedef struct pwgtoraster_doc_s      // *** Document information ***
+{
+  cf_filter_data_t *data;             // Filter data
+  bool page_size_requested;           // Flag indicating if page size is requested
+  int bi_level;                       // Bilevel flag
+  bool allocLineBuf;                  // Flag to allocate line buffer for conversion
+  unsigned int bitspercolor;            // Bits per color
+  unsigned int outputNumColors;        // Number of output colors
+  unsigned int bitmapoffset[2];         // Offset for bitmap data
+  cups_page_header_t inheader;          // Input page header
+  cups_page_header_t outheader;       // Output page header
   cups_file_t	*inputfp;		// Temporary file, if any
   FILE		*outputfp;		// Temporary file, if any
   // margin swapping
-  bool swap_margin_x;
-  bool swap_margin_y;
-  unsigned int nplanes;
-  unsigned int nbands;
+  bool swap_margin_x;     // Flag to swap margins in x direction
+  bool swap_margin_y;       // Flag to swap margins in y direction
+  unsigned int nplanes;     // Number of planes in the output raster
+  unsigned int nbands;      // Number of bands in the output raster
   unsigned int bytesPerLine; // number of bytes per line
                         // Note: When CUPS_ORDER_BANDED,
                         // cupsBytesPerLine = bytesPerLine * cupsNumColors
-  cms_profile_t color_profile;
+  cms_profile_t color_profile;    // Color profile information for color management
 } pwgtoraster_doc_t;
 
 typedef unsigned char *(*convert_cspace_func)(unsigned char *src,
@@ -117,11 +117,11 @@ typedef unsigned char *(*convert_line_func)(unsigned char *src,
 					    pwgtoraster_doc_t* doc,
 					    convert_cspace_func convertCSpace);
 
-typedef struct conversion_function_s
+typedef struct conversion_function_s        // *** Conversion function information ***
 {
   convert_cspace_func convertCSpace; // Function for conversion of colorspaces
   convert_line_func convertLineOdd;  // Function to modify raster data of a line
-  convert_line_func convertLineEven;
+  convert_line_func convertLineEven;  // Function to modify raster data of a line
 } conversion_function_t;
 
 
@@ -609,15 +609,15 @@ line_swap_bit(unsigned char *src,
 }
 
 
-typedef struct func_table_s
+typedef struct func_table_s     // *** Conversion function table for special cases ***
 {
-  enum cups_cspace_e cspace;
-  unsigned int bitsPerPixel;
-  unsigned int bitsPerColor;
-  convert_line_func convertLine;
-  bool allocLineBuf;
-  convert_line_func convertLineSwap;
-  bool allocLineBufSwap;
+  enum cups_cspace_e cspace;      // CUPS colorspace
+  unsigned int bitsPerPixel;      // Bits per pixel
+  unsigned int bitsPerColor;        // Bits per color
+  convert_line_func convertLine;      // Function to modify raster data of a line
+  bool allocLineBuf;                    // Flag to allocate line buffer for conversion
+  convert_line_func convertLineSwap;    // Function to modify raster data of a line with swapping
+  bool allocLineBufSwap;              // Flag to allocate line buffer for conversion with swapping
 } func_table_t;
 
 
@@ -2405,15 +2405,16 @@ set_color_profile(pwgtoraster_doc_t *doc,
   return (0);
 }
 
+//
+// 'cfFilterPWGToRaster()' - Convert a PWG raster stream to a CUPS raster stream.
+//
 
-int
+int                                         // O - 0 on success, 1 on error
 cfFilterPWGToRaster(int inputfd,        // I - File descriptor input stream
 		    int outputfd,       // I - File descriptor output stream
-		    int inputseekable,  // I - Is input stream seekable?
-		                        //     (unused)
+		    int inputseekable,  // I - Is input stream seekable? (unused)
 		    cf_filter_data_t *data,// I - Job and printer data
-		    void *parameters)   // I - Filter-specific parameters
-                                        //     (unused)
+		    void *parameters)   // I - Filter-specific parameters (unused)
 {
   cf_filter_out_format_t     outformat;
   pwgtoraster_doc_t          doc;

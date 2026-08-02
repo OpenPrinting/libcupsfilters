@@ -170,8 +170,7 @@ void
 cfPackHorizontalBit(const unsigned char *ipixels,	// I - Input pixels
 		    unsigned char       *obytes,	// O - Output bytes
 		    int                 width,		// I - Number of pixels
-		    const unsigned char clearto,	// I - Initial value of
-		                                        //     bytes
+		    const unsigned char clearto,	// I - Initial value of bytes
 		    const unsigned char bit)		// I - Bit to check
 {
   register unsigned char	b;			// Current byte
@@ -251,8 +250,7 @@ cfPackVertical(const unsigned char *ipixels,	// I - Input pixels
 	       unsigned char       *obytes,	// O - Output bytes
 	       int                 width,	// I - Number of input pixels
 	       const unsigned char bit,		// I - Output bit
-	       const int           step)	// I - Number of bytes between
-                                                //     columns
+	       const int           step)	// I - Number of bytes between columns
 {
   //
   // Loop through the entire array...
