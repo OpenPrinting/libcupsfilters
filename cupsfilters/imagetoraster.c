@@ -183,8 +183,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 		      int outputfd,        // I - File descriptor output stream
 		      int inputseekable,   // I - Is input stream seekable?
 		      cf_filter_data_t *data, // I - Job and printer data
-		      void *parameters)    // I - Filter-specific parameters
-                                           //     (unused)
+		      void *parameters)    // I - Filter-specific parameters (unused)
 {
   imagetoraster_doc_t	doc;		// Document information
   int			i;		// Looping var

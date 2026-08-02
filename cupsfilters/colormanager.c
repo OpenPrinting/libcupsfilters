@@ -180,46 +180,61 @@ cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)       // I - Filter data
 
 
 //
-// Accessor functions to return specific calibration data
+// 'cfCmGammaAdobeRGB()' - Get the gamma value for Adobe RGB.
 //
 
-// Gamma values
-
-double *cfCmGammaAdobeRGB(void)
+double                      // O - Gamma value
+ *cfCmGammaAdobeRGB(void)
 {
   return (adobergb_gamma);
 }
 
-double *cfCmGammaSGray(void)
+//
+// 'cfCmGammaSGray()' - Get the gamma value for sGray.
+//
+
+double                    // O - Gamma value
+*cfCmGammaSGray(void)
 {
   return (sgray_gamma);
 }
 
+//
+// 'cfCmWhitePointAdobeRGB()' - Get the whitepoint value for Adobe RGB.
+//
 
-// Whitepoint values
-
-double *cfCmWhitePointAdobeRGB(void)
+double                // O - Whitepoint value   
+ *cfCmWhitePointAdobeRGB(void)
 {
   return (adobergb_wp);
 }
 
-double *cfCmWhitePointSGray(void)
+//
+// 'cfCmWhitePointSGray()' - Get the whitepoint value for sGray.
+//
+
+double                      // O - Whitepoint value
+ *cfCmWhitePointSGray(void)
 {
   return (sgray_wp);
 }
 
+//
+// 'cfCmMatrixAdobeRGB()' - Get the adapted primaries matrix for Adobe RGB.
+//
 
-// Adapted primaries matrix
-
-double *cfCmMatrixAdobeRGB(void)
+double            // O - Adapted primaries matrix 
+*cfCmMatrixAdobeRGB(void)
 {
   return (adobergb_matrix);
 }
 
+//
+// 'cfCmBlackPointDefault()' - Get the default blackpoint value.
+//
 
-// Blackpoint value
-
-double *cfCmBlackPointDefault(void)
+double                      // O - Blackpoint value
+*cfCmBlackPointDefault(void)
 {
   return (blackpoint_default);
 }

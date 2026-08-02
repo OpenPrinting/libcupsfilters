@@ -642,13 +642,14 @@ cfImageSetMaxTiles(
 // 'cfImageCrop()' - Crop an image.
 //                   (posw, posh):    Position of left corner
 //                   (width, height): Width and height of required image.
+//
 
-cf_image_t*
-cfImageCrop(cf_image_t* img,
-	    int posw,
-	    int posh,
-	    int width,
-	    int height)
+cf_image_t*                         // O - New image
+cfImageCrop(cf_image_t* img,        // I - Image to crop
+	    int posw,                     // I - Position of left corner
+	    int posh,                     // I - Position of left corner
+	    int width,                    // I - Width of required image
+	    int height)                   // I - Height of required image
 {
   int image_width = cfImageGetWidth(img);
   cf_image_t* temp = calloc(1, sizeof(cf_image_t));
