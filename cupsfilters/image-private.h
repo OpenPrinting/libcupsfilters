@@ -40,7 +40,7 @@
 #endif
 
 #ifdef HAVE_LIBJXL
-#include "image-jpeg-xl.h"
+#include "image-jpeg-xl-private.h"
 #endif
 
 //
