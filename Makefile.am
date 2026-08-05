@@ -21,9 +21,7 @@ EXTRA_DIST = \
 	$(doc_DATA) \
 	autogen.sh \
 	config.rpath \
-	libcupsfilters.pc.in \
-	pdf.utf-8.heavy.in \
-	pdf.utf-8.simple.in
+	libcupsfilters.pc.in
 
 EXTRA_DIST += \
 	cupsfilters/test-pclm-overflow.sh \
@@ -71,8 +69,6 @@ pkgcharsetdir = $(CUPS_DATADIR)/charsets
 pkgcharset_DATA = \
 	charset/pdf.utf-8.heavy \
 	charset/pdf.utf-8.simple
-
-EXTRA_DIST += $(pkgcharset_DATA)
 
 # ====================
 # CUPS Filters library
@@ -178,6 +174,7 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/image-private.h \
 	cupsfilters/image-tiff.c \
 	cupsfilters/image-jpeg-xl.c \
+	cupsfilters/image-jpeg-xl.h \
 	cupsfilters/image-zoom.c \
 	cupsfilters/imagetopdf.c \
 	cupsfilters/imagetoraster.c \
@@ -362,14 +359,18 @@ EXTRA_DIST += \
 	cupsfilters/image.ppm \
 	cupsfilters/fontembed/README \
 	cupsfilters/test-filter-cases.txt \
-	cupsfilters/test_files/bashrc.urf \
-	cupsfilters/test_files/test_file.pdf \
-	cupsfilters/test_files/test_file.pwg \
+	cupsfilters/test_files/filled-2.pdf \
+	cupsfilters/test_files/form_english.pdf \
+	cupsfilters/test_files/malformed.pdf \
+	cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg \
 	cupsfilters/test_files/test_file_1pg.pdf \
-	cupsfilters/test_files/test_file_2pg.pdf \
 	cupsfilters/test_files/test_file_4pg.pdf \
-	cupsfilters/test-pdftoraster-copy-height.c \
-	cupsfilters/test-pdftoraster-copy-height.sh
+	cupsfilters/test_files/test_file_8pg.pdf \
+	cupsfilters/test_files/test_text_arabic_rtl.txt \
+	cupsfilters/test_files/test_text_greek.txt \
+	cupsfilters/test_files/test_text_lorem.txt \
+	cupsfilters/test_files/test_text_russian.txt \
+	cupsfilters/test_files/urf_test_file_4pg.urf
 
 # =========
 # CUPS Data
