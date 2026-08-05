@@ -13,10 +13,24 @@
 //
 
 
+#ifndef _CUPS_IMAGE_JPEG_XL_PRIVATE_H_
+#  define _CUPS_IMAGE_JPEG_XL_PRIVATE_H_
+
 #ifdef HAVE_LIBJXL
+
+
+//
+// Include necessary headers...
+//
+
 #include <stdio.h>
 #include "image-private.h"
 #include <jxl/decode.h>
+
+
+//
+// Prototypes...
+//
 
 int _cfIsJPEGXL(const unsigned char *header, size_t len);
 
@@ -25,3 +39,5 @@ int _cfImageReadJPEGXL(cf_image_t *img, FILE *fp,
                        int saturation, int hue, const cf_ib_t *lut);
 
 #endif // HAVE_LIBJXL
+
+#endif // !_CUPS_IMAGE_JPEG_XL_PRIVATE_H_
