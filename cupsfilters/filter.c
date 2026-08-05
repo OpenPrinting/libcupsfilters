@@ -1026,7 +1026,7 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
   sidefd = data->side_pipe[is_backend];
 
   // Filter name for logging
-  if ((filter_name = strrchr(params->filter, '/')) != NULL)
+  if ((filter_name = strrchr((char *)params->filter, '/')) != NULL)
     filter_name ++;
   else
     filter_name = (char *)params->filter;

@@ -767,8 +767,7 @@ cfCatalogLoad(const char *location,
       human_readable = temp_hr;
       ptr = human_readable + strlen(human_readable);
       *ptr = ' ';
-      strncpy(ptr + 1, start,
-        human_readable_size - (ptr - human_readable) - 1);
+      snprintf(ptr + 1, human_readable_size - (ptr - human_readable) - 1, "%s", start);
       }
       else // First line
 	human_readable = strdup(start);

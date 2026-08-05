@@ -354,7 +354,7 @@ _cfFontEmbedOTFLoad(const char *file) // {{{
   if ((f = fopen(file, "rb")) == NULL)
   {
     // check for TTC
-    char *tmp = strrchr(file, '/'), *end;
+    char *tmp = (char *)strrchr(file, '/'), *end;
     if (tmp)
     {
       use_ttc = strtoul(tmp + 1, &end, 10);
