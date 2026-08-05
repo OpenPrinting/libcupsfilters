@@ -1,4 +1,193 @@
-# CHANGES - OpenPrinting libcupsfilters v2.1.1 - 2025-02-18
+# CHANGES - OpenPrinting libcupsfilters v2.2.0 - 2026-08-06
+## CHANGES IN V2.2.0 (6th August 2026)
+
+- Eliminated the use of C++ in libcupsfilters, to get all regular C
+  - Replaced QPDF by PDFio as PDF manipulation library in libcupsfilters.
+    Modified the filter functions `cfFilterPDFToPDF()`,
+    `cfFilterPCLmToRaster()`, `cfFilterPWGToPDF()`, `cfFilterBannerToPDF()`.
+    Also turned the code from C++ into C.
+  - In `cfFilterPDFToRaster()` replaced use of libpoppler by using PDFio and
+    also the external executable `pdftoppm` of poppler-utils, Also here turned
+    C++ code into C.
+  - Made sure that the API/ABI of libcupsfilters did not change
+  - Also added extra CI tests via `cupsfilters/test-filter-cases.txt`.
+  - PDFio 1.6.4 now required for building libcupsfilters.
+    Older versions have bugs.
+  - GSoC 2024 project of Uddhav Phatak:
+    https://medium.com/@uddhavphatak/gsoc-2024-final-report-the-refactor-report-a46756e9d6ce
+  - Thanks, Uddhav, for your excellent work!
+  - Pull requests #71, #101, #103, #105, #115, #124, #146, #154, #171
+
+- Non-Latin language input support for `cfFilterTextToPDF()`
+  - Removed `FC_MONO` constraint to allow proportional fonts. Some languages
+    have non-monospaced scripts and now they can correctly load their intended
+    fonts.
+  - Default to UTF-8 when charset metadata is missing. `cfFilterTextToPDF()`
+    expects UTF-8 input by default now.
+  - Add Devanagari Unicode range to utf-8 charsets
+  - Thanks to Shreyansh Tiwari
+  - Pull requests #120, #140, #141
+
+- Added JPEG‑XL Support to libcupsfilters.
+  Now jobs in the high-quality JPEG-XL image format can be sent directly to
+  CUPS and cfFilterImageTo...() filter functions read and convert these files.
+  Winter of Code 4.0 project by Titiksha Bansal. Thanks a lot.
+  (Pull request #82)
+
+- Print quality improvements
+  - In `cfFilterGhostscript()` introduced `cupsHalftoneType` dithering
+    algorithms.
+    Controlled with `halftone-type` job option or `cupsHalftoneType` PPD
+    option. Added stochastic halftoning, bi-level threshold, and an algorithm
+    from foo2zjs, 8x8, genordered, and spot from PDF (Pull request #92, #160)
+  - Added user-settable gamma parameter and remove
+    Ghostscript's default one.
+  - Fixed 1-bit mono dithering of 100% black pixel.
+    Prevents white holes in the text
+  - Thanks to ValdikSS
+
+- CI: Implemented complete GitHub Actions pipeline (Build, Unit tests, CodeQL,
+  Cppcheck)
+  - GitHub workflow for CI added
+  - Static analysis (CodeQL, Cppcheck)
+  - Build and unit tests multiple architecture (x86 64-bit, ARM 64- and 32-bit,
+    and RISC-V 64-bit) and for different CUPS versions (2.4.x, 2.5.x, 3.x).
+    Tests on 12 combos
+  - Emulations used for ARM 32-bit and RISC-V
+  - Use `make check` and also Debian's autopkgtests as unit tests
+  - Workflows optimized with caching and
+    parallel jobs
+  - Fixed several issues disovered with the added static analysis
+  - Part of Rohit Kumar's GSoC 2026 project. Thanks a lot.
+  - Pull requests #132, #133, #134, #135, #137, #157, #158, #159
+
+- CI: Improvements of unit tests
+  - Add malformed PDF testcase for `pdftopdf` validation
+    (Pull request #131)
+  - Added UTF-8 non-Latin regression coverage for Cyrillic, Greek, Arabic
+    (Pull request #129)
+  - Let `testfilters` just go through all lines of test cases instead of using
+    line count as a parameter (Pull request #128)
+  - Add optional manual `FilterChain()` support to `testfilters`.
+    Manually providing a filter chain is optional, if not supplied, it is set
+    automatically as before (Pull request #122)
+  - Added a deterministic build-time multipage UTF-8 lorem generator
+    (Pull request #119)
+  - Thanks to Shreyansh Tiwari
+
+- Fixed (crasher) bugs found in security audit by 7ASecurity
+  - Crash from wrong tag `*-supported`/`*-default` attributes, in the
+    `cfIPPAttrEnumValForPrinter()` function. Check IPP tags (data types) to
+    avoid NULL derefences
+    (OCU-01-001, Issue #149, pull request #162)
+  - Crash from wrong-tag driverless IPP attributes.
+    `cfGetBackSideOrientation()` and `cfGetPrintRenderIntent()` look up
+    several IPP attributes. Also here check tags/data types to avoid NULL
+    derefences
+    (OCU-01-003, Issue #163, pull request #164)
+  - Thanks to Aayush Kumar
+
+- SECURITY: Out-of-bounds write in `cfFilterPDFToRaster()` if PDF has too
+  large page dimensions.
+  Crop dimensions to maximum allowed by standard, 14400x14400pt, 200x200in,
+  5x5m, if needed.
+
+  (CVE-2025-64503)
+
+- SECURITY: Vulnerabilities by image input with wrong color
+  space/depth/bits-per-pixel combo.
+  - Fix heap-buffer overflow write in `cfImageLut`
+  - Reject color images with 1 bit per sample
+  - Reject images where the number of samples does not correspond with the
+    color space
+  - Reject images with planar color configuration
+  - Reject images with vertical scanlines
+
+  (CVE-2025-57812)
+
+- SECURITY: `cfFilterImageTo...()`: Added error handling for libpng and
+  libjpeg function calls to avoid the process being aborted.
+  (Pull request #168, #169)
+
+  (CVE-2026-64612)
+
+- SECURITY: Fix possible infinite loop when parsing device IDs, also avoid
+  empty device IDs
+  (Pull request #170)
+
+  (CVE-2026-64611)
+
+- Fixed heap buffer overflow in bilinear zoom of images
+  (Issue #142, pull request #143)
+
+- Out-of-bounds read in `NormalizeMakeModel` when manufacturer name too long
+  (Issue #136, pull request #139)
+
+- Use ColorModel or output-mode if there's no print-color-mode
+  (Issue #126, pull request #127)
+
+- Fix cache thrashing for large images when cropping them
+  (Pull request #106)
+
+- Fix for potential heap-buffer-overflow when reading TIFF images with more
+  than one sample per pixel
+  (Issue #107, pull request #108)
+
+- Unified return value of TIFF related functions to -1
+
+- When zooming images check whether X and Y size dimensions are not zero
+  (Pull request #86)
+
+- `pdftoraster`, `gsto...`, `mupdftopwg`: Fix NULL-pointer dereference when
+  parsing `%%PDFTOPDF...` comments
+  (Pull request #94)
+
+- `pdftoraster`: Check result of `render_page()` as it may return NULL if the
+  page is not properly constructed
+  (Pull request #95)
+
+- `imagetopdf`: convert custom media size `min_width` and `min_height` to
+  points
+  (Issue #87, pull request #93)
+
+- `cfFilterChain()`: Initialize return value to 0.
+  In some cases the function exits with non-zero status when all filters
+  exit with no errors (zero status).
+
+- Fixed Deadlock in filter chain When one filter fails
+  (Issue #32, pull request #85)
+
+- cfFilterTextToPDF(): Let all Arabic characters be rendered right-to-left
+  (Issue #84)
+
+- Fix build with libcups3
+  - Add additional changed function `cupsParseOptions()`
+  - Only define struct `cups_media_s` if running a version older then
+    CUPS 2.5.x
+  - Update `testfilters.c` to use CUPS 3.0 API with compatibility shim for
+    CUPS 2.x and older. Given that this is an end-user program, we don't want
+    to include `libcups2-private.h`. Also tweaked Makefile to link against
+    proper CUPS library.
+  - Removed unused reference to `cups/backend.h`.
+  - Pull request #153
+
+- Allow building without fontconfig.
+  Controllable by `./configure` option. When building without fontconfig,
+  `cfFilterTextToPDF()` gets no-op (to keep API)
+  (Pull request #83)
+
+- Build-time option for alternative CJK font name.
+  `./configure` option `-with-cjk-fonts` sets alternative name
+  (Pull request #96)
+
+- Fix missing `sys/stat.h` include for Solaris (Issue #97, pull request #130)
+
+- Use `/bin/sh` for `testfilters.sh` to avoid dependency on bash
+  (Pull request #67)
+
+- `cfFilterImageToPDF()`: Added extra debug log messages concerning page
+  orientation
+  (Pull request #102)
 
 ## CHANGES IN V2.1.1 (18th February 2025)
 
