@@ -780,13 +780,13 @@ cfIEEE1284NormalizeMakeModel(
   // Determine format of input string
   //
 
-  if ((((makeptr = strstr(make_and_model, "MFG:")) != NULL &&
+  if ((((makeptr = (char *)strstr(make_and_model, "MFG:")) != NULL &&
 	(makeptr == make_and_model || *(makeptr - 1) == ';')) ||
-       ((makeptr = strstr(make_and_model, "MANUFACTURER:")) != NULL &&
+       ((makeptr = (char *)strstr(make_and_model, "MANUFACTURER:")) != NULL &&
 	(makeptr == make_and_model || *(makeptr - 1) == ';'))) &&
-      (((modelptr = strstr(make_and_model, "MDL:")) != NULL &&
+      (((modelptr = (char *)strstr(make_and_model, "MDL:")) != NULL &&
 	(modelptr == make_and_model || *(modelptr - 1) == ';')) ||
-       ((modelptr = strstr(make_and_model, "MODEL:")) != NULL &&
+       ((modelptr = (char *)strstr(make_and_model, "MODEL:")) != NULL &&
 	(modelptr == make_and_model || *(modelptr - 1) == ';'))))
   {
     //
