@@ -19,7 +19,7 @@ m4_include([m4/ax_compare_version.m4])
 m4_include([m4/basic-directories.m4])
 AM_INIT_AUTOMAKE([1.11 gnu dist-xz dist-bzip2 subdir-objects foreign])
 AM_SILENT_RULES([yes])
-AC_LANG([C++])
+AC_LANG([C])
 AC_CONFIG_HEADERS([config.h])
 # Extra defines for the config.h
 AH_BOTTOM([
@@ -50,11 +50,8 @@ AH_BOTTOM([
 # Find required base packages
 # ===========================
 AC_PROG_CC
-AC_PROG_CXX
-AX_CXX_COMPILE_STDCXX([11],[noext],[mandatory])
 AM_PROG_CC_C_O
 AM_ICONV
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -566,10 +563,8 @@ AS_IF([test x"$enable_werror" = "xyes"], [
 AS_IF([test x"$GCC" = "xyes"], [
 	# Be tough with warnings and produce less careless code
 	CFLAGS="$CFLAGS -Wall -std=gnu11"
-	CXXFLAGS="$CXXFLAGS -Wall " # -Weffc++" # TODO: enable when it does not print 1MB of warnings
 ])
 CFLAGS="$CFLAGS -D_GNU_SOURCE"
-CXXFLAGS="$CXXFLAGS -std=c++17"
 
 # =========
 # CJK FONTS
@@ -601,7 +596,6 @@ AC_MSG_NOTICE([
 ==============================================================================
 Environment settings:
 	CFLAGS:                                    ${CFLAGS}
-	CXXFLAGS:                                  ${CXXFLAGS}
 	LDFLAGS:                                   ${LDFLAGS}
 Build configuration:
         libcups:         ${CUPS_VERSION}
