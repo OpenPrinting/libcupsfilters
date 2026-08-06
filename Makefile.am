@@ -214,10 +214,6 @@ libcupsfilters_la_LIBADD = \
 	$(LIBPNG_LIBS) \
 	$(TIFF_LIBS) \
 	-lm
-if ENABLE_POPPLER
-libcupsfilters_la_LIBADD += \
-	$(POPPLER_LIBS)
-endif
 libcupsfilters_la_CFLAGS = \
 	-I$(srcdir)/cupsfilters/fontembed/ \
 	$(FONTCONFIG_CFLAGS) \
@@ -235,7 +231,6 @@ libcupsfilters_la_LDFLAGS = \
 	$(LIBJXL_LIBS)
 if BUILD_DBUS
 libcupsfilters_la_CFLAGS += $(DBUS_CFLAGS) -DHAVE_DBUS
-libcupsfilters_la_CXXFLAGS = -std=c++11 $(libcupsfilters_la_CFLAGS)   # -std=c++11
 libcupsfilters_la_LIBADD += $(DBUS_LIBS)
 endif
 

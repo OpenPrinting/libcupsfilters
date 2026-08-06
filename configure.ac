@@ -373,18 +373,6 @@ AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"],
 PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.6.4])
 
 
-# =================
-# Check for Poppler
-# =================
-AC_ARG_ENABLE(poppler, AS_HELP_STRING([--enable-poppler],[enable Poppler-based filters]),
-	      enable_poppler=$enableval,enable_poppler=yes)
-AM_CONDITIONAL([ENABLE_POPPLER], test x$enable_poppler = xyes)
-if test x$enable_poppler = xyes; then
-	PKG_CHECK_MODULES([POPPLER], [poppler-cpp >= 0.19])
-	AC_CHECK_HEADER([poppler/cpp/poppler-version.h], [AC_DEFINE([HAVE_CPP_POPPLER_VERSION_H],[1],[Define if you have Poppler's "cpp/poppler-version.h" header file.])], [])
-	AC_DEFINE([HAVE_POPPLER], [1], [Define that we provide Poppler library])
-fi
-
 # ===============
 # Check for D-Bus
 # ===============
