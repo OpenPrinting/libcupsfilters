@@ -270,7 +270,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 		     "cfFilterUniversal: Adding %s to chain", filter->name);
       }
 
-#if defined(HAVE_GHOSTSCRIPT) || defined(HAVE_POPPLER)
+#if defined(HAVE_GHOSTSCRIPT)
       if (strcasecmp(output_type, "vnd.cups-pdf"))
       {
 	if (!strcasecmp(output_type, "vnd.cups-raster") ||
@@ -296,7 +296,6 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 		       "cfFilterUniversal: Adding %s to chain",
 		       filter->name);
 #  else
-#    ifdef HAVE_POPPLER
 	  filter = malloc(sizeof(cf_filter_filter_in_chain_t));
 	  filter->function = cfFilterPDFToRaster;
 	  filter->parameters = NULL;
@@ -317,19 +316,18 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 	    if (log) log(ld, CF_LOGLEVEL_DEBUG,
 			 "cfFilterUniversal: Adding %s to chain", filter->name);
 	  }
-#    endif // HAVE_POPPLER
 #  endif // HAVE_GHOSTSCRIPT
 	}
 	else
 	{
-#endif // HAVE_GHOSTSCRIPT || HAVE_POPPLER
+#endif // HAVE_GHOSTSCRIPT
 	  // Output format is not PDF and unknown -> Error
 	  ret = 1;
 	  goto out;
-#if defined(HAVE_GHOSTSCRIPT) || defined(HAVE_POPPLER)
+#if defined(HAVE_GHOSTSCRIPT)
 	}
       }
-#endif // HAVE_GHOSTSCRIPT || HAVE_POPPLER
+#endif // HAVE_GHOSTSCRIPT
     }
   }
 
