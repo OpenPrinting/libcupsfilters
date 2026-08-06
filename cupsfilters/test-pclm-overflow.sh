@@ -7,6 +7,17 @@ LIBTOOL="${BUILD_ROOT}/libtool"
 CC="${CC:-cc}"
 SAN_FLAGS="${SAN_FLAGS:--fsanitize=address -fno-omit-frame-pointer}"
 
+# AddressSanitizer is what makes this test meaningful.  When libasan is not
+# installed the compiler still accepts -fsanitize=address but the link fails
+# (missing libasan_preinit.o / -lasan) -- that is an environment gap, not a
+# libcupsfilters bug.  Skip (Automake exit 77) instead of failing; a real
+# failure is reported only when ASan IS available and the sanitizer fires.
+if ! printf 'int main(void){return 0;}\n' \
+     | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
+  echo "AddressSanitizer not available (cannot link ${SAN_FLAGS}); skipping." >&2
+  exit 77
+fi
+
 if [[ ! -x "${LIBTOOL}" ]]; then
   echo "libtool helper not found at ${LIBTOOL}" >&2
   exit 99
