@@ -79,7 +79,14 @@ AS_IF([$PKGCONFIG --exists cups3], [
     AC_SUBST(CUPS_CFLAGS)
     AC_SUBST(CUPS_LIBS)
 
-    CUPS_DATADIR="$($PKGCONFIG --variable=prefix cups3)/share/cups"
+    # Prefer the datadir cups3.pc exports directly.  Reconstructing it from
+    # --variable=prefix is wrong when CUPS was built with an architecture-
+    # specific prefix (e.g. /usr/x86_64-pc-linux-gnu): the data lives in the
+    # arch-independent /usr/share/cups, which the .pc records in cups_datadir.
+    # Fall back to the prefix-relative path for a .pc without it. (#201)
+    CUPS_DATADIR="$($PKGCONFIG --variable=cups_datadir cups3)"
+    AS_IF([test "x$CUPS_DATADIR" = x],
+          [CUPS_DATADIR="$($PKGCONFIG --variable=prefix cups3)/share/cups"])
     AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
     AC_SUBST(CUPS_DATADIR)
 
@@ -128,7 +135,14 @@ AS_IF([$PKGCONFIG --exists cups3], [
 	cups_prefix="$($PKGCONFIG --variable=prefix cups)"
 	AS_IF([test "x$cups_prefix" = x], [cups_prefix=/usr])
 
-	CUPS_DATADIR="$cups_prefix/share/cups"
+	# Prefer the datadir cups.pc exports directly.  Reconstructing it from
+	# --variable=prefix is wrong when CUPS was built with an architecture-
+	# specific prefix (e.g. /usr/x86_64-pc-linux-gnu): the data lives in the
+	# arch-independent /usr/share/cups, which the .pc records in cups_datadir.
+	# Fall back to the prefix-relative path for a .pc without it. (#201)
+	CUPS_DATADIR="$($PKGCONFIG --variable=cups_datadir cups)"
+	AS_IF([test "x$CUPS_DATADIR" = x],
+	      [CUPS_DATADIR="$cups_prefix/share/cups"])
 	AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
 	AC_SUBST(CUPS_DATADIR)
 
