@@ -348,6 +348,7 @@ BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
 CLEANFILES   = cupsfilters/test_files/test_text_lorem.txt
 
 cupsfilters/test_files/test_text_lorem.txt: gen-lorem-text
+	$(MKDIR_P) $(@D)
 	$(AM_V_GEN)./gen-lorem-text > $@
 
 EXTRA_DIST += \
