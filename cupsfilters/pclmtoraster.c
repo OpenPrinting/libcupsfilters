@@ -851,39 +851,64 @@ process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
 	      const char *key, 			// I - key names of xobjects
 	      void *cb_data)			// I - conversion data
 {
-  pclmtoraster_data_t *data = (pclmtoraster_data_t *)cb_data;
-  char *buffer[4096];
-  pdfio_obj_t *image = pdfioDictGetObj(dict, key);
+  const char          *subtype;
+  pclmtoraster_data_t *data;
+  pdfio_obj_t         *image;
+  pdfio_dict_t        *imgdict;
+  pdfio_stream_t      *img_str;
+  ssize_t             bytes;
+  unsigned char       buffer[8192];
 
-  if (strcmp(pdfioObjGetType(image), "image") == 0)
+
+  data = (pclmtoraster_data_t *)cb_data;
+
+  if ((image = pdfioDictGetObj(dict, key)) == NULL)
+    return (true);
+
+  if ((subtype = pdfioObjGetSubtype(image)) == NULL)
+    return (true);
+
+  if (strcmp(subtype, "Image"))
+    return (true);
+
+  if ((imgdict = pdfioObjGetDict(image)) == NULL)
+    return (true);
+
+  int width = (int)pdfioDictGetNumber(imgdict, "Width");
+  int height = (int)pdfioDictGetNumber(imgdict, "Height");
+
+  // Read the complete decoded image stream
+  if ((img_str = pdfioObjOpenStream(image, true)) == NULL)
+    return (true);
+
+  while ((bytes = pdfioStreamRead(img_str, buffer, sizeof(buffer))) > 0)
   {
-    pdfio_dict_t *imgdict = pdfioObjGetDict(image);
-    if (!imgdict)
-       return true;
+    unsigned char *tmp;
 
-    // Read the raw image stream
-    pdfio_stream_t *img_str = pdfioObjOpenStream(image, true);
-    size_t bufsize = pdfioStreamRead(img_str, buffer, sizeof(buffer));
-
-    int width = pdfioDictGetNumber(imgdict, "Width");
-    int height = pdfioDictGetNumber(imgdict, "Height");
-
-    data->header.cupsHeight += height;
-
-    // Allocate memory for the bitmap data
     if (data->pixel_count == 0)
-      data->bitmap = (unsigned char *)malloc(bufsize);
+      tmp = (unsigned char *)malloc(bytes);
     else
-      data->bitmap = (unsigned char *)realloc(data->bitmap,
-                                              data->pixel_count + bufsize);
+      tmp = (unsigned char *)realloc(data->bitmap,
+            data->pixel_count + bytes);
 
-    memcpy(data->bitmap + data->pixel_count, buffer, bufsize);
-    data->pixel_count += bufsize;
+    if (!tmp)
+    {
+      pdfioStreamClose(img_str);
+      return (false);
+    }
 
-    // Track maximum width
-    if (width > data->header.cupsWidth)
-      data->header.cupsWidth = width;
+    data->bitmap = tmp;
+    memcpy(data->bitmap + data->pixel_count, buffer, bytes);
+    data->pixel_count += bytes;
   }
+
+  pdfioStreamClose(img_str);
+
+  data->header.cupsHeight += height;
+
+  // Track maximum width
+  if (width > (int)data->header.cupsWidth)
+    data->header.cupsWidth = width;
 
   return (true);
 }
@@ -1297,13 +1322,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
 
     if (log) log(ld, CF_LOGLEVEL_INFO,
 		 "cfFilterPCLmToRaster: Starting page %d.", i + 1);
-    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data,data,
-		 &convert) != 0)
-      break;
-
-    if (log) log(ld, CF_LOGLEVEL_INFO,
-		 "cfFilterPCLmToRaster: Starting page %d.", (i + 1));
-    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data,data,
+    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data, data,
 		 &convert) != 0)
       break;
   }
