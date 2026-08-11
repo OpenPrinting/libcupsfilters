@@ -210,27 +210,39 @@ parse_opts(cf_filter_data_t *data,			// I - Job and Print data
 }
 
 //
-// 'media_box_lookup()' - Helper function look up MediaBox from PDF dictionary
+// 'media_box_lookup()' - Helper function to look up MediaBox from a page
+//                        object, walking parent nodes if needed (MediaBox is
+//                        an inheritable attribute in PDF).
 //
 
-static bool					  // O - 1 if mediabox is found, 0 if not
-media_box_lookup(pdfio_obj_t *object,		// I - Page Object to look for mediabox
-	       	 float rect[4])			// O - rectangle for mediabox output
+static bool					// O - true if found, false if not
+media_box_lookup(pdfio_obj_t *object,		// I - Page object
+		 float rect[4])			// O - MediaBox rectangle
 {
-  pdfio_rect_t mediaBox;
-  pdfio_dict_t *object_dict = pdfioObjGetDict(object);
-  if(pdfioDictGetRect(object_dict, "MediaBox", &mediaBox))
-    return false;
+  pdfio_rect_t	mediaBox;			// MediaBox value
+  pdfio_dict_t	*dict;				// Current dictionary
 
- pdfioDictGetRect(object_dict, "MediaBox", &mediaBox);
+  // Walk the page tree up through Parent nodes to find an inherited MediaBox
+  while (object)
+  {
+    dict = pdfioObjGetDict(object);
+    if (!dict)
+      break;
 
- rect[0] = mediaBox.x1;
- rect[1] = mediaBox.y1;
- rect[2] = mediaBox.x2;
- rect[3] = mediaBox.y2;
+    if (pdfioDictGetRect(dict, "MediaBox", &mediaBox))
+    {
+      rect[0] = mediaBox.x1;
+      rect[1] = mediaBox.y1;
+      rect[2] = mediaBox.x2;
+      rect[3] = mediaBox.y2;
+      return (true);
+    }
 
- return true;
-}	
+    object = pdfioDictGetObj(dict, "Parent");
+  }
+
+  return (false);
+}
 
 //
 // 'rotate_bitmap()' - Function to rotate a bitmap
