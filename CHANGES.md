@@ -1,4 +1,18 @@
-# CHANGES - OpenPrinting libcupsfilters v2.2.0 - 2026-08-06
+# CHANGES - OpenPrinting libcupsfilters v2.2.1 - 2026-08-11
+## CHANGES IN V2.2.1 (11th August 2026)
+
+- Build system: Do not require C++ compiler any more, we use only regular
+  C now
+- Build system: Remove poppler-cpp checks, we have replaced libpoppler use by
+  PDFio
+- Build system: Get `CUPS_DATADIR` from the `.pc` `cups_datadir` variable,
+  not from `$prefix/share/cups` (wrong under an arch-specific CUPS prefix);
+  fallback kept (Issue #201, Pull request #204).
+- Build system: Ensure gen-lorem-text test supports out of tree builds, creating needed directory (Pull  request #205).
+- CI test `test-pdftoraster-copy-height`: Include the C source file in the `make dist` release tarballs, make it testing the actual library code, use ASan (Issue #200, Pull request #204, #206)
+- CI test `test-pclm-overflow.sh`: Skip (exit 77) when AddressSanitizer is unavailable (Issue #200, Pull request #204).
+
+
 ## CHANGES IN V2.2.0 (6th August 2026)
 
 - Eliminated the use of C++ in libcupsfilters, to get all regular C
