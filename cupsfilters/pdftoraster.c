@@ -1707,6 +1707,101 @@ read_ppm_data(FILE *img, 		// I - Image file
   return data;
 }
 
+//
+// 'copy_image_rows()' - Copy the rendered image rows into the CUPS raster
+//                       page, clamped by copy_height/copy_width so a rendered
+//                       image smaller than the page is padded with background
+//                       rows.  Extracted from write_page_image() so the
+//                       copy_height boundary can be exercised directly by the
+//                       unit test against a controlled buffer under ASan.
+//
+
+static void
+copy_image_rows(cups_raster_t *raster,           // I - CUPS raster output
+                pdftoraster_doc_t *doc,          // I - Document attributes
+                pdf_conversion_function_t *convert, // I - conversion rules
+                int pageNo,                      // I - page number (parity)
+                unsigned char *colordata,        // I - rendered image data
+                unsigned int image_rowsize,      // I - bytes per image row
+                unsigned int copy_height,        // I - image rows to copy
+                unsigned int copy_width,         // I - width to copy
+                unsigned char *lineBuf,          // I - scratch line buffer
+                int bg_color)                    // I - background fill value
+{
+  unsigned char *dp;
+  convert_line_func convertLine;
+
+  if ((pageNo & 1) == 0)
+    convertLine = convert->convertLineEven;
+  else
+    convertLine = convert->convertLineOdd;
+
+  if (doc->header.Duplex && (pageNo & 1) == 0 && doc->swap_image_y)
+  {
+    for (unsigned int plane = 0; plane < doc->nplanes; plane ++)
+    {
+      unsigned char *bp = colordata + (copy_height - 1) * image_rowsize;
+      
+      for (unsigned int h = doc->header.cupsHeight; h > 0; h--)
+      {
+        if (h <= copy_height) 		// inside valid page/image area
+	{
+          if (doc->allocLineBuf)
+            memset(lineBuf, bg_color, doc->bytesPerLine);
+          for (unsigned int band = 0; band < doc->nbands; band ++)
+          {
+            dp = convertLine(bp, lineBuf, h - 1, plane + band,
+                             copy_width, 
+                             doc->bytesPerLine, doc, convert->convertCSpace);
+	    cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+	  }
+	  bp -= image_rowsize;
+        }
+	else				// Image shorter than page, thus whitespace
+	{
+          if (doc->allocLineBuf) 
+	  {
+	    memset(lineBuf, bg_color, doc->bytesPerLine);
+            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
+          }
+	}
+      }
+    }
+  }
+  else
+  {
+    for (unsigned int plane = 0; plane < doc->nplanes; plane++)
+    {
+      unsigned char *bp = colordata;
+      for (unsigned int h = 0; h < doc->header.cupsHeight; h++)
+      {
+        if (h < copy_height) 		// inside valid page/image area
+	{
+          if (doc->allocLineBuf)
+            memset(lineBuf, bg_color, doc->bytesPerLine);
+
+          for (unsigned int band = 0; band < doc->nbands; band++)
+          {
+            dp = convertLine(bp, lineBuf, h, plane + band, copy_width,
+                             doc->bytesPerLine, doc, convert->convertCSpace);
+            cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
+          }
+          bp += image_rowsize;
+	}
+	else				// Image shorter than page, thus whitespace
+	{
+	  if (doc->allocLineBuf) 
+	  {
+	    memset(lineBuf, bg_color, doc->bytesPerLine);
+            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
+          }
+	}
+      }
+    }
+  }
+}
+
+
 // 
 // 'write_page_image()' - bridge between PDF rendering tool and CUPS raster Output
 //
@@ -1721,9 +1816,7 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
                  void *icd)
 {
   int i;
-  convert_line_func convertLine;
   unsigned char *lineBuf = NULL;
-  unsigned char *dp;
   unsigned int image_rowsize = 0;
   int fakeres[2];
   int bg_color = 255;
@@ -1955,82 +2048,15 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
     }
   }
 
-  if ((pageNo & 1) == 0)
-    convertLine = convert->convertLineEven;
-  else
-    convertLine = convert->convertLineOdd;
-
-  // This will be the safe copy limit; 
-  // In some cases, the PDFtoppm might output where image sizes are 
+  // This will be the safe copy limit;
+  // In some cases, the PDFtoppm might output where image sizes are
   // smaller than expected page size.
   // copy_height and copy_width act as safe copy limit in this.
   unsigned int copy_height = (height < doc->header.cupsHeight) ? height : doc->header.cupsHeight;
   unsigned int copy_width = (width < doc->header.cupsWidth) ? width : doc->header.cupsWidth;
 
-  if (doc->header.Duplex && (pageNo & 1) == 0 && doc->swap_image_y)
-  {
-    for (unsigned int plane = 0; plane < doc->nplanes; plane ++)
-    {
-      unsigned char *bp = colordata + (copy_height - 1) * image_rowsize;
-      
-      for (unsigned int h = doc->header.cupsHeight; h > 0; h--)
-      {
-        if (h <= copy_height) 		// inside valid page/image area
-	{
-          if (doc->allocLineBuf)
-            memset(lineBuf, bg_color, doc->bytesPerLine);
-          for (unsigned int band = 0; band < doc->nbands; band ++)
-          {
-            dp = convertLine(bp, lineBuf, h - 1, plane + band,
-                             copy_width, 
-                             doc->bytesPerLine, doc, convert->convertCSpace);
-	    cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
-	  }
-	  bp -= image_rowsize;
-        }
-	else				// Image shorter than page, thus whitespace
-	{
-          if (doc->allocLineBuf) 
-	  {
-	    memset(lineBuf, bg_color, doc->bytesPerLine);
-            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
-          }
-	}
-      }
-    }
-  }
-  else
-  {
-    for (unsigned int plane = 0; plane < doc->nplanes; plane++)
-    {
-      unsigned char *bp = colordata;
-      for (unsigned int h = 0; h < doc->header.cupsHeight; h++)
-      {
-        if (h < copy_height) 		// inside valid page/image area
-	{
-          if (doc->allocLineBuf)
-            memset(lineBuf, bg_color, doc->bytesPerLine);
-
-          for (unsigned int band = 0; band < doc->nbands; band++)
-          {
-            dp = convertLine(bp, lineBuf, h, plane + band, copy_width,
-                             doc->bytesPerLine, doc, convert->convertCSpace);
-            cupsRasterWritePixels(raster, dp, doc->bytesPerLine);
-          }
-          bp += image_rowsize;
-	}
-	else				// Image shorter than page, thus whitespace
-	{
-	  if (doc->allocLineBuf) 
-	  {
-	    memset(lineBuf, bg_color, doc->bytesPerLine);
-            cupsRasterWritePixels(raster, lineBuf, doc->bytesPerLine);
-          }
-	}
-      }
-    }
-  }
-
+  copy_image_rows(raster, doc, convert, pageNo, colordata, image_rowsize,
+                  copy_height, copy_width, lineBuf, bg_color);
   free(colordata);
   if (lineBuf) 
     free(lineBuf);

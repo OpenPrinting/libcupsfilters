@@ -1,179 +1,93 @@
 //
-// Test program for pdftoraster copy_height off-by-one fix.
+// Regression test for the pdftoraster copy_height off-by-one / out-of-bounds
+// fix.  It pulls in the real cupsfilters/pdftoraster.c so it exercises the
+// actual copy_image_rows() helper (the code write_page_image() calls in
+// production), then drives it with a colordata buffer sized to EXACTLY
+// copy_height rows while the page (cupsHeight) is one row taller -- i.e. the
+// "rendered image shorter than page" case where the off-by-one lived.  Built
+// with AddressSanitizer, the buggy `h <= copy_height` reads one row past the
+// buffer and ASan aborts; the fixed `h < copy_height` stays in bounds.
 //
-// This test validates the copy loop logic used in write_page_image()
-// when the rendered image is smaller than the page height. The bug
-// used `h <= copy_height` instead of `h < copy_height`, causing one
-// extra iteration past the allocated buffer. The fix also adds a guard
-// for `allocLineBuf` to prevent NULL-ptr memset.
-//
-// Licensed under Apache License v2.0. See the file "LICENSE" for more
-// information.
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-static int n_errors = 0;
-#define TEST(cond, msg) do { \
-  if (!(cond)) { \
-    fprintf(stderr, "FAIL: %s\n", msg); \
-    n_errors++; \
-  } else { \
-    fprintf(stderr, "OK:   %s\n", msg); \
-  } \
-} while (0)
+// Include the unit under test so the static helper and its types are visible.
+#include "cupsfilters/pdftoraster.c"
 
-typedef struct {
-  unsigned int cupsHeight;
-  unsigned int cupsWidth;
-  unsigned int bytesPerLine;
-  int allocLineBuf;
-} doc_t;
-
-/* Simulate the forward copy loop from write_page_image().
- * Returns the number of times the "inside valid page/image area" branch executed.
- * If allocLineBuf is 0 and the branch would execute, returns 0 on crash (caller
- * interprets). */
-static int
-simulate_forward_loop(unsigned int image_height,
-                      unsigned int page_height,
-                      int allocLineBuf)
+// A convert-line callback that READS the source row (this is the access that
+// goes out of bounds when the copy loop over-runs) and returns a valid dst.
+static unsigned char *
+test_convert_line(unsigned char *src, unsigned char *dst,
+                  unsigned int row, unsigned int plane,
+                  unsigned int pixels, unsigned int size,
+                  pdftoraster_doc_t *doc, convert_cspace_func convertCSpace)
 {
-  doc_t doc;
-  memset(&doc, 0, sizeof(doc));
-  doc.cupsHeight = page_height;
-  doc.cupsWidth = 16;
-  doc.bytesPerLine = 16;
-  doc.allocLineBuf = allocLineBuf;
-
-  unsigned int copy_height = (image_height < page_height) ? image_height : page_height;
-  unsigned char *colordata = (unsigned char *)malloc(image_height * 16);
-  unsigned char *lineBuf = NULL;
-  if (allocLineBuf)
-    lineBuf = (unsigned char *)malloc(doc.bytesPerLine);
-
-  unsigned char *bp = colordata;
-  int inside_count = 0;
-
-  for (unsigned int h = 0; h < doc.cupsHeight; h++)
-  {
-    if (h < copy_height)              // FIXED: was h <= copy_height
-    {
-      inside_count++;
-      if (doc.allocLineBuf)
-        memset(lineBuf, 0, doc.bytesPerLine);
-      bp += 16;                       // image_rowsize
-    }
-    else
-    {
-      if (doc.allocLineBuf)
-        memset(lineBuf, 0, doc.bytesPerLine);
-    }
-  }
-
-  /* bp should never point past the allocated region.
-   * After the fix: copy_height iterations, each advancing by 16,
-   * so bp == colordata + copy_height * 16 == end of allocation. */
-  if (bp > colordata + image_height * 16) {
-    fprintf(stderr, "FAIL: bp=%p exceeds colordata+size=%p (copy_height=%u image_height=%u)\n",
-            (void*)bp, (void*)(colordata + image_height * 16), copy_height, image_height);
-    n_errors++;
-  }
-
-  free(lineBuf);
-  free(colordata);
-  return inside_count;
-}
-
-/* Simulate the reverse (duplex) copy loop.
- *
- * The reverse loop iterates h from page_height DOWN TO 1, with bp
- * starting at the last valid row.  Here h <= copy_height is correct
- * (unlike the forward loop) because h = copy_height corresponds to
- * the last valid row index (copy_height-1), and the loop ends before
- * bp can be dereferenced past the allocation start.
- */
-static int
-simulate_reverse_loop(unsigned int image_height,
-                      unsigned int page_height,
-                      int allocLineBuf)
-{
-  doc_t doc;
-  memset(&doc, 0, sizeof(doc));
-  doc.cupsHeight = page_height;
-  doc.cupsWidth = 16;
-  doc.bytesPerLine = 16;
-  doc.allocLineBuf = allocLineBuf;
-
-  unsigned int copy_height = (image_height < page_height) ? image_height : page_height;
-  unsigned char *colordata = (unsigned char *)malloc(image_height * 16);
-  unsigned char *lineBuf = NULL;
-  if (allocLineBuf)
-    lineBuf = (unsigned char *)malloc(doc.bytesPerLine);
-
-  unsigned char *bp = colordata + (copy_height - 1) * 16;
-  int inside_count = 0;
-
-  for (unsigned int h = doc.cupsHeight; h > 0; h--)
-  {
-    if (h <= copy_height)             // correct (h descends from page_height to 1)
-    {
-      inside_count++;
-      if (doc.allocLineBuf)
-        memset(lineBuf, 0, doc.bytesPerLine);
-      bp -= 16;
-    }
-    else
-    {
-      if (doc.allocLineBuf)
-        memset(lineBuf, 0, doc.bytesPerLine);
-    }
-  }
-
-  free(lineBuf);
-  free(colordata);
-  return inside_count;
+  (void)row; (void)plane; (void)doc; (void)convertCSpace;
+  unsigned int n = pixels < size ? pixels : size;
+  for (unsigned int i = 0; i < n; i++)
+    dst[i] = src[i];            // OOB read of src when copy_height is over-run
+  return dst;
 }
 
 int
 main(void)
 {
-  fprintf(stderr, "--- pdftoraster copy_height tests ---\n");
+  const unsigned int copy_height = 4;
+  const unsigned int rowsize     = 8;
+  const unsigned int copy_width  = 8;
 
-  /* Test 1: image < page, allocLineBuf=true — the OOB scenario */
-  TEST(simulate_forward_loop(1, 2, 1) == 1,
-       "forward: image=1 page=2 -> inside_count=1 (was 2 before fix)");
-  TEST(simulate_reverse_loop(1, 2, 1) == 1,
-       "reverse: image=1 page=2 -> inside_count=1 (was 2 before fix)");
+  // colordata holds EXACTLY copy_height rows; reading row copy_height is OOB.
+  unsigned char *colordata = (unsigned char *)malloc((size_t)copy_height * rowsize);
+  memset(colordata, 0x55, (size_t)copy_height * rowsize);
+  unsigned char *lineBuf = (unsigned char *)malloc(rowsize);
 
-  /* Test 2: image == page — normal case */
-  TEST(simulate_forward_loop(5, 5, 1) == 5,
-       "forward: image=5 page=5 -> inside_count=5");
-  TEST(simulate_reverse_loop(5, 5, 1) == 5,
-       "reverse: image=5 page=5 -> inside_count=5");
+  pdftoraster_doc_t doc;
+  memset(&doc, 0, sizeof(doc));
+  doc.header.cupsWidth        = copy_width;
+  doc.header.cupsHeight       = copy_height + 1;   // page one row taller
+  doc.header.cupsBitsPerColor = 8;
+  doc.header.cupsBitsPerPixel  = 8;
+  doc.header.cupsBytesPerLine = rowsize;
+  doc.header.cupsColorOrder   = CUPS_ORDER_CHUNKED;
+  doc.header.cupsColorSpace   = CUPS_CSPACE_K;
+  doc.header.cupsNumColors    = 1;
+  doc.header.HWResolution[0]  = doc.header.HWResolution[1] = 72;
+  doc.header.PageSize[0]      = copy_width;
+  doc.header.PageSize[1]      = copy_height + 1;
+  doc.bytesPerLine = rowsize;
+  doc.nplanes      = 1;
+  doc.nbands       = 1;
+  doc.allocLineBuf = true;
+  doc.swap_image_y = false;
 
-  /* Test 3: image > page — normal case (clamped by copy_height) */
-  TEST(simulate_forward_loop(10, 5, 1) == 5,
-       "forward: image=10 page=5 -> inside_count=5 (clamped)");
-  TEST(simulate_reverse_loop(10, 5, 1) == 5,
-       "reverse: image=10 page=5 -> inside_count=5 (clamped)");
+  pdf_conversion_function_t convert;
+  memset(&convert, 0, sizeof(convert));
+  convert.convertLineEven = test_convert_line;
+  convert.convertLineOdd  = test_convert_line;
+  convert.convertCSpace   = NULL;
 
-  /* Test 4: image=0 (edge case: should not crash) */
-  /* copy_height = 0, loop should never enter the "inside" branch */
-  TEST(simulate_forward_loop(0, 5, 1) == 0,
-       "forward: image=0 page=5 -> inside_count=0");
-  TEST(simulate_reverse_loop(0, 5, 1) == 0,
-       "reverse: image=0 page=5 -> inside_count=0");
+  int fd = open("/dev/null", O_WRONLY);
+  cups_raster_t *raster = cupsRasterOpen(fd, CUPS_RASTER_WRITE);
+  if (!raster)
+  {
+    fprintf(stderr, "cupsRasterOpen failed\n");
+    free(lineBuf);
+    free(colordata);
+    close(fd);
+    return 2;
+  }
+  cupsRasterWriteHeader(raster, &doc.header);
 
-  /* Test 5: image < page, allocLineBuf=false — the NULL-ptr crash scenario */
-  /* Must not crash; function returns early from inside branch since allocLineBuf=false */
-  TEST(simulate_forward_loop(1, 2, 0) == 1,
-       "forward: image=1 page=2 allocLineBuf=0 -> no crash, inside_count=1");
-  TEST(simulate_reverse_loop(1, 2, 0) == 1,
-       "reverse: image=1 page=2 allocLineBuf=0 -> no crash, inside_count=1");
+  copy_image_rows(raster, &doc, &convert, 0, colordata, rowsize,
+                  copy_height, copy_width, lineBuf, 255);
 
-  fprintf(stderr, "--- %s ---\n", n_errors ? "SOME TESTS FAILED" : "ALL TESTS PASSED");
-  return n_errors ? 1 : 0;
+  cupsRasterClose(raster);
+  close(fd);
+  free(lineBuf);
+  free(colordata);
+  fprintf(stderr, "OK: copy_image_rows completed without overrun\n");
+  return 0;
 }

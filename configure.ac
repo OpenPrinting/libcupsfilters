@@ -5,7 +5,7 @@ AC_PREREQ([2.65])
 # ====================
 # Version informations
 # ====================
-AC_INIT([libcupsfilters], [2.1.1], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
+AC_INIT([libcupsfilters], [2.2.1], [https://github.com/OpenPrinting/libcupsfilters/issues], [libcupsfilters], [https://github.com/OpenPrinting/libcupsfilters/])
 libcupsfilters_version="AC_PACKAGE_VERSION"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{print $1}'`"
 libcupsfilters_version_major="`echo AC_PACKAGE_VERSION | awk -F. '{printf("%d\n",$2);}'`"
@@ -19,7 +19,7 @@ m4_include([m4/ax_compare_version.m4])
 m4_include([m4/basic-directories.m4])
 AM_INIT_AUTOMAKE([1.11 gnu dist-xz dist-bzip2 subdir-objects foreign])
 AM_SILENT_RULES([yes])
-AC_LANG([C++])
+AC_LANG([C])
 AC_CONFIG_HEADERS([config.h])
 # Extra defines for the config.h
 AH_BOTTOM([
@@ -50,11 +50,8 @@ AH_BOTTOM([
 # Find required base packages
 # ===========================
 AC_PROG_CC
-AC_PROG_CXX
-AX_CXX_COMPILE_STDCXX([11],[noext],[mandatory])
 AM_PROG_CC_C_O
 AM_ICONV
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -82,7 +79,14 @@ AS_IF([$PKGCONFIG --exists cups3], [
     AC_SUBST(CUPS_CFLAGS)
     AC_SUBST(CUPS_LIBS)
 
-    CUPS_DATADIR="$($PKGCONFIG --variable=prefix cups3)/share/cups"
+    # Prefer the datadir cups3.pc exports directly.  Reconstructing it from
+    # --variable=prefix is wrong when CUPS was built with an architecture-
+    # specific prefix (e.g. /usr/x86_64-pc-linux-gnu): the data lives in the
+    # arch-independent /usr/share/cups, which the .pc records in cups_datadir.
+    # Fall back to the prefix-relative path for a .pc without it. (#201)
+    CUPS_DATADIR="$($PKGCONFIG --variable=cups_datadir cups3)"
+    AS_IF([test "x$CUPS_DATADIR" = x],
+          [CUPS_DATADIR="$($PKGCONFIG --variable=prefix cups3)/share/cups"])
     AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
     AC_SUBST(CUPS_DATADIR)
 
@@ -131,7 +135,14 @@ AS_IF([$PKGCONFIG --exists cups3], [
 	cups_prefix="$($PKGCONFIG --variable=prefix cups)"
 	AS_IF([test "x$cups_prefix" = x], [cups_prefix=/usr])
 
-	CUPS_DATADIR="$cups_prefix/share/cups"
+	# Prefer the datadir cups.pc exports directly.  Reconstructing it from
+	# --variable=prefix is wrong when CUPS was built with an architecture-
+	# specific prefix (e.g. /usr/x86_64-pc-linux-gnu): the data lives in the
+	# arch-independent /usr/share/cups, which the .pc records in cups_datadir.
+	# Fall back to the prefix-relative path for a .pc without it. (#201)
+	CUPS_DATADIR="$($PKGCONFIG --variable=cups_datadir cups)"
+	AS_IF([test "x$CUPS_DATADIR" = x],
+	      [CUPS_DATADIR="$cups_prefix/share/cups"])
 	AC_DEFINE_UNQUOTED(CUPS_DATADIR, "$CUPS_DATADIR", [CUPS datadir])
 	AC_SUBST(CUPS_DATADIR)
 
@@ -376,18 +387,6 @@ AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"],
 PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.6.4])
 
 
-# =================
-# Check for Poppler
-# =================
-AC_ARG_ENABLE(poppler, AS_HELP_STRING([--enable-poppler],[enable Poppler-based filters]),
-	      enable_poppler=$enableval,enable_poppler=yes)
-AM_CONDITIONAL([ENABLE_POPPLER], test x$enable_poppler = xyes)
-if test x$enable_poppler = xyes; then
-	PKG_CHECK_MODULES([POPPLER], [poppler-cpp >= 0.19])
-	AC_CHECK_HEADER([poppler/cpp/poppler-version.h], [AC_DEFINE([HAVE_CPP_POPPLER_VERSION_H],[1],[Define if you have Poppler's "cpp/poppler-version.h" header file.])], [])
-	AC_DEFINE([HAVE_POPPLER], [1], [Define that we provide Poppler library])
-fi
-
 # ===============
 # Check for D-Bus
 # ===============
@@ -566,10 +565,8 @@ AS_IF([test x"$enable_werror" = "xyes"], [
 AS_IF([test x"$GCC" = "xyes"], [
 	# Be tough with warnings and produce less careless code
 	CFLAGS="$CFLAGS -Wall -std=gnu11"
-	CXXFLAGS="$CXXFLAGS -Wall " # -Weffc++" # TODO: enable when it does not print 1MB of warnings
 ])
 CFLAGS="$CFLAGS -D_GNU_SOURCE"
-CXXFLAGS="$CXXFLAGS -std=c++17"
 
 # =========
 # CJK FONTS
@@ -601,7 +598,6 @@ AC_MSG_NOTICE([
 ==============================================================================
 Environment settings:
 	CFLAGS:                                    ${CFLAGS}
-	CXXFLAGS:                                  ${CXXFLAGS}
 	LDFLAGS:                                   ${LDFLAGS}
 Build configuration:
         libcups:         ${CUPS_VERSION}

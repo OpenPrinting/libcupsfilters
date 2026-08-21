@@ -22,7 +22,7 @@
 #include "config.h"
 
 #ifdef HAVE_LIBJXL
-#include "image-jpeg-xl.h"
+#include "image-jpeg-xl-private.h"
 #include <jxl/decode.h>
 #include <jxl/types.h>
 #include <stdlib.h>

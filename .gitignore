@@ -98,6 +98,8 @@ Test_summary_final.txt
 test.pdf
 test.ps
 cupsfilters/test_files/output_files/*
+gen-lorem-text
+cupsfilters/test_files/test_text_lorem.txt
 
 # ignore generated charset file
 charset/pdf.utf-8.simple

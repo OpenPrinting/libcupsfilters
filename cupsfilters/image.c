@@ -42,7 +42,7 @@
 
 #ifdef HAVE_LIBJXL
 #include <jxl/decode.h>
-#include "image-jpeg-xl.h"
+#include "image-jpeg-xl-private.h"
 #endif
 
 

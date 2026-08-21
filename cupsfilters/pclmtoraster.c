@@ -204,27 +204,39 @@ parse_opts(cf_filter_data_t *data,			// I - Job and Print data
 }
 
 //
-// 'media_box_lookup()' - Helper function look up MediaBox from PDF dictionary
+// 'media_box_lookup()' - Helper function to look up MediaBox from a page
+//                        object, walking parent nodes if needed (MediaBox is
+//                        an inheritable attribute in PDF).
 //
 
-static bool					  // O - 1 if mediabox is found, 0 if not
-media_box_lookup(pdfio_obj_t *object,		// I - Page Object to look for mediabox
-	       	 float rect[4])			// O - rectangle for mediabox output
+static bool					// O - true if found, false if not
+media_box_lookup(pdfio_obj_t *object,		// I - Page object
+		 float rect[4])			// O - MediaBox rectangle
 {
-  pdfio_rect_t mediaBox;
-  pdfio_dict_t *object_dict = pdfioObjGetDict(object);
-  if(pdfioDictGetRect(object_dict, "MediaBox", &mediaBox))
-    return false;
+  pdfio_rect_t	mediaBox;			// MediaBox value
+  pdfio_dict_t	*dict;				// Current dictionary
 
- pdfioDictGetRect(object_dict, "MediaBox", &mediaBox);
+  // Walk the page tree up through Parent nodes to find an inherited MediaBox
+  while (object)
+  {
+    dict = pdfioObjGetDict(object);
+    if (!dict)
+      break;
 
- rect[0] = mediaBox.x1;
- rect[1] = mediaBox.y1;
- rect[2] = mediaBox.x2;
- rect[3] = mediaBox.y2;
+    if (pdfioDictGetRect(dict, "MediaBox", &mediaBox))
+    {
+      rect[0] = mediaBox.x1;
+      rect[1] = mediaBox.y1;
+      rect[2] = mediaBox.x2;
+      rect[3] = mediaBox.y2;
+      return (true);
+    }
 
- return true;
-}	
+    object = pdfioDictGetObj(dict, "Parent");
+  }
+
+  return (false);
+}
 
 //
 // 'rotate_bitmap()' - Function to rotate a bitmap
@@ -835,40 +847,64 @@ process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
 	      int pixel_count, 			// I - pixel count for bitmap
 	      unsigned char *bitmap)		// O - bitmap values
 {
-  char *buffer[4096];
-  pdfio_obj_t *image = pdfioDictGetObj(dict, key);
+  const char          *subtype;
+  pclmtoraster_data_t *data;
+  pdfio_obj_t         *image;
+  pdfio_dict_t        *imgdict;
+  pdfio_stream_t      *img_str;
+  ssize_t             bytes;
+  unsigned char       buffer[8192];
 
-  //... verify the object has type "Image", then do something with the image object ...
 
-  if (strcmp(pdfioObjGetType(image), "image") == 0)
+  data = (pclmtoraster_data_t *)cb_data;
+
+  if ((image = pdfioDictGetObj(dict, key)) == NULL)
+    return (true);
+
+  if ((subtype = pdfioObjGetSubtype(image)) == NULL)
+    return (true);
+
+  if (strcmp(subtype, "Image"))
+    return (true);
+
+  if ((imgdict = pdfioObjGetDict(image)) == NULL)
+    return (true);
+
+  int width = (int)pdfioDictGetNumber(imgdict, "Width");
+  int height = (int)pdfioDictGetNumber(imgdict, "Height");
+
+  // Read the complete decoded image stream
+  if ((img_str = pdfioObjOpenStream(image, true)) == NULL)
+    return (true);
+
+  while ((bytes = pdfioStreamRead(img_str, buffer, sizeof(buffer))) > 0)
   {
-    pdfio_dict_t *imgdict = pdfioObjGetDict(image);
-    if (!imgdict) 
-       return true;
+    unsigned char *tmp;
 
-    // Read the raw image stream
-    pdfio_stream_t *img_str = pdfioObjOpenStream(image, true);
-    size_t bufsize = pdfioStreamRead(img_str, buffer, sizeof(buffer));
-    
-    int width = pdfioDictGetNumber(imgdict, "Width");
-    int height = pdfioDictGetNumber(imgdict, "Height");
-
-    data->header.cupsHeight += height;
-
-    // Allocate memory for the bitmap data
-    if (pixel_count == 0)
-      bitmap = (unsigned char *)malloc(bufsize);
-    
+    if (data->pixel_count == 0)
+      tmp = (unsigned char *)malloc(bytes);
     else
-      bitmap = (unsigned char *)realloc(bitmap, pixel_count + bufsize);
+      tmp = (unsigned char *)realloc(data->bitmap,
+            data->pixel_count + bytes);
 
-    memcpy(bitmap + pixel_count, buffer, bufsize);
-    pixel_count += bufsize;
+    if (!tmp)
+    {
+      pdfioStreamClose(img_str);
+      return (false);
+    }
 
-    // Track maximum width
-    if (width > data->header.cupsWidth)
-      data->header.cupsWidth = width;
+    data->bitmap = tmp;
+    memcpy(data->bitmap + data->pixel_count, buffer, bytes);
+    data->pixel_count += bytes;
   }
+
+  pdfioStreamClose(img_str);
+
+  data->header.cupsHeight += height;
+
+  // Track maximum width
+  if (width > (int)data->header.cupsWidth)
+    data->header.cupsWidth = width;
 
   return (true);
 }
@@ -1278,13 +1314,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
 
     if (log) log(ld, CF_LOGLEVEL_INFO,
 		 "cfFilterPCLmToRaster: Starting page %d.", i + 1);
-    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data,data,
-		 &convert) != 0)
-      break;
-
-    if (log) log(ld, CF_LOGLEVEL_INFO,
-		 "cfFilterPCLmToRaster: Starting page %d.", (i + 1));
-    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data,data,
+    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data, data,
 		 &convert) != 0)
       break;
   }
