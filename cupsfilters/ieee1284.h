@@ -60,41 +60,43 @@ extern "C" {
 // Bit field to describe how to normalize make/model/device ID strings
 enum cf_ieee1284_normalize_modes_e
 {
- CF_IEEE1284_NORMALIZE_COMPARE = 0x01,        // Optimized for comparing,
-                                              // replacing any sequence of
-                                              // non-alpha-numeric characters
-                                              // by a single separator char,
-                                              // at any letter-number boundary
-                                              // and any camel-case boundary
-                                              // add a single separator char,
-                                              // 2 separator chars between
-                                              // make/model/extra,
-                                              // make all letters lowercase (or
-                                              // uppercase)
- CF_IEEE1284_NORMALIZE_IPP = 0x02,            // Only chars allowed in
-                                              // IPP keywords
- CF_IEEE1284_NORMALIZE_ENV = 0x04,            // Environment variable format
-                                              // upparcase and underscore
- CF_IEEE1284_NORMALIZE_HUMAN = 0x08,          // Human-readable, conserves
-                                              // spaces and special characters
-                                              // but does some clean-up
+ CF_IEEE1284_NORMALIZE_COMPARE = 0x01,        /*
+                                              *  Optimized for comparing,
+                                              * replacing any sequence of
+                                              * non-alpha-numeric characters
+                                              * by a single separator char,
+                                              * at any letter-number boundary
+                                              * and any camel-case boundary
+                                              * add a single separator char,
+                                              * 2 separator chars between
+                                              * make/model/extra,
+                                              * make all letters lowercase (or uppercase)
+                                              */ 
+ CF_IEEE1284_NORMALIZE_IPP = 0x02,            // Only chars allowed in IPP keywords
+ CF_IEEE1284_NORMALIZE_ENV = 0x04,            // Environment variable format upparcase and underscore
+ CF_IEEE1284_NORMALIZE_HUMAN = 0x08,          /* 
+                                              * Human-readable, conserves
+                                              * spaces and special characters
+                                              * but does some clean-up
+                                              */
  CF_IEEE1284_NORMALIZE_LOWERCASE = 0x10,      // All letters lowercase
  CF_IEEE1284_NORMALIZE_UPPERCASE = 0x20,      // All letters uppercase
  CF_IEEE1284_NORMALIZE_SEPARATOR_SPACE = 0x40,// Separator char is ' '
  CF_IEEE1284_NORMALIZE_SEPARATOR_DASH = 0x80, // Separator char is '-'
  CF_IEEE1284_NORMALIZE_SEPARATOR_UNDERSCORE = 0x100,// Separator char is '_'
- CF_IEEE1284_NORMALIZE_PAD_NUMBERS = 0x200,   // Zero-pad numbers in strings
-                                              // to get better list sorting
-                                              // results
- CF_IEEE1284_NORMALIZE_SEPARATE_COMPONENTS = 0x400,// In the output buffer put
-                                              // '\0' bytes between make,
-                                              // model, and extra, to use
-                                              // as separate strings
- CF_IEEE1284_NORMALIZE_NO_MAKE_MODEL = 0x800, // No make/model/extra separation,
-                                              // do not try to identify, add,
-                                              // or clean up manufacturer
-                                              // name
-};
+ CF_IEEE1284_NORMALIZE_PAD_NUMBERS = 0x200,   // Zero-pad numbers in strings to get better list sorting results
+ CF_IEEE1284_NORMALIZE_SEPARATE_COMPONENTS = 0x400, /* 
+                                              * In the output buffer put
+                                              * '\0' bytes between make,
+                                              * model, and extra, to use
+                                              * as separate strings
+                                              */
+ CF_IEEE1284_NORMALIZE_NO_MAKE_MODEL = 0x800, /* 
+                                              * No make/model/extra separation,
+                                              * do not try to identify, add,
+                                              * or clean up manufacturer
+                                              * name
+                                              */
 typedef unsigned cf_ieee1284_normalize_modes_t;
 
 //

@@ -78,86 +78,75 @@
 // Compression method for providing data to PCLm Streams.
 typedef enum compression_method_e
 {
-  DCT_DECODE = 0,
-  FLATE_DECODE,
-  RLE_DECODE
+  DCT_DECODE = 0,     // JPEG compression
+  FLATE_DECODE,       // Flate compression
+  RLE_DECODE          // Run Length compression
 } compression_method_t;
 
 // Color conversion function
 typedef unsigned char *(*convert_function)(unsigned char *src,
 					   unsigned char *dst,
 					   unsigned int pixels);
-
-// Bit conversion function
 typedef unsigned char *(*bit_convert_function)(unsigned char *src,
 					       unsigned char *dst,
-					       unsigned int pixels);
-
-typedef struct pwgtopdf_doc_s                  // **** Document information ****
+					       unsigned int pixels); // Bit conversion function
+typedef struct pwgtopdf_doc_s                  // *** Document information ***
 {
-  cmsHPROFILE          colorProfile;    // ICC Profile to be applied to
-					       // PDF
-  int                  cm_disabled;        // Flag raised if color
-					       // management is disabled
-  convert_function     conversion_function;    // Raster color conversion
-					       // function
+  cmsHPROFILE          colorProfile;    // ICC Profile to be applied to PDF
+  int                  cm_disabled;        // Flag raised if color management is disabled
+  convert_function     conversion_function;    // Raster color conversion function
   bit_convert_function bit_function;           // Raster bit function
   FILE		       *outputfp;	       // Temporary file, if any
-  cf_logfunc_t         logfunc;                // Logging function, NULL for no
-					       // logging
-  void                 *logdata;               // User data for logging
-					       // function, can be NULL
-  cf_filter_iscanceledfunc_t iscanceledfunc;   // Function returning 1 when
-                                               // job is canceled, NULL for not
-                                               // supporting stop on cancel
-  void                 *iscanceleddata;        // User data for is-canceled
-					       // function, can be NULL
+  cf_logfunc_t         logfunc;                // Logging function, NULL for no logging
+  void                 *logdata;               // User data for logging function, can be NULL
+  cf_filter_iscanceledfunc_t iscanceledfunc;   // Function returning 1 when job is canceled, NULL for not supporting stop on cancel
+  void                 *iscanceleddata;        // User data for is-canceled function, can be NULL
 } pwgtopdf_doc_t;
 
 // PDF info structure
-struct pdf_info{
-    pdfio_file_t *pdf;
-    pdfio_dict_t *page_dict;
-    pdfio_obj_t *page;
-    pdfio_stream_t *page_stream;
-    char *temp_filename;
+struct pdf_info{                          // *** PDF info structure ***
+    pdfio_file_t *pdf;                    // PDF file structure
+    pdfio_dict_t *page_dict;              // PDF page dictionary
+    pdfio_obj_t *page;                    // PDF page object
+    pdfio_stream_t *page_stream;          // PDF page stream
+    char *temp_filename;                  // Temporary file name for PDF output
 
-    unsigned pagecount;
-    unsigned width;
-    unsigned height;
-    unsigned line_bytes;
-    unsigned bpp;
-    unsigned bpc;
+    unsigned pagecount;                   // Number of pages in the PDF
+    unsigned width;                       // Width of the PDF page
+    unsigned height;                    // Height of the PDF page
+    unsigned line_bytes;                  // Number of bytes per line in the PDF page
+    unsigned bpp;                         // Bits per pixel in the PDF page
+    unsigned bpc;                         // Bits per component in the PDF page
 
-    unsigned 		pclm_num_strips;
-    unsigned 		pclm_strip_height_preferred;
+    unsigned 		pclm_num_strips;              // Number of strips in the PCLm page
+    unsigned 		pclm_strip_height_preferred;    // Preferred strip height for the PCLm page
     
-    unsigned 		*pclm_strip_height;
-    size_t 		pclm_strip_height_size;
+    unsigned 		*pclm_strip_height;           // Array of strip heights for the PCLm page
+    size_t 		pclm_strip_height_size;         // Size of the pclm_strip_height array
 
-    unsigned 		*pclm_strip_height_supported;
-    size_t 		pclm_strip_height_supported_size;
+    unsigned 		*pclm_strip_height_supported;     // Array of supported strip heights for the PCLm page
+    size_t 		pclm_strip_height_supported_size;   // Size of the pclm_strip_height_supported array
 
-    compression_method_t *pclm_compression_method_preferred;
-    size_t 		 pclm_compression_method_preferred_size;
+    compression_method_t *pclm_compression_method_preferred;  // Array of preferred compression methods for the PCLm page
+    size_t 		 pclm_compression_method_preferred_size;      // Size of the pclm_compression_method_preferred array
 
-    char 		**pclm_source_resolution_supported;
-    size_t 		pclm_source_resolution_supported_size;
+    char 		**pclm_source_resolution_supported;     // Array of supported source resolutions for the PCLm page
+    size_t 		pclm_source_resolution_supported_size;    // Size of the pclm_source_resolution_supported array
 
-    char 		*pclm_source_resolution_default;
-    char 		*pclm_raster_back_side;
+    char 		*pclm_source_resolution_default;      // Default source resolution for the PCLm page
+    char 		*pclm_raster_back_side;               // Raster back side for the PCLm page
 
-    char 		**pclm_strip_data;
-    size_t 		*pclm_strip_data_size;
+    char 		**pclm_strip_data;          // Array of strip data for the PCLm page
+    size_t 		*pclm_strip_data_size;      // Array of sizes for the pclm_strip_data array
 
-    char 		*render_intent;
-    cups_cspace_t 	color_space;
+    char 		*render_intent;       // Render intent for the PDF page
+    cups_cspace_t 	color_space;    // Color space for the PDF page
 
-    char 		*page_data;
-    size_t 		page_data_size;
-    double page_width;
-    double page_height;
-    cf_filter_out_format_t outformat;
+    char 		*page_data;         // Data for the PDF page
+    size_t 		page_data_size;   // Size of the page_data array
+    double page_width;          // Width of the PDF page in points
+    double page_height;         // Height of the PDF page in points
+    cf_filter_out_format_t outformat;   // Output format for the PDF page (PDF or PCLm)
 };
 
 //
@@ -165,7 +154,7 @@ struct pdf_info{
 //
 
 void 
-init_pdf_info(struct pdf_info *info) 
+init_pdf_info(struct pdf_info *info)    // I - pdf_info structure
 {
   info->pdf = NULL;
 
@@ -211,15 +200,16 @@ init_pdf_info(struct pdf_info *info)
   info->outformat = CF_FILTER_OUT_FORMAT_PDF;
 }
 
-// PDF color conversion function
+
 typedef void (*pdf_convert_function)(struct pdf_info *info,
-				     pwgtopdf_doc_t *doc);
+				     pwgtopdf_doc_t *doc); // PDF color conversion function
 
 // 
 // 'free_pdf_info()' - Freeing the dynamically allocated memory
 //
 
-void free_pdf_info(struct pdf_info *info)
+void 
+free_pdf_info(struct pdf_info *info)    // I - pdf_info structure
 {
   if (info->pclm_strip_height)
   {
@@ -366,16 +356,13 @@ no_color_conversion(unsigned char *src,
 
 //
 // 'split_strings()' - Split a string to a vector of strings given some
-//                     delimiters
-//
-// O - std::vector of std::string after splitting
-// I - input string to be split
-// I - string containing delimiters
+//                     delimiters.
 //
 
-char** split_strings(const char *str, 
-	      const char *delimiters, 
-	      size_t *count) 
+char                                  // O - std::vector of std::string after splitting
+** split_strings(const char *str,     // I - input string to be split
+	      const char *delimiters,       // I - string containing delimiters
+	      size_t *count)                // O - number of strings after splitting
 {
   *count = 0;
   if (!str || *str == '\0') 
@@ -491,15 +478,12 @@ num_digits(int n)
 
 //
 // 'int_to_fwstring()' - Convert a number to fixed width string by padding
-//                       with zeroes
-// O - converted string
-// I - the integee which needs to be converted to string
-// I - width of string required
+//                       with zeroes.
 //
 
-char*
-int_to_fwstring(int n, 
-		int width) 
+char*                       // O - converted string
+int_to_fwstring(int n,      // I - the integer which needs to be converted to string
+		int width)              // I - width of string required
 {
   int num_zeroes = width - num_digits(n);
   if (num_zeroes < 0)
@@ -1667,6 +1651,10 @@ set_profile(const char *path,
 		   "cfFilterPWGToPDF: Unable to load profile.");
   return (1);
 }
+
+//
+// 'cfFilterPWGToPDF()' - Convert a PWG raster stream to PDF or PCLm.
+//
 
 int                            // O - Error status
 cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream

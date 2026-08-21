@@ -29,7 +29,7 @@
 #define MAX_BYTES_PER_PIXEL 32
 
 // Structure to hold filter data and state
-typedef struct pclmtoraster_data_s
+typedef struct pclmtoraster_data_s 
 {
   int outformat;		// Output Format
   int numcolors;		// number of Colour components(e.g. 3 for RGB, 4 for CYMK..)
@@ -37,18 +37,14 @@ typedef struct pclmtoraster_data_s
   cups_page_header_t header;	// CUPS page header
   char pageSizeRequested[64];	// Requested page size name
   int bi_level;			// flag for printing
-  // image swapping
-  int swap_image_x;
-  int swap_image_y;
-  // margin swapping
-  int swap_margin_x;
-  int swap_margin_y;
+  int swap_image_x;   // flag for swapping image in x direction
+  int swap_image_y;   // flag for swapping image in y direction
+  int swap_margin_x;    // flag for swapping margin in x direction
+  int swap_margin_y;    // flag for swapping margin in y direction
   unsigned int nplanes;		// Number of colour planes
   unsigned int nbands;		// Number of colour bands
   unsigned int bytesPerLine;	// bytes per line in output
   char colorspace[32]; 		// Colourspace string(Use fixed-size string)
-  int pixel_count;		// Accumulated pixel byte count for bitmap
-  unsigned char *bitmap;	// Accumulated image bitmap data
 } pclmtoraster_data_t;
 
 //
@@ -71,8 +67,6 @@ init_pclmtoraster_data_t(pclmtoraster_data_t *data)	// I - pclm data to initiali
   // Note: When CUPS_ORDER_BANDED,
   //   cupsBytesPerLine = bytesPerLine * cupsNumColors
   strncpy(data->colorspace, "\0", sizeof(data->colorspace));
-  data->pixel_count = 0;
-  data->bitmap = NULL;
 }
 
 // function pointer for color space conversion
@@ -846,10 +840,12 @@ select_convert_func(int			pgno,	 // I - Page number
 // 		       NOTE: no error code, be sure to upload image object only.
 //
 
-static bool					  // O - 1 if success, 0 if fail
+bool						  // O - 1 if success, 0 if fail
 process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
 	      const char *key, 			// I - key names of xobjects
-	      void *cb_data)			// I - conversion data
+	      pclmtoraster_data_t *data, 	// I - conversion data
+	      int pixel_count, 			// I - pixel count for bitmap
+	      unsigned char *bitmap)		// O - bitmap values
 {
   const char          *subtype;
   pclmtoraster_data_t *data;
@@ -931,9 +927,10 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   int                   i;
   long long		rotate = 0;
   float			paperdimensions[2], margins[4], l, swap;
-  int			temp = 0;
+  int			pixel_count = 0, temp = 0;
   float 		mediaBox[4];
-  unsigned char 	*colordata = NULL,
+  unsigned char 	*bitmap = NULL,
+			*colordata = NULL,
 			*lineBuf = NULL,
 			*line = NULL,
 			*dp = NULL;
@@ -1069,9 +1066,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   pdfio_dict_t *xobjects = pdfioDictGetDict(resources, "XObject");
  
   // Iterate over the XObject dictionary to find images
-  data->pixel_count = 0;
-  data->bitmap = NULL;
-  pdfioDictIterateKeys(xobjects, process_image, data);
+  pdfioDictIterateKeys(xobjects, (pdfio_dict_cb_t)process_image, data);
 
   // Swap width and height in landscape images
   if(rotate == 270 || rotate == 90)
@@ -1118,16 +1113,15 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   // Rotate Bitmap
   if (rotate)
   {
-    unsigned char *bitmap2 = (unsigned char *) malloc(data->pixel_count);
-    bitmap2 = rotate_bitmap(data->bitmap, bitmap2, rotate,
-			    data->header.cupsHeight,
+    unsigned char *bitmap2 = (unsigned char *) malloc(pixel_count);
+    bitmap2 = rotate_bitmap(bitmap, bitmap2, rotate, data->header.cupsHeight,
 			    data->header.cupsWidth, data->rowsize,
 			    data->colorspace, log, ld);
-    free(data->bitmap);
-    data->bitmap = bitmap2;
+    free(bitmap);
+    bitmap = bitmap2;
   }
 
-  colordata = data->bitmap;
+  colordata = bitmap;
 
   // Write page image
   lineBuf = (unsigned char *)malloc(data->bytesPerLine * sizeof(unsigned char));
@@ -1170,9 +1164,7 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   }
   free(lineBuf);
   free(line);
-  free(data->bitmap);
-  data->bitmap = NULL;
-  data->pixel_count = 0;
+  free(bitmap);
 
   return (0);
 }
