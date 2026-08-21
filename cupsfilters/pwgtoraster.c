@@ -1788,15 +1788,47 @@ out_page(pwgtoraster_doc_t *doc,
 
   // Input line averaging buffer (to reduce resolution)
   if (res_down_factor[1] > 1 && input_color_mode > 0)
-    lineavg =
-      (unsigned char *)calloc(doc->inheader.cupsBytesPerLine *
-			      res_down_factor[1],
-			      sizeof(unsigned char));
+  {
+    if (doc->inheader.cupsBytesPerLine >
+	UINT_MAX / res_down_factor[1])
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Input line averaging buffer is too large.");
+      ret = false;
+      goto out;
+    }
+    lineavg = (unsigned char *)calloc(res_down_factor[1],
+				      doc->inheader.cupsBytesPerLine);
+    if (!lineavg)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Unable to allocate input line averaging buffer.");
+      ret = false;
+      goto out;
+    }
+  }
 
   // Input page buffer for color ordered in planes (if needed)
   if (doc->nplanes > 1)
-    pagebuf = (unsigned char *)calloc(doc->outheader.cupsHeight * inlinesize,
-				      sizeof(unsigned char));
+  {
+    if (inlinesize &&
+	doc->outheader.cupsHeight > UINT_MAX / inlinesize)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Planar input page buffer is too large.");
+      ret = false;
+      goto out;
+    }
+    pagebuf = (unsigned char *)calloc(doc->outheader.cupsHeight,
+				      inlinesize);
+    if (!pagebuf)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Unable to allocate planar input page buffer.");
+      ret = false;
+      goto out;
+    }
+  }
 
   //
   // Overspray stretch of the input image If the output page
@@ -1929,7 +1961,7 @@ out_page(pwgtoraster_doc_t *doc,
 
 	      // Collect lines for averaging (when reducing vertical resolution)
 	      if (res_down_factor[1] > 1 && input_color_mode > 0)
-		memcpy(lineavg + i * doc->inheader.cupsBytesPerLine,
+		memcpy(lineavg + (size_t)i * doc->inheader.cupsBytesPerLine,
 		       line, doc->inheader.cupsBytesPerLine);
 	    }
 
@@ -1941,7 +1973,8 @@ out_page(pwgtoraster_doc_t *doc,
 	      {
 		int val = 0;
 		for (j = 0; j < res_down_factor[1]; j ++)
-		  val += (int)*(lineavg + j * doc->inheader.cupsBytesPerLine +
+		  val += (int)*(lineavg +
+				(size_t)j * doc->inheader.cupsBytesPerLine +
 				i);
 		line[i] = (unsigned char)(val / res_down_factor[1]);
 	      }
@@ -2182,7 +2215,8 @@ out_page(pwgtoraster_doc_t *doc,
 
 	// Save input line for the other planes
 	if (doc->nplanes > 1)
-	  memcpy(pagebuf + (y - doc->bitmapoffset[1]) * inlinesize,
+	  memcpy(pagebuf +
+		 (size_t)(y - doc->bitmapoffset[1]) * inlinesize,
 		 bp, inlinesize);
       }
       else
@@ -2190,7 +2224,7 @@ out_page(pwgtoraster_doc_t *doc,
 	// Further planes
 
 	// Pointer to input line in page buffer
-	bp = pagebuf + (y - doc->bitmapoffset[1]) * inlinesize;
+	bp = pagebuf + (size_t)(y - doc->bitmapoffset[1]) * inlinesize;
       } 
 
       // Pre-convert into the color mode needed to convert to the final
