@@ -1308,6 +1308,8 @@ out_page(pwgtoraster_doc_t *doc,
   unsigned char *dp;
   unsigned int inlineoffset,     // Offset where to start in input line (bytes)
                inlinesize;       // How many bytes to take from input line
+  size_t input_line_size,
+         inline_end;
   int input_color_mode;
   int color_mode_needed;
   bool ret = true;
@@ -1753,12 +1755,36 @@ out_page(pwgtoraster_doc_t *doc,
   // enough space.
   //
 
-  i = doc->inheader.cupsBytesPerLine * res_up_factor[0];
-  j = inlineoffset + inlinesize;
-  if (j > i)
-    i = j;
-  line =
-    (unsigned char *)calloc(i, sizeof(unsigned char));
+  if (doc->inheader.cupsBytesPerLine >
+      UINT_MAX / res_up_factor[0])
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPWGToRaster: Input line is too large after horizontal resolution conversion.");
+    ret = false;
+    goto out;
+  }
+
+  input_line_size = (size_t)doc->inheader.cupsBytesPerLine *
+                    res_up_factor[0];
+  if (inlineoffset > UINT_MAX - inlinesize)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPWGToRaster: Input line offset and size are too large.");
+    ret = false;
+    goto out;
+  }
+  inline_end = (size_t)inlineoffset + inlinesize;
+  if (inline_end > input_line_size)
+    input_line_size = inline_end;
+
+  line = (unsigned char *)calloc(input_line_size, sizeof(unsigned char));
+  if (!line)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPWGToRaster: Unable to allocate input line buffer.");
+    ret = false;
+    goto out;
+  }
 
   // Input line averaging buffer (to reduce resolution)
   if (res_down_factor[1] > 1 && input_color_mode > 0)
