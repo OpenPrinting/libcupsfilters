@@ -25,6 +25,7 @@ EXTRA_DIST = \
 
 EXTRA_DIST += \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-pwgtopdf-bit-row.sh \
 	data/makePDFfromPS.sh \
 	data/classified.ps \
 	data/confidential.ps \
@@ -93,6 +94,7 @@ lib_LTLIBRARIES = libcupsfilters.la
 check_SCRIPTS = \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh
 
 check_PROGRAMS = \
@@ -117,6 +119,7 @@ TESTS = \
 	test-ps \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
