@@ -20,11 +20,18 @@ elif command -v cups-config >/dev/null 2>&1; then
   PKG_LIBS+=" $(cups-config --libs)"
 fi
 
+# The compiler accepting -fsanitize=address is not enough: qemu-user builds
+# can link the runtime but abort while initializing it.  Run a trivial probe so
+# those emulated CI legs skip instead of reporting a product-code failure.
+asan_probe="$(mktemp "${TMPDIR:-/tmp}/asan-probe.XXXXXX")"
 if ! printf 'int main(void){return 0;}\n' \
-     | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
-  echo "AddressSanitizer not available; skipping." >&2
+       | "${CC}" ${SAN_FLAGS} -x c - -o "${asan_probe}" >/dev/null 2>&1 \
+   || ! "${asan_probe}" >/dev/null 2>&1; then
+  echo "AddressSanitizer not usable in this environment; skipping." >&2
+  rm -f "${asan_probe}"
   exit 77
 fi
+rm -f "${asan_probe}"
 
 if [[ ! -x "${LIBTOOL}" ]]; then
   echo "libtool helper not found at ${LIBTOOL}" >&2
