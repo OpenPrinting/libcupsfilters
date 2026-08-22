@@ -6,8 +6,10 @@ BUILD_ROOT="$(cd "${ROOT}/.." && pwd)"
 LIBTOOL="${BUILD_ROOT}/libtool"
 CC="${CC:-cc}"
 SAN_FLAGS="${SAN_FLAGS:--fsanitize=address -fno-omit-frame-pointer}"
-PKG_CFLAGS="$(pkg-config --cflags pdfio lcms2 2>/dev/null \
-              || pkg-config --cflags pdfio lcms 2>/dev/null || true)"
+PKG_CFLAGS="$(pkg-config --cflags lcms2 pdfio cups 2>/dev/null \
+              || pkg-config --cflags lcms2 pdfio cups3 2>/dev/null || true)"
+PKG_LIBS="$(pkg-config --libs lcms2 pdfio cups 2>/dev/null \
+            || pkg-config --libs lcms2 pdfio cups3 2>/dev/null || true)"
 
 if ! printf 'int main(void){return 0;}\n' \
      | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
@@ -128,7 +130,7 @@ int main(int argc, char **argv) {
 EOF
 
 "${CC}" -std=c11 -O0 ${SAN_FLAGS} -o "${GENERATOR_BIN}" \
-  "${GENERATOR_SRC}" -lcups
+  ${PKG_CFLAGS} "${GENERATOR_SRC}" ${PKG_LIBS}
 "${GENERATOR_BIN}" "${INPUT_PWG}"
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=gnu11 -O0 \
@@ -137,7 +139,8 @@ EOF
   -c "${HARNESS_SRC}" -o "${HARNESS_OBJ}" >/dev/null
 
 "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} "${HARNESS_OBJ}" \
-  "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${HARNESS_BIN}" >/dev/null
+  "${BUILD_ROOT}/libcupsfilters.la" ${PKG_LIBS} -lm \
+  -o "${HARNESS_BIN}" >/dev/null
 
 ASAN_OPTS="${ASAN_OPTIONS:-detect_leaks=0,abort_on_error=0}"
 set +e
