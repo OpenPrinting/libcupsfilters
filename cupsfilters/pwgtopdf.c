@@ -91,7 +91,7 @@ typedef unsigned char *(*convert_function)(unsigned char *src,
 // Bit conversion function
 typedef unsigned char *(*bit_convert_function)(unsigned char *src,
 					       unsigned char *dst,
-					       unsigned int pixels);
+					       unsigned int bytes);
 
 typedef struct pwgtopdf_doc_s                  // **** Document information ****
 {
@@ -272,12 +272,12 @@ void free_pdf_info(struct pdf_info *info)
 static unsigned char*			  // O - output string of pixels
 invert_bits(unsigned char *src,		// I - source chars	
 	    unsigned char *dst,		// O - destination chars
-	    unsigned int pixels)	// I - pixels
+	    unsigned int bytes)	// I - bytes
 { 
   unsigned int i;
 
   // Invert black to grayscale...
-  for (i = pixels, dst = src; i > 0; i --, dst ++)
+  for (i = bytes, dst = src; i > 0; i --, dst ++)
     *dst = ~*dst;
 
   return (dst);
@@ -286,11 +286,12 @@ invert_bits(unsigned char *src,		// I - source chars
 
 static unsigned char*			  // O - Output string of bits
 no_bit_conversion(unsigned char *src,	// I - Source chars
-		  unsigned char *dst,  	// O - destination chars	
-		  unsigned int pixels)	// I - Pixesl
+		  unsigned char *dst,	// O - destination chars
+		  unsigned int bytes)	// I - bytes
 {
   return (src);
 }
+
 
 
 //
@@ -1634,7 +1635,7 @@ convert_raster(cups_raster_t *ras,
 #endif
 
     // perform bit operations if necessary
-    doc->bit_function(PixelBuffer, buff, width);
+    doc->bit_function(PixelBuffer, buff, bpl);
 
     // write lines and color convert when necessary
     pdf_set_line(info, cur_line, doc->conversion_function(PixelBuffer, 
@@ -2067,6 +2068,4 @@ error:
 
   return (ret);
 }
-
-
 
