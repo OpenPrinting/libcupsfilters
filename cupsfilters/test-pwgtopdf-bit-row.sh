@@ -6,10 +6,19 @@ BUILD_ROOT="$(cd "${ROOT}/.." && pwd)"
 LIBTOOL="${BUILD_ROOT}/libtool"
 CC="${CC:-cc}"
 SAN_FLAGS="${SAN_FLAGS:--fsanitize=address -fno-omit-frame-pointer}"
-PKG_CFLAGS="$(pkg-config --cflags lcms2 pdfio cups 2>/dev/null \
-              || pkg-config --cflags lcms2 pdfio cups3 2>/dev/null || true)"
-PKG_LIBS="$(pkg-config --libs lcms2 pdfio cups 2>/dev/null \
-            || pkg-config --libs lcms2 pdfio cups3 2>/dev/null || true)"
+PKG_CFLAGS="$(pkg-config --cflags lcms2 pdfio 2>/dev/null || true)"
+PKG_LIBS="$(pkg-config --libs lcms2 pdfio 2>/dev/null || true)"
+
+if pkg-config --exists cups 2>/dev/null; then
+  PKG_CFLAGS+=" $(pkg-config --cflags cups)"
+  PKG_LIBS+=" $(pkg-config --libs cups)"
+elif pkg-config --exists cups3 2>/dev/null; then
+  PKG_CFLAGS+=" $(pkg-config --cflags cups3)"
+  PKG_LIBS+=" $(pkg-config --libs cups3)"
+elif command -v cups-config >/dev/null 2>&1; then
+  PKG_CFLAGS+=" $(cups-config --cflags)"
+  PKG_LIBS+=" $(cups-config --libs)"
+fi
 
 if ! printf 'int main(void){return 0;}\n' \
      | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
@@ -39,13 +48,14 @@ RUN_LOG="${WORKDIR}/run.log"
 
 cat > "${GENERATOR_SRC}" <<'EOF'
 #include <cups/raster.h>
+#include "cupsfilters/libcups2-private.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-  cups_page_header2_t header;
+  cups_page_header_t header;
   unsigned char row[16] = {0};
   cups_raster_t *ras;
   int fd;
@@ -80,7 +90,7 @@ int main(int argc, char **argv) {
   header.cupsColorOrder = CUPS_ORDER_CHUNKED;
   header.cupsColorSpace = CUPS_CSPACE_K;
 
-  if (!cupsRasterWriteHeader2(ras, &header) ||
+  if (!cupsRasterWriteHeader(ras, &header) ||
       cupsRasterWritePixels(ras, row, sizeof(row)) != sizeof(row)) {
     cupsRasterClose(ras);
     close(fd);
@@ -130,7 +140,7 @@ int main(int argc, char **argv) {
 EOF
 
 "${CC}" -std=c11 -O0 ${SAN_FLAGS} -o "${GENERATOR_BIN}" \
-  ${PKG_CFLAGS} "${GENERATOR_SRC}" ${PKG_LIBS}
+  -I"${BUILD_ROOT}" ${PKG_CFLAGS} "${GENERATOR_SRC}" ${PKG_LIBS}
 "${GENERATOR_BIN}" "${INPUT_PWG}"
 
 "${LIBTOOL}" --mode=compile --tag=CC "${CC}" -std=gnu11 -O0 \
