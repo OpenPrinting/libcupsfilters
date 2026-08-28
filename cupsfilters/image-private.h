@@ -52,6 +52,14 @@
 #  define CF_IMAGE_MAX_HEIGHT	0x3fffffff
 					// 2^30-1
 
+#  define CF_IMAGE_MAX_PIXELS	283465
+					// Max pixels per side: 5 m at 1440 dpi,
+					// the largest realistic print (5 m-wide
+					// inkjets exist). Bounding each dimension
+					// keeps the decoded buffer-size
+					// multiplication from overflowing;
+					// allocations too large for the machine
+					// then fail gracefully at malloc().
 #  define CF_TILE_SIZE		256	// 256x256 pixel tiles
 #  define CF_TILE_MINIMUM	10	// Minimum number of tiles
 

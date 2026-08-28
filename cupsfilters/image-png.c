@@ -165,7 +165,8 @@ _cfImageReadPNG(
     img->colorspace = secondary;
 
   if (width == 0 || width > CF_IMAGE_MAX_WIDTH ||
-      height == 0 || height > CF_IMAGE_MAX_HEIGHT)
+      height == 0 || height > CF_IMAGE_MAX_HEIGHT ||
+      width > CF_IMAGE_MAX_PIXELS || height > CF_IMAGE_MAX_PIXELS)
   {
     DEBUG_printf(("DEBUG: PNG image has invalid dimensions %ux%u!\n",
 		  (unsigned)width, (unsigned)height));
