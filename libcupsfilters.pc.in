@@ -2,11 +2,12 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
-                                                                       
+
 Name: libcupsfilters
 Description: Library providing everything for filtering/converting print/scan job data
 Version: @VERSION@
 
+Requires: pdfio >= 1.6.4
 Libs: -L${libdir} -lcupsfilters
-Libs.private: @CUPS_LIBS@ @LIBJPEG_LIBS@ @LIBPNG_LIBS@ @LIBTIFF_LIBS@ @LIBPDFIO_LIBS@
+Libs.private: @CUPS_LIBS@ @LIBJPEG_LIBS@ @LIBPNG_LIBS@ @LIBTIFF_LIBS@
 Cflags: -I${includedir}/cupsfilters -I${includedir} @CUPS_CFLAGS@
