@@ -2777,6 +2777,16 @@ cfFilterPDFToPDF(int inputfd,
 
   filter_options = cfFilterOptionsCreate(data->num_options, data->options);
 
+  // CUPS passes the copy count through the standard "copies" filter argument
+  // (argv[4], exposed here as data->copies) and strips the "copies" option
+  // from the options string (argv[5]).  cfFilterOptionsCreate() only reads
+  // the copy count from the options string, so it defaults to 1 and the
+  // requested number of copies is lost.  Honor data->copies as a fallback so
+  // that printing multiple copies works for raster drivers going through the
+  // "universal" filter.
+  if (data->copies > 1 && filter_options->copies <= 1)
+    filter_options->copies = data->copies;
+
   char temp_filename[] = "/tmp/tempfileXXXXXX";
   int temp_fd = mkstemp(temp_filename);
   if (temp_fd == -1)
