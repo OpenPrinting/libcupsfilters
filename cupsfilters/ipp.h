@@ -47,7 +47,7 @@ extern "C" {
 #define CF_GET_PRINTER_ATTRIBUTES_MAX_OUTPUT_LEN 8192
 #define CF_GET_PRINTER_ATTRIBUTES_MAX_URI_LEN 2048
 
-extern char cf_get_printer_attributes_log[CF_GET_PRINTER_ATTRIBUTES_LOGSIZE];	// Log for cfGetPrinterAttributes() and related functions
+extern char cf_get_printer_attributes_log[CF_GET_PRINTER_ATTRIBUTES_LOGSIZE];
 
 
 //
@@ -66,27 +66,27 @@ enum cf_driverless_support_modes_e
 };
 
 // Backside orientations for duplex printing
-typedef enum cf_backside_orient_e		// Backside orientation for duplex printing
+typedef enum cf_backside_orient_e
 {
-  CF_BACKSIDE_MANUAL_TUMBLE,			// Backside orientation for manual duplex printing
-  CF_BACKSIDE_ROTATED,					// Backside orientation for rotated duplex printing
-  CF_BACKSIDE_FLIPPED,					// Backside orientation for flipped duplex printing
-  CF_BACKSIDE_NORMAL					// Backside orientation for normal duplex printing
+  CF_BACKSIDE_MANUAL_TUMBLE,
+  CF_BACKSIDE_ROTATED,
+  CF_BACKSIDE_FLIPPED,
+  CF_BACKSIDE_NORMAL
 } cf_backside_orient_t;
 
 
 // Data structure for resolution (X x Y dpi)
-typedef struct cf_res_s				// **** Resolution (X x Y dpi) ****
+typedef struct cf_res_s
 {
-  int x, y;					// X and Y resolution in dpi
+  int x, y;
 } cf_res_t;
 
-typedef enum cf_gen_sizes_mode_e		// Mode for generating sizes
+typedef enum cf_gen_sizes_mode_e
 {
-  CF_GEN_SIZES_DEFAULT = 0,				// Default mode, generate all sizes
-  CF_GEN_SIZES_SEARCH,				// Search for a specific size, return only that size
-  CF_GEN_SIZES_SEARCH_BORDERLESS_ONLY		// Search for a specific size, return only that size if it is borderless
-} cf_gen_sizes_mode_t;				
+  CF_GEN_SIZES_DEFAULT = 0,
+  CF_GEN_SIZES_SEARCH,
+  CF_GEN_SIZES_SEARCH_BORDERLESS_ONLY
+} cf_gen_sizes_mode_t;
 
 
 //

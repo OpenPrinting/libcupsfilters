@@ -76,7 +76,7 @@ _strlcpy(char        *dst,		// O - Destination string
 // 'cfRasterColorSpaceString()' - Return the color space name for a
 //                                cupsColorSpace value.
 
-const char *                                    // O - Color space name
+const char *
 cfRasterColorSpaceString(cups_cspace_t cspace)	// I - cupsColorSpace value
 {
   static const char * const cups_color_spaces[] =
@@ -172,13 +172,26 @@ cfRasterColorSpaceString(cups_cspace_t cspace)	// I - cupsColorSpace value
 //                            attributes/options.
 //
 
-int                                             // O  -  0 on success, -1 on error
+int                                             // O  -  0 on success,
+						//      -1 on error
 cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 			cf_filter_data_t *data, // I  - Job and printer data
-			cf_filter_out_format_t final_outformat, // I  - Job output format (determines color space, and resolution)
-			cf_filter_out_format_t header_outformat,  // I  - This filter's output format (determines header format)
-			int no_high_depth,      // I  - Suppress use of > 8 bit per color
-			cups_cspace_t *cspace)  // IO - Color space we want to use, -1 for auto, we return color space actually used, -1 if no suitable color space found.
+			cf_filter_out_format_t final_outformat,
+                                                // I  - Job output format
+						//      (determines color space,
+						//       and resolution)
+			cf_filter_out_format_t header_outformat,
+                                                // I  - This filter's output
+						//      format (determines
+						//      header format)
+			int no_high_depth,      // I  - Suppress use of
+						//      > 8 bit per color
+			cups_cspace_t *cspace)  // IO - Color space we want to
+						//      use, -1 for auto, we
+						//      return color space
+						//      actually used, -1 if
+						//      no suitable color space
+						//      found.
 {
   int i;
   ipp_t *printer_attrs, *job_attrs;
@@ -582,12 +595,27 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 //                            requested, the highest.
 //
 
-int                                        // O  -  0 on success, -1 on error
+int                                             // O  -  0 on success,
+						//      -1 on error
 cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
-			const char *available,  // I  - Available color spaces from IPP attribute urf-supported or pwg-raster-document-type-supported
-			const char *color_mode, // I  - print-color-mode IPP attribute setting
-			cups_cspace_t *cspace,  // IO - Color space we want to use, -1 for auto, we return color space actually used, -1 if no suitable color space found.
-			int *high_depth)        // IO - Do we want to print in high color depth? We reset to 0 if high quality not supported in the color space used.
+			const char *available,  // I  - Available color spaces
+						//      from IPP attribute
+						//      urf-supported or
+					   // pwg-raster-document-type-supported
+			const char *color_mode, // I  - print-color-mode IPP
+						//      attribute setting
+			cups_cspace_t *cspace,  // IO - Color space we want to
+						//      use, -1 for auto, we
+						// 	return color space
+						// 	actually used, -1 if
+						//      no suitable color space
+						//      found.
+			int *high_depth)        // IO - Do we want to print in
+						//      high color depth? We
+						//      reset to 0 if high
+						//      quality not supported
+						//      in the color space
+						//      used.
 {
   int min_depth = 999;
   int max_depth = 0;

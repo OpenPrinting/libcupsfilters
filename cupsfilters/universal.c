@@ -28,10 +28,6 @@
 #include <limits.h>
 #include <cups/cups.h>
 
-//
-// 'cfFilterUniversal()' - Filter a file from any input format to any output format.
-//
-
 int					// O - Error status
 cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 		  int outputfd,		// I - File descriptor output stream

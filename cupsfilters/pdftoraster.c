@@ -75,16 +75,16 @@
 #define MAX_BYTES_PER_PIXEL 32
 extern int errno;
 
-typedef struct cms_profile_s      // *** Color Management System profile structure ***
+typedef struct cms_profile_s
 {
   // for color profiles
-  cmsHPROFILE colorProfile;               // color profile
-  cmsHPROFILE popplerColorProfile;        // color profile used by poppler
-  cmsHTRANSFORM colorTransform;           // color transform
-  cmsCIEXYZ D65WhitePoint;                // D65 white point
-  int renderingIntent;                    // rendering intent
-  int cm_disabled;                        // whether color management is disabled
-  cf_cm_calibration_t cm_calibrate;       // whether color calibration is enabled
+  cmsHPROFILE colorProfile;
+  cmsHPROFILE popplerColorProfile;
+  cmsHTRANSFORM colorTransform;
+  cmsCIEXYZ D65WhitePoint;
+  int renderingIntent;
+  int cm_disabled;
+  cf_cm_calibration_t cm_calibrate;
 } cms_profile_t;
 
 //
@@ -101,32 +101,34 @@ init_cms_profile_t(cms_profile_t *profile)	// I - profile structure to init
   profile->cm_disabled = 0;
 }
 
-typedef struct pdftoraster_doc_s    // *** PDF to Raster Document Structure ***
+typedef struct pdftoraster_doc_s
 {
-  char *input_filename;                // Input PDF file name
-  int pwgraster;                        // Whether to output PWG Raster (1) or CUPS Raster (0)
-  int bi_level;                         // Whether to output bi-level (1) or not (0)
-  bool allocLineBuf;                    // Whether to allocate a line buffer for the conversion function
-  unsigned int bitspercolor;            // Bits per color
-  unsigned int popplerNumColors;          // Number of colors in the poppler output
-  unsigned int bitmapoffset[2];           // Bitmap offset for the poppler output
-  pdfio_file_t *pdf_doc;                  // PDF document structure
-  cups_page_header_t header;              // CUPS page header structure
-  cf_logfunc_t logfunc;                 // Logging function, NULL for no logging
-  void          *logdata;               // User data for logging function, can be NULL
+  char *input_filename;
+  int pwgraster;
+  int bi_level;
+  bool allocLineBuf;
+  unsigned int bitspercolor;
+  unsigned int popplerNumColors; 
+  unsigned int bitmapoffset[2];
+  pdfio_file_t *pdf_doc;
+  cups_page_header_t header;
+  cf_logfunc_t logfunc;                 // Logging function, NULL for no
+                                        // logging
+  void          *logdata;               // User data for logging function, can
+                                        // be NULL
   cups_file_t   *inputfp;               // Temporary file, if any
   FILE          *outputfp;              // Temporary file, if any
-  bool swap_image_x;                    // Whether to swap the image in the x direction
-  bool swap_image_y;                  // Whether to swap the image in the y direction
+  bool swap_image_x;
+  bool swap_image_y;
   // margin swapping
-  bool swap_margin_x;               // Whether to swap the margin in the x direction
-  bool swap_margin_y;               // Whether to swap the margin in the y direction
-  unsigned int nplanes;               // number of planes
-  unsigned int nbands;                // number of bands
+  bool swap_margin_x;               
+  bool swap_margin_y;
+  unsigned int nplanes;
+  unsigned int nbands;
   unsigned int bytesPerLine; // number of bytes per line
                              // Note: When CUPS_ORDER_BANDED,
                              // cupsBytesPerLine = bytesPerLine * cupsNumColors
-  cms_profile_t *colour_profile;    // Color Management System profile structure
+  cms_profile_t *colour_profile;
 } pdftoraster_doc_t;         
 
 typedef unsigned char *(*convert_cspace_func)(unsigned char *src,
@@ -144,11 +146,12 @@ typedef unsigned char *(*convert_line_func)(unsigned char *src,
                                             pdftoraster_doc_t* doc,
                                             convert_cspace_func convertCSpace);
 
-typedef struct pdf_conversion_function_s    // *** PDF Conversion Function Structure ***
+typedef struct pdf_conversion_function_s
 {
   convert_cspace_func convertCSpace; // Function for conversion of colorspaces
-  convert_line_func convertLineOdd;  // Function to modify raster data of a line
-  convert_line_func convertLineEven;  // Function to modify raster data of a line
+  convert_line_func convertLineOdd;  // Function tom modify raster data of a
+                                     // line
+  convert_line_func convertLineEven;
 } pdf_conversion_function_t;
 
 // 
@@ -156,7 +159,7 @@ typedef struct pdf_conversion_function_s    // *** PDF Conversion Function Struc
 //
 
 void
-init_pdftoraster_doc_t(pdftoraster_doc_t *doc)	// I - document structure.
+init_pdftoraster_doc_t(pdftoraster_doc_t *doc)	// 0 - document structure.
 {
   doc->pwgraster = 0;
   doc->bi_level = 0;
@@ -789,16 +792,16 @@ line_swap_bit(unsigned char *src,
   return (dst);
 }
 
-typedef struct func_table_s           // *** Function Table for Special Edge Cases ***
+typedef struct func_table_s
 {
-  enum cups_cspace_e cspace;        // Colour Space
-  unsigned int bitsPerPixel;        // Bits per Pixel
-  unsigned int bitsPerColor;        // Bits per Color
-  convert_line_func convertLine;    // Function to modify raster data of a line
-  bool allocLineBuf;                // Whether to allocate a line buffer for the conversion function
-  convert_line_func convertLineSwap;    // Function to modify raster data of a line with swapping
-  bool allocLineBufSwap;                // Whether to allocate a line buffer for the conversion function with swapping
-} func_table_t; 
+  enum cups_cspace_e cspace;
+  unsigned int bitsPerPixel;
+  unsigned int bitsPerColor;
+  convert_line_func convertLine;
+  bool allocLineBuf;
+  convert_line_func convertLineSwap;
+  bool allocLineBufSwap;
+} func_table_t;
 
 // Function table for Special Edge Cases
 static func_table_t specialCaseFuncs[] =
@@ -2426,12 +2429,14 @@ set_color_profile(pdftoraster_doc_t *doc,
 // 'cfFilterPDFToRaster()' - Main Function for PDFtoRaster Conversion
 //
 
-int                                         // O - Exit status
+int
 cfFilterPDFToRaster(int inputfd,            // I - File descriptor input stream
                     int outputfd,           // I - File descriptor output stream
-                    int inputseekable,      // I - Is input stream seekable? (unused)
+                    int inputseekable,      // I - Is input stream seekable?
+                                            //     (unused)
                     cf_filter_data_t *data, // I - Job and printer data
-                    void *parameters)       // I - Filter-specific parameters (unused)
+                    void *parameters)       // I - Filter-specific parameters
+                                            //     (unused)
 {
   // Constants for Printing Attributes or data
   const char                 *val;

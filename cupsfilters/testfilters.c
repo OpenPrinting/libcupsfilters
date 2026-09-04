@@ -18,15 +18,15 @@
 #    define cupsParseOptions(arg, end, num_options, options) cupsParseOptions(arg, num_options, options)
 #endif
 
+/*
+ * 'remove_white_space()' - Remove white spaces from beginning and end of a string
+ */
 
 typedef int (*cf_filter_func_t)(int input_fd, int output_fd, int input_seekable, cf_filter_data_t *data, void *parameters);
 
-//
-// 'remove_white_space()' - Remove white spaces from beginning and end of a string
-//
-
-char*                   // O - Pointer to the modified string
-remove_white_space(char* str)         // I - Input string  
+char* 
+remove_white_space(
+    char* str)
 {
   char *end;
   while(isspace((unsigned char)*str)) str++;
@@ -49,12 +49,8 @@ typedef struct {
     void *(*param_generator)(const char *output_mime);
 } FilterMapping;
 
-//
-// 'ghostscript_param_gen()' - Generate parameters for the ghostscript filter based on output MIME type.
-//
-
-void                                              // O - Pointer to parameters structure, or NULL on error
-*ghostscript_param_gen(const char *output_mime)   // I - Output MIME type
+void 
+*ghostscript_param_gen(const char *output_mime) 
 {
     cf_filter_out_format_t *out = malloc(sizeof(cf_filter_out_format_t));
     if (strcasecmp(output_mime, "application/pdf") == 0) {
@@ -82,13 +78,9 @@ FilterMapping filter_mappings[] = {
     { "texttopdf", cfFilterTextToPDF, NULL },
 };
 
-//
-// 'cfFilterFilterInChain()' - Call a filter function in the chain.
-//
-
-cups_array_t*                                       // O - Array of filters in the chain
-parse_filter_chain(const char *filter_chain_str,    // I - Comma-separated list of filter names
-		   const char *output_mime)                     // I - Output MIME type
+cups_array_t*
+parse_filter_chain(const char *filter_chain_str, 
+		   const char *output_mime) 
 {
   cups_array_t *chain = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
   char *saveptr;
@@ -204,10 +196,10 @@ create_media_size(int width,		/* I - x-dimension in 2540ths */
   return (media_size);
 }
 
-//
-// 'test_wrapper()' - Utilizes libcupsfilters API for running a particular test
-//
-//
+/*
+ * 'test_wrapper()' - Utilizes libcupsfilters API for running a particular test
+ *
+ */
 
 
 /*
@@ -225,18 +217,18 @@ test_wrapper(
 {
 */
 
-int                         // O - Exit status
+int 
 test_wrapper(
-   	int num_clargs,         // I - Number of command-line args
-    	char *clargs[],       // I - Command-line arguments
-	void *parameters,            // I - Filter function parameters
-	int *JobCanceled,             // I - Var set to 1 when job canceled
-    	ipp_t* emulated_ipp,      // I - Emulated printer IPP attributes
-	char* inputMIME,              // I - Input MIME type
-	char* outputMIME,               // I - Output MIME type
-    	char* inputFile,            // I - Input file name
-	char* outputFile,               // I - Output file name
-	cups_array_t *filter_chain)
+   	int num_clargs, 
+    	char *clargs[], 
+	void *parameters, 
+	int *JobCanceled,
+    	ipp_t* emulated_ipp, 
+	char* inputMIME, 
+	char* outputMIME,
+    	char* inputFile, 
+	char* outputFile, 
+	cups_array_t *filter_chain) 
 {
   int	        inputfd;		// Print file descriptor
   int 		outputfd;		// File Descriptor for Output File
@@ -1118,14 +1110,15 @@ load_legacy_attributes(
 }
 
 
-//
-// 'run_test()' - Runs a particular test case
-//
+/*
+ * 'run_test()' - Runs a particular test case
+ *
+ */
 
-int                         // O - Exit status 
+int 
 run_test(
-    char * test_case,       // I - Test case string
-    char * currentFile)     // I - Current file name
+    char * test_case, 
+    char * currentFile)
 {
  
   cups_array_t *filter_chain = NULL;
@@ -1274,13 +1267,8 @@ run_test(
 
 }
 
-//
-// 'main()' - Main entry point for the test filter program.
-//
-
-int                     // O - Exit status
-  main(int  argc,				// I - Number of command-line args
-     char *argv[])			        // I - Command-line arguments
+int main(int  argc,				// I - Number of command-line args
+     char *argv[])			        // I - Command-line arguments{
 {
   char *file_name; // File Name of Input Test File
   FILE *fp;            // File Pointer

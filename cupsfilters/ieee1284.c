@@ -634,49 +634,44 @@ move_right_part(
 // to produce a clean make-and-model string we can use.
 //
 
-char *					// O - Normalized make-and-model string or NULL on error
+char *					// O - Normalized make-and-model string
+                                        //     or NULL on error
 cfIEEE1284NormalizeMakeModel(
-    const char *make_and_model,		// I - Original make-and-model string or device ID
-    const char *make,                   /* 
-                                        *     I - Manufacturer name as hint for correct separation of
-					                              *     make_and_model or adding
-					                              *     make, or pointer into input
-					                              *     string where model name starts
-					                              *     or NULL,
-					                              *     ignored on device ID with "MFG"
-					                              *     field or for NO_MAKE_MODEL
-                                        */
-    cf_ieee1284_normalize_modes_t mode,	// I - Bit field to describe how to normalize
-    regex_t    *extra_regex,            /* 
-                                        *     I - Compiled regex to determine
-					                              *     where the extra info after
-					                              *     the driver name starts, also
-					                              *     mark with parentheses which
-					                              *     sub string should be the
-					                              *     driver name
-                                        */
-    char       *buffer,			/* 
-                            *     O - String buffer, to hold the
-				              	    *     normalized input string, plus,
-					                  *     after the terminating zero, the
-					                  *     driver name if an appropriate
-					                  *     extra_regex is supplied
-					                  *     (*drvname will point to it)
-                            */
+    const char *make_and_model,		// I - Original make-and-model string
+					//     or device ID
+    const char *make,                   // I - Manufacturer name as hint for
+                                        //     correct separation of
+					//     make_and_model or adding
+					//     make, or pointer into input
+					//     string where model name starts
+					//     or NULL,
+					//     ignored on device ID with "MFG"
+					//     field or for NO_MAKE_MODEL
+    cf_ieee1284_normalize_modes_t mode,	// I - Bit field to describe how to
+					//     normalize
+    regex_t    *extra_regex,            // I - Compiled regex to determine
+					//     where the extra info after
+					//     the driver name starts, also
+					//     mark with parentheses which
+					//     sub string should be the
+					//     driver name
+    char       *buffer,			// O - String buffer, to hold the
+					//     normalized input string, plus,
+					//     after the terminating zero, the
+					//     driver name if an appropriate
+					//     extra_regex is supplied
+					//     (*drvname will point to it)
     size_t     bufsize,			// O - Size of string buffer
-    char       **model,                 // O - Pointer to where model name starts in buffer or NULL
-    char       **extra,                 /* 
-                                        *     O - Pointer to where extra info
-					                              *     starts in buffer (after comma,
-					                              *     semicolon, parenthese, or
-					                              *     start of extra_regex
-					                              *     match) or NULL
-                                        */
-    char       **drvname)               /* 
-                                        *     O - Driver name, string of the first
-                                        *     matching parenthese expression
-                                        *     in the extra_regex
-                                        */
+    char       **model,                 // O - Pointer to where model name
+					//     starts in buffer or NULL
+    char       **extra,                 // O - Pointer to where extra info
+					//     starts in buffer (after comma,
+					//     semicolon, parenthese, or
+					//     start of extra_regex
+					//     match) or NULL
+    char       **drvname)               // O - Driver name, string of the first
+                                        //     matching parenthese expression
+                                        //     in the extra_regex
 {
   int   i;
   char	*bufptr;			// Pointer into buffer

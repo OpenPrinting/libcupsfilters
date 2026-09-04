@@ -34,7 +34,7 @@
 #define CUPS_IPTEMPFILE "/tmp/ip-XXXXXX"
 #define CUPS_OPTEMPFILE "/tmp/op-XXXXXX"
 
-typedef cups_page_header_t mupdf_page_header;   // Use the same page header structure as in libcupsfilters/raster.h
+typedef cups_page_header_t mupdf_page_header;
 
 
 static int
@@ -419,16 +419,15 @@ out:
   return (status);
 }
 
-//
-// 'cfFilterMuPDFToPWG()' - Filter function for converting PDF to PWG Raster using mutool.
-//
 
-int                                   // O - Exit status of filter function: 0 on success, 1 on error
+int
 cfFilterMuPDFToPWG(int inputfd,         // I - File descriptor input stream
 		   int outputfd,        // I - File descriptor output stream
-		   int inputseekable,   // I - Is input stream seekable? (unused)
+		   int inputseekable,   // I - Is input stream seekable?
+					//     (unused)
 		   cf_filter_data_t *data, // I - Job and printer data
-		   void *parameters)    // I - Filter-specific parameters (unused)
+		   void *parameters)    // I - Filter-specific parameters
+                                        //     (unused)
 {
   cf_filter_out_format_t outformat;
   char *val;

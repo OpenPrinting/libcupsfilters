@@ -46,7 +46,8 @@ typedef struct cf_size_s		// **** Media Size (cups_size_t of libcups2) ****
 					// millimeters
 		right,			// Right margin in hundredths of
 					// millimeters
-		top;			// Top margin in hundredths of millimeters
+		top;			// Top margin in hundredths of
+					// millimeters
 } cf_size_t;
 
 
@@ -65,22 +66,15 @@ log_printf(char *log,
   va_end(arglist);
 }
 
-//
-// 'cfResolveURI()' - Resolve a URI, for example a DNS-SD-service-name-based URI to a host-name-based URI.
-//
-
-char *                                // O - Resolved URI
-cfResolveURI(const char *raw_uri)     // I - Raw URI
+char *
+cfResolveURI(const char *raw_uri)
 {
   return (cfResolveURI2(raw_uri, 0));
 }
 
-//
-// 'cfCheckDriverlessSupport()' - Check how the driverless support is provided by the printer
-//
-
-int                                         // O - Support status
-cfCheckDriverlessSupport(const char* uri)     // I - Printer URI
+// Check how the driverless support is provided
+int
+cfCheckDriverlessSupport(const char* uri)
 {
   int support_status = CF_DRVLESS_CHECKERR;
   ipp_t *response = NULL;
@@ -93,95 +87,80 @@ cfCheckDriverlessSupport(const char* uri)     // I - Printer URI
   return (support_status);
 }
 
-//
-// 'cfGetPrinterAttributes()' - Get attributes of a printer specified only by URI.
-//
-
-ipp_t *                                           // O - IPP printer attributes 
-cfGetPrinterAttributes(const char* raw_uri,       // I - Printer URI
-		       const char* const pattrs[],            // I - Requested printer attributes
-		       int pattrs_size,                       // I - Number of requested attributes
-		       const char* const req_attrs[],         // I - Required response attributes
-		       int req_attrs_size,                    // I - Number of required attributes
-		       int debug)                             // I - Debug mode
+// Get attributes of a printer specified only by URI
+ipp_t *
+cfGetPrinterAttributes(const char* raw_uri,
+		       const char* const pattrs[],
+		       int pattrs_size,
+		       const char* const req_attrs[],
+		       int req_attrs_size,
+		       int debug)
 {
   return (cfGetPrinterAttributes2(NULL, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug));
 }
 
-//
-// 'cfGetPrinterAttributes2()' - Get attributes of a printer specified by URI and under a given HTTP
-//                             connection, for example via a domain socket.
-//
-
-ipp_t *                                             // O - IPP printer attributes
-cfGetPrinterAttributes2(http_t *http_printer,       // I - HTTP connection to printer
-			const char* raw_uri,                          // I - Printer URI
-			const char* const pattrs[],                   // I - Requested printer attributes
-			int pattrs_size,                            // I - Number of requested attributes
-			const char* const req_attrs[],                // I - Required response attributes
-			int req_attrs_size,                           // I - Number of required attributes
-			int debug)                                    // I - Debug mode
+// Get attributes of a printer specified by URI and under a given HTTP
+// connection, for example via a domain socket
+ipp_t *
+cfGetPrinterAttributes2(http_t *http_printer,
+			const char* raw_uri,
+			const char* const pattrs[],
+			int pattrs_size,
+			const char* const req_attrs[],
+			int req_attrs_size,
+			int debug)
 {
   return (cfGetPrinterAttributes3(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug, NULL));
 }
 
-//
-// 'cfGetPrinterAttributes3()' - Get attributes of a printer specified by URI and under a given HTTP
-//                             connection, for example via a domain socket, and give info about used
-//                             fallbacks
-//
-
-ipp_t *                                           // O - IPP printer attributes
-cfGetPrinterAttributes3(http_t *http_printer,     // I - HTTP connection to printer
-			const char* raw_uri,                        // I - Printer URI
-			const char* const pattrs[],                 // I - Requested printer attributes
-			int pattrs_size,                            // I - Number of requested attributes
-			const char* const req_attrs[],              // I - Required response attributes
-			int req_attrs_size,                          // I - Number of required attributes
-			int debug,                                  // I - Debug mode
-                        int* driverless_info)     // I - Pointer to variable to return driverless support status, or NULL
+// Get attributes of a printer specified by URI and under a given HTTP
+// connection, for example via a domain socket, and give info about used
+// fallbacks
+ipp_t *
+cfGetPrinterAttributes3(http_t *http_printer,
+			const char* raw_uri,
+			const char* const pattrs[],
+			int pattrs_size,
+			const char* const req_attrs[],
+			int req_attrs_size,
+			int debug,
+                        int* driverless_info)
 {
   return (cfGetPrinterAttributes5(http_printer, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug,
 				  driverless_info, 0));
 }
-//
-// 'cfGetPrinterAttributes4()' - Get attributes of a printer specified only by URI and given info about
-//                               fax-support.
-//
 
-ipp_t  *                                           // O - IPP printer attributes
-cfGetPrinterAttributes4(const char* raw_uri,        // I - Printer URI
-				 const char* const pattrs[],                // I - Requested printer attributes
-				 int pattrs_size,                       // I - Number of requested attributes
-				 const char* const req_attrs[],           // I - Required response attributes
-				 int req_attrs_size,                    // I - Number of required attributes
-				 int debug,                             // I - Debug mode
-				 int is_fax)                          // I - 1: Fax printer; 0: Not a fax printer
+// Get attributes of a printer specified only by URI and given info about
+// fax-support
+ipp_t   *cfGetPrinterAttributes4(const char* raw_uri,
+				 const char* const pattrs[],
+				 int pattrs_size,
+				 const char* const req_attrs[],
+				 int req_attrs_size,
+				 int debug,
+				 int is_fax)
 {
   return (cfGetPrinterAttributes5(NULL, raw_uri, pattrs, pattrs_size,
 				  req_attrs, req_attrs_size, debug, NULL,
 				  is_fax));
 }
 
-//
-// 'cfGetPrinterAttributes5()' - Get attributes of a printer specified by URI and under a given HTTP
-//                             connection, for example via a domain socket, and give info about used
-//                             fallbacks
-//
-
-ipp_t *                                               // O - IPP printer attributes
-cfGetPrinterAttributes5(http_t *http_printer,         // I - HTTP connection to printer
-			const char* raw_uri,                            // I - Printer URI
-			const char* const pattrs[],                     // I - Requested printer attributes
-			int pattrs_size,                                // I - Number of requested attributes
-			const char* const req_attrs[],                  // I - Required response attributes
-			int req_attrs_size,                           // I - Number of required attributes
-			int debug,                                    // I - Debug mode
-			int* driverless_info,                       // I - Pointer to variable to return driverless support status, or NULL
-			int is_fax)                                   // I - 1: Fax printer; 0: Not a fax printer
+// Get attributes of a printer specified by URI and under a given HTTP
+// connection, for example via a domain socket, and give info about used
+// fallbacks
+ipp_t *
+cfGetPrinterAttributes5(http_t *http_printer,
+			const char* raw_uri,
+			const char* const pattrs[],
+			int pattrs_size,
+			const char* const req_attrs[],
+			int req_attrs_size,
+			int debug,
+			int* driverless_info,
+			int is_fax)
 {
   char *uri;
   int have_http, uri_status, host_port, i = 0, total_attrs = 0, fallback,
@@ -475,14 +454,8 @@ cfGetPrinterAttributes5(http_t *http_printer,         // I - HTTP connection to 
 
 
 #ifndef HAVE_LIBCUPS2
-
-//
-// 'cfResolveURI2()' - Resolve a URI, for example a DNS-SD-service-name-based URI to a host-name-based URI.
-//
-
-char*                                             // O - Resolved URI
-cfResolveURI2(const char *raw_uri,      // I - Raw URI 
-                      int is_fax)       // I - 1: Fax printer; 0: Not a fax printer
+char*
+cfResolveURI2(const char *raw_uri, int is_fax)
 {
   int options = HTTP_RESOLVE_DEFAULT;
   const char* auth_info_required = getenv("AUTH_INFO_REQUIRED");
@@ -510,15 +483,13 @@ is_string_tag(ipp_attribute_t *attr)  // I - Attribute to check
 	  tag == IPP_TAG_KEYWORD);
 }
 
-//
-// 'cfIPPAttrEnumValForPrinter()' - Get the value of an enumerated attribute for a job, using the printer's 
-//                                 attributes to validate the value and to provide a default if needed.
-//
-
-const char*                                       // O - Attribute value as string
-cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same as to respond get-printer-attributes, or NULL to not consider
+const char* // O - Attribute value as string
+cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
+			                         //     as to respond
+			                         //     get-printer-attributes,
+			                         //     or NULL to not consider
 			   ipp_t *job_attrs,     // I - Job attributes
-			   const char *attr_name) // I - Attribute name
+			   const char *attr_name)// I - Attribute name
 {
   ipp_attribute_t *attr;
   char printer_attr_name[256];
@@ -578,16 +549,16 @@ cfIPPAttrEnumValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
   return (res);
 }
 
-//
-// 'cfIPPAttrIntValForPrinter()' - Get the value of an integer attribute for a job, using the printer's
-//                                 attributes to validate the value and to provide a default if needed.
-//
 
-int                                                 // O - 1: Success; 0: Error
-cfIPPAttrIntValForPrinter(ipp_t *printer_attrs,   // I - Printer attributes, same as to respond get-printer-attributes, or NULL to not consider
+int                 // O - 1: Success; 0: Error
+cfIPPAttrIntValForPrinter(ipp_t *printer_attrs, // I - Printer attributes, same
+						//     as to respond
+			                        //     get-printer-attributes,
+			                        //     or NULL to not consider
 			  ipp_t *job_attrs,     // I - Job attributes
 			  const char *attr_name,// I - Attribute name
-			  int   *value)         // O - Attribute value as integer
+			  int   *value)         // O - Attribute value as
+                                                //     integer
 {
   ipp_attribute_t *attr;
   char printer_attr_name[256];
@@ -646,15 +617,11 @@ cfIPPAttrIntValForPrinter(ipp_t *printer_attrs,   // I - Printer attributes, sam
   return (retval);
 }
 
-//
-// 'cfIPPAttrResolutionForPrinter()' - Get the value of a resolution attribute for a job, using the printer's
-//                                 attributes to validate the value and to provide a default if needed.
-//
 
 int                 // O - 1: Success; 0: Error
-cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs, // I - Printer attributes
+cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs,// I - Printer attributes
 			      ipp_t *job_attrs,    // I - Job attributes
-			      const char *attr_name,  // I - Attribute name
+			      const char *attr_name,// I - Attribute name
 			      int   *xres,         // O - X resolution (dpi)
 			      int   *yres)         // O - Y resolution (dpi)
 {
@@ -749,14 +716,10 @@ cfIPPAttrResolutionForPrinter(ipp_t *printer_attrs, // I - Printer attributes
   return (retval);
 }
 
-//
-// 'cfIPPReverseOutput()' - Get the output order for a job, using the printer's
-//                          attributes to validate the value and to provide a default if needed.
-//
 
-int                                             // O - 0: Original order; 1: Reverse order
-cfIPPReverseOutput(ipp_t *printer_attrs,        // I - Printer attributes
-		   ipp_t *job_attrs)                        // I - Job attributes
+int
+cfIPPReverseOutput(ipp_t *printer_attrs,
+		   ipp_t *job_attrs)
 {
   int i;
   ipp_attribute_t *attr1, *attr2;
@@ -813,35 +776,64 @@ cfIPPReverseOutput(ipp_t *printer_attrs,        // I - Printer attributes
   return (0);
 }
 
+
 //
-// 'cfGetBackSideOrientation()' - This functions returns the back side orientation using printer
-//                                attributes.  Meaning and reason for backside orientation: It only makes
-//                                sense if printer supports duplex, so, if printer reports that it
-//                                supports duplex printing via sides-supported IPP attribute, then
-//                                it also reports back-side orientation for each PDL in PDL
-//                                specific IPP attributes. Backside orientation is specially needed for
-//                                raster PDLs as raster PDLs are specially made for raster printers
-//                                which do not have sufficient memory to hold a full page bitmap(raster
-//                                page).  So they cannot build the whole page in memory before
-//                                starting to print it. For one-sided printing it is easy to manage. The
-//                                printer's mechanism pulls the page in on its upper edge and starts to
-//                                print, from top to bottom, after that it ejects the page.  For
-//                                double-sided printing it does the same for the front side, but for
-//                                the back side the mechanics of the printer has to turn over the sheet,
-//                                and now, depending on how the sheet is turned over it happens that the
-//                                edge arriving in the printing mechanism is the lower edge of the
-//                                back side. And if the printer simply prints then, the back side
-//                                is the wrong way around. The printer reports its need via back
-//                                side orientation in such a case, so that the client knows to send the
-//                                back side upside down for example. In vector PDLs, PDF and PostScript,
-//                                always the full page's raster image is completely generated in the
-//                                printer before the page is started, and therefore the printer can start
-//                                to take the pixels from the lower edge of the raster image if needed,
-//                                so back side orientation is always "normal" for these PDLs.  And if a
-//                                printer does not support duplex, back side orientation is not needed.
+//  'cfGetBackSideOrientation()' - This functions returns the back
+//				   side orientation using printer
+//				   attributes.  Meaning and reason for
+//				   backside orientation: It only makes
+//				   sense if printer supports duplex,
+//				   so, if printer reports that it
+//				   supports duplex printing via
+//				   sides-supported IPP attribute, then
+//				   it also reports back-side
+//				   orientation for each PDL in PDL
+//				   specific IPP attributes. Backside
+//				   orientation is specially needed for
+//				   raster PDLs as raster PDLs are
+//				   specially made for raster printers
+//				   which do not have sufficient memory
+//				   to hold a full page bitmap(raster
+//				   page).  So they cannot build the
+//				   whole page in memory before
+//				   starting to print it. For one-sided
+//				   printing it is easy to manage. The
+//				   printer's mechanism pulls the page
+//				   in on its upper edge and starts to
+//				   print, from top to bottom, after
+//				   that it ejects the page.  For
+//				   double-sided printing it does the
+//				   same for the front side, but for
+//				   the back side the mechanics of the
+//				   printer has to turn over the sheet,
+//				   and now, depending on how the sheet
+//				   is turned over it happens that the
+//				   edge arriving in the printing
+//				   mechanism is the lower edge of the
+//				   back side. And if the printer
+//				   simply prints then, the back side
+//				   is the wrong way around. The
+//				   printer reports its need via back
+//				   side orientation in such a case, so
+//				   that the client knows to send the
+//				   back side upside down for example.
+//				   In vector PDLs, PDF and PostScript,
+//				   always the full page's raster image
+//				   is completely generated in the
+//				   printer before the page is started,
+//				   and therefore the printer can start
+//				   to take the pixels from the lower
+//				   edge of the raster image if needed,
+//				   so back side orientation is always
+//				   "normal" for these PDLs.  And if a
+//				   printer does not support duplex,
+//				   back side orientation is not
+//				   needed.
 //
 
-int				       // O - Backside orientation (bit 0-2) Requires flipped margin? Yes: bit 4 set; No: bit 3 set
+int				       // O - Backside orientation (bit 0-2)
+				       //     Requires flipped margin?
+				       //     Yes: bit 4 set; No: bit 3 set
 cfGetBackSideOrientation(cf_filter_data_t *data) // I - Filter data
 {
   ipp_t *printer_attrs = data->printer_attrs;
@@ -938,14 +930,11 @@ cfGetBackSideOrientation(cf_filter_data_t *data) // I - Filter data
   return (backside);
 }
 
-//
-// 'cfGetPrintRenderIntent()' - Get the print rendering intent from job attributes and printer attributes. 
-//
 
-const char *                                      // O - Rendering intent string, or NULL
-cfGetPrintRenderIntent(cf_filter_data_t *data,    // I - Filter data
-		       char *ri,                              // O - Rendering intent buffer
-		       int ri_len)                            // I - Buffer size
+const char *
+cfGetPrintRenderIntent(cf_filter_data_t *data,
+		       char *ri,
+		       int ri_len)
 {
   const char		*val;
   int 			num_options = 0;
@@ -1034,9 +1023,12 @@ cfGetPrintRenderIntent(cf_filter_data_t *data,    // I - Filter data
 //                                option list, together with the options
 //
 
-int                                               // O  - New number of options in new option list
+int                                               // O  - New number of options
+                                                  //      in new option list
 cfJoinJobOptionsAndAttrs(cf_filter_data_t* data,  // I  - Filter data
-			 int num_options,         // I  - Current mumber of options in new option list
+			 int num_options,         // I  - Current mumber of
+			                          //      options in new option
+			                          //      list
 			 cups_option_t **options) // IO - New option lsit
 {
   ipp_t *job_attrs = data->job_attrs;   // Job attributes
@@ -1174,14 +1166,11 @@ cfStrFormatd(char         *buf,		// I - String
   return (bufptr);
 }
 
-//
-// 'cfStrFormatf()' - Format a floating-point number with a given number of decimal places.
-//                    
 
-int                                         // O - Number of characters written
-cfCompareResolutions(void *resolution_a,    // I - First resolution
-		     void *resolution_b,                // I - Second resolution
-		     void *user_data)                   // I - User data (not used)
+int
+cfCompareResolutions(void *resolution_a,
+		     void *resolution_b,
+		     void *user_data)
 {
   cf_res_t *res_a = (cf_res_t *)resolution_a;
   cf_res_t *res_b = (cf_res_t *)resolution_b;
@@ -1202,13 +1191,9 @@ cfCompareResolutions(void *resolution_a,    // I - First resolution
   return ((a > b) - (a < b));
 }
 
-//
-// 'cfCopyResolution()' - Copy a resolution structure.
-//
-
-void *                                  // O - Copy of resolution
-cfCopyResolution(void *resolution,      // I - Resolution to copy
-		 void *user_data)                   // I - User data (not used)
+void *
+cfCopyResolution(void *resolution,
+		 void *user_data)
 {
   cf_res_t *res = (cf_res_t *)resolution;
   cf_res_t *copy;
@@ -1223,37 +1208,25 @@ cfCopyResolution(void *resolution,      // I - Resolution to copy
   return copy;
 }
 
-//
-// 'cfFreeResolution()' - Free a resolution structure.
-//
-
 void
-cfFreeResolution(void *resolution,      // I - Resolution to free
-		 void *user_data)                   // I - User data (not used)
+cfFreeResolution(void *resolution,
+		 void *user_data)
 {
   cf_res_t *res = (cf_res_t *)resolution;
 
   if (res) free(res);
 }
 
-//
-// 'cfNewResolutionArray()' - Create a new array of resolutions.
-//
-
-cups_array_t *              // O - New array of resolutions
+cups_array_t *
 cfNewResolutionArray()
 {
   return (cupsArrayNew(cfCompareResolutions, NULL, NULL, 0,
 			cfCopyResolution, cfFreeResolution));
 }
 
-//
-// 'cfNewResolution()' - Create a new resolution structure.
-//
-
-cf_res_t *                      // O - New resolution structure
-cfNewResolution(int x,          // I - X resolution (dpi)
-		int y)                      // I - Y resolution (dpi)
+cf_res_t *
+cfNewResolution(int x,
+		int y)
 {
   cf_res_t *res = (cf_res_t *)calloc(1, sizeof(cf_res_t));
   if (res)
@@ -1264,16 +1237,13 @@ cfNewResolution(int x,          // I - X resolution (dpi)
   return (res);
 }
 
-//
-// 'cfIPPResToResolution()' - Read a single resolution from an IPP attribute, take care of
-//                            obviously wrong entries (printer firmware bugs), ignoring
-//                            resolutions of less than 60 dpi in at least one dimension and
-//                            fixing Brother's "600x2dpi" resolutions.
-//
-
-cf_res_t *                                          // O - Resolution structure or NULL on error
-cfIPPResToResolution(ipp_attribute_t *attr,         // I - IPP attribute
-		     int index)                                 // I - Index of resolution to read
+// Read a single resolution from an IPP attribute, take care of
+// obviously wrong entries (printer firmware bugs), ignoring
+// resolutions of less than 60 dpi in at least one dimension and
+// fixing Brother's "600x2dpi" resolutions.
+cf_res_t *
+cfIPPResToResolution(ipp_attribute_t *attr,
+		     int index)
 {
   cf_res_t *res = NULL;
   int x = 0, y = 0;
@@ -1301,12 +1271,8 @@ cfIPPResToResolution(ipp_attribute_t *attr,         // I - IPP attribute
   return (res);
 }
 
-//
-// 'cfIPPAttrToResolutionArray()' - Convert an IPP attribute to an array of resolutions.
-//
-
-cups_array_t *                                          // O - Array of resolutions
-cfIPPAttrToResolutionArray(ipp_attribute_t *attr)       // I - IPP attribute
+cups_array_t *
+cfIPPAttrToResolutionArray(ipp_attribute_t *attr)
 {
   cups_array_t *res_array = NULL;
   cf_res_t *res;
@@ -1341,27 +1307,27 @@ cfIPPAttrToResolutionArray(ipp_attribute_t *attr)       // I - IPP attribute
   return (res_array);
 }
 
-//
-// 'cfJoinResolutionArrays()' - Build up an array of common resolutions and most desirable default
-//                              resolution from multiple arrays of resolutions with an optional
-//                              default resolution. Call this function with each resolution array 
-//                              you find as "new", and in "current" an array of the common resolutions 
-//                              will be built up. You do not need to create an empty array for "current"
-//                              before starting. Initialize it with NULL. "current_default" holds the 
-//                              default resolution of the array "current". It will get replaced by 
-//                              "new_default" if "current_default" is either
-//                              NULL or a resolution which is not in "current" any more.
-//                              "new" and "new_default" will be deleted/freed and set to NULL after
-//                              each, successful or unsuccssful operation.
-//                              Note that when calling this function the addresses of the pointers
-//                              to the resolution arrays and default resolutions have to be given
-//                              (call by reference) as all will get modified by the function.
+// Build up an array of common resolutions and most desirable default
+// resolution from multiple arrays of resolutions with an optional
+// default resolution.
+// Call this function with each resolution array you find as "new", and
+// in "current" an array of the common resolutions will be built up.
+// You do not need to create an empty array for "current" before
+// starting. Initialize it with NULL.
+// "current_default" holds the default resolution of the array "current".
+// It will get replaced by "new_default" if "current_default" is either
+// NULL or a resolution which is not in "current" any more.
+// "new" and "new_default" will be deleted/freed and set to NULL after
+// each, successful or unsuccssful operation.
+// Note that when calling this function the addresses of the pointers
+// to the resolution arrays and default resolutions have to be given
+// (call by reference) as all will get modified by the function.
 
-int                                               // O - 1 on success, 0 on failure
-cfJoinResolutionArrays(cups_array_t **current,    // IO - Current array of common resolutions
-		       cups_array_t **new_arr,                // I - New array of resolutions to join with current
-		       cf_res_t **current_default,          // IO - Current default resolution of current array
-		       cf_res_t **new_default)              // I - New default resolution of new array
+int // 1 on success, 0 on failure
+cfJoinResolutionArrays(cups_array_t **current,
+		       cups_array_t **new_arr,
+		       cf_res_t **current_default,
+		       cf_res_t **new_default)
 {
   cf_res_t *res;
   int retval;
@@ -1472,12 +1438,12 @@ pwg_copy_size(cf_size_t *size)	// I - Media size to copy
   return (newsize);
 }
 
-//
-// 'cfGetPageDimensions()' - Get page dimensions from job attributes and options.
-//
 
-int		// O -  1: Requested page size supported; 2: Requested page size supported when rotated by 90 degrees; 0: No page size requested; -1: Requested size unsupported
-                                      
+int					// O -  1: Requested page size supported
+                                        //      2: Requested page size supported
+                                        //	   when rotated by 90 degrees
+                                        //      0: No page size requested
+                                        //     -1: Requested size unsupported
 cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 	            ipp_t *job_attrs,	    // I - Job attributes
 	            int num_options,        // I - Number of options
@@ -1491,7 +1457,8 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
 		    float *right,           // O - Right margin
 		    float *top,             // O - Top margin
 		    char *name,             // O - Page size name
-		    ipp_t **media_col_entry)// O - media-col-database record of match
+		    ipp_t **media_col_entry)// O - media-col-database record of
+                                            //     match
 {
   int           i;
   const char    *attr_name;
@@ -1801,9 +1768,6 @@ cfGetPageDimensions(ipp_t *printer_attrs,   // I - Printer attributes
   return (size_requested ? -1 : 0);
 }
 
-//
-// 'cfSetPageDimensionsToDefault()' - Set page dimensions to default values if they are invalid.
-//
 
 void
 cfSetPageDimensionsToDefault(float *width,  // IO - Width (in pt, 1/72 inches)
@@ -1892,31 +1856,28 @@ dimensions_for_name(char *size_name,
   return (search);
 }
 
-//
-// 'cfGenerateSizes()' - Generate a list of sizes from the printer attributes.
-//
 
 void
-cfGenerateSizes(ipp_t *response,        // I - Printer attributes
-		cf_gen_sizes_mode_t mode,           // I - Mode of operation
-		cups_array_t **sizes,               // IO - Array of sizes
-		ipp_attribute_t **defattr,          // IO - Default media attribute
-		int *width,                         // IO - Width (in 1/2540 inches)
-		int *length,                        // IO - Length
-		int *left,                          // IO - Left margin
-		int *bottom,                        // IO - Bottom margin
-		int *right,                         // IO - Right margin
-		int *top,                           // IO - Top margin
-		int *min_width,                     // IO - Minimum width (in 1/2540 inches)
-		int *min_length,                    // IO - Minimum length
-		int *max_width,                     // IO - Maximum width (in 1/2540 inches)
-		int *max_length,                    // IO - Maximum length
-		int *custom_left,                   // IO - Minimum left margin (in 1/2540 inches)
-		int *custom_bottom,                 // IO - Minimum bottom margin
-		int *custom_right,                  // IO - Minimum right margin
-		int *custom_top,                  // IO - Minimum top margin
-		char *size_name,                    // IO - Page size name
-		ipp_t **media_col_entry)            // IO - media-col-database record of match
+cfGenerateSizes(ipp_t *response,
+		cf_gen_sizes_mode_t mode,
+		cups_array_t **sizes,
+		ipp_attribute_t **defattr,
+		int *width,
+		int *length,
+		int *left,
+		int *bottom,
+		int *right,
+		int *top,
+		int *min_width,
+		int *min_length,
+		int *max_width,
+		int *max_length,
+		int *custom_left,
+		int *custom_bottom,
+		int *custom_right,
+		int *custom_top,
+		char *size_name,
+		ipp_t **media_col_entry)
 {
   ipp_attribute_t          *default_attr,
                            *attr,                // xxx-supported

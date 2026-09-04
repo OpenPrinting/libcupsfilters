@@ -226,7 +226,7 @@ typedef struct cf_filter_options_s	// All filter options in one structure
   bool          mirror;                	// "mirror" value
   char          page_border[128];      	// "page-border" value
   int           page_top, page_left,   	// Margin values
-                page_right, page_bottom;  // "page-top", "page-left", "page-right", "page-bottom" values
+                page_right, page_bottom;
   char          page_label[256];       	// "page-label" value
   bool          pdf_auto_rotate;       	// "pdfAutoRotate" value
   cf_filter_imgpos_t x_image_position;	// "x-image-position" value
