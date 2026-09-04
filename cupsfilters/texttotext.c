@@ -39,18 +39,18 @@
 // Type definitions
 //
 
-typedef enum overlong_line_e    // How to treat overlong lines
+typedef enum overlong_line_e
 {
-  TRUNCATE = 0,     // Truncate lines to the page width
-  WORDWRAP = 1,     // Wrap lines at word boundaries
-  WRAPATWIDTH = 2     // Wrap lines at the page width
+  TRUNCATE = 0,
+  WORDWRAP = 1,
+  WRAPATWIDTH = 2
 } overlong_line_t;
 
-typedef enum newline_char_e     // Character to send at end of line
+typedef enum newline_char_e
 {
-  LF = 0,       // Line Feed
-  CR = 1,       // Carriage Return
-  CRLF = 2        // Carriage Return + Line Feed
+  LF = 0,
+  CR = 1,
+  CRLF = 2
 } newline_char_t;
 
 
@@ -63,15 +63,11 @@ static int              is_false(const char *value);
 static int		check_range(char *page_ranges, int even_pages,
 				    int odd_pages, int page);
 
-
-//
-// 'cfFilterTextToText()' - Filter a text file to a text-only printer.
-//
-
-int                                     // O - Exit status
+int
 cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 		   int outputfd,        // I - File descriptor output stream
-		   int inputseekable,   // I - Is input stream seekable? (unused)
+		   int inputseekable,   // I - Is input stream seekable?
+					//     (unused)
 		   cf_filter_data_t *data, // I - Job and printer data
 		   void *parameters)    // I - Filter-specific parameters
 {

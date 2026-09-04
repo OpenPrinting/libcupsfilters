@@ -33,11 +33,15 @@ double    blackpoint_default[3] = {0.0, 0.0, 0.0};
 
 
 //
-// 'cfCmIsPrinterCmDisabled()' - Check if color management is disabled for the printer.
+// Public functions
 //
 
-int                                                 // O - Non-zero if disabled, 0 otherwise
-cfCmIsPrinterCmDisabled(cf_filter_data_t *data)     // I - Filter data
+//
+// Get printer color management status from the system's color manager
+//
+
+int          
+cfCmIsPrinterCmDisabled(cf_filter_data_t *data)
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -68,16 +72,16 @@ cfCmIsPrinterCmDisabled(cf_filter_data_t *data)     // I - Filter data
 
 
 //
-// 'cfCmGetPrinterIccProfile()' - Get the ICC profile for the printer from colord or fallback option.
+// Get printer ICC profile from the system's color manager
 //
 
-int                                                         // O - Non-zero if profile found, 0 otherwise
-cfCmGetPrinterIccProfile(cf_filter_data_t *data,            // I - Filter data
-			 const char *color_space,                             // I - Color space string
-			 const char *media_type,                            // I - Media type string                 
-			 int x_res,                                         // I - X resolution
-			 int y_res,                                         // I - Y resolution
-			 char **profile)                                    // I - ICC profile path string
+int 
+cfCmGetPrinterIccProfile(cf_filter_data_t *data,
+			 const char *color_space,
+			 const char *media_type,
+			 int x_res,
+			 int y_res,
+			 char **profile)      // ICC Profile Path
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -148,11 +152,11 @@ cfCmGetPrinterIccProfile(cf_filter_data_t *data,            // I - Filter data
 
 
 //
-// 'cfCmGetCupsColorCalibrateMode()' - Get the color calibration mode from CUPS options.
+// Find the "cm-calibration" CUPS option
 //
 
-cf_cm_calibration_t                                         // O - Color calibration mode
-cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)       // I - Filter data
+cf_cm_calibration_t    
+cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)
 {
   int 			num_options = 0;
   cups_option_t 	*options = NULL;
@@ -180,61 +184,46 @@ cfCmGetCupsColorCalibrateMode(cf_filter_data_t *data)       // I - Filter data
 
 
 //
-// 'cfCmGammaAdobeRGB()' - Get the gamma value for Adobe RGB.
+// Accessor functions to return specific calibration data
 //
 
-double                      // O - Gamma value
- *cfCmGammaAdobeRGB(void)
+// Gamma values
+
+double *cfCmGammaAdobeRGB(void)
 {
   return (adobergb_gamma);
 }
 
-//
-// 'cfCmGammaSGray()' - Get the gamma value for sGray.
-//
-
-double                    // O - Gamma value
-*cfCmGammaSGray(void)
+double *cfCmGammaSGray(void)
 {
   return (sgray_gamma);
 }
 
-//
-// 'cfCmWhitePointAdobeRGB()' - Get the whitepoint value for Adobe RGB.
-//
 
-double                // O - Whitepoint value   
- *cfCmWhitePointAdobeRGB(void)
+// Whitepoint values
+
+double *cfCmWhitePointAdobeRGB(void)
 {
   return (adobergb_wp);
 }
 
-//
-// 'cfCmWhitePointSGray()' - Get the whitepoint value for sGray.
-//
-
-double                      // O - Whitepoint value
- *cfCmWhitePointSGray(void)
+double *cfCmWhitePointSGray(void)
 {
   return (sgray_wp);
 }
 
-//
-// 'cfCmMatrixAdobeRGB()' - Get the adapted primaries matrix for Adobe RGB.
-//
 
-double            // O - Adapted primaries matrix 
-*cfCmMatrixAdobeRGB(void)
+// Adapted primaries matrix
+
+double *cfCmMatrixAdobeRGB(void)
 {
   return (adobergb_matrix);
 }
 
-//
-// 'cfCmBlackPointDefault()' - Get the default blackpoint value.
-//
 
-double                      // O - Blackpoint value
-*cfCmBlackPointDefault(void)
+// Blackpoint value
+
+double *cfCmBlackPointDefault(void)
 {
   return (blackpoint_default);
 }

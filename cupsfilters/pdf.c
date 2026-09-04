@@ -73,24 +73,22 @@ cfPDFLoadTemplate(const char *filename) 	// I - Filename of the PDF file
 // 'cf_pdf_write()' - helper which writes the PDF file to a FILE*
 //
 
-ssize_t                                 // O - Number of bytes written
-cf_pdf_write_cb(void *context,          // I - Output FILE context
-            const void *buffer,         // I - Data buffer
-            size_t bytes)               // I - Number of bytes to write
+ssize_t
+cf_pdf_write_cb(void *context, const void *buffer, size_t bytes)
 {
   return (ssize_t)fwrite(buffer, 1, bytes, (FILE *)context);
 }
 
 //
 // 'cfCopyPDFdoc()' - Copy the PDF file to another using PDFio, as PDFio doesn't 
-// 		                explicitly support file modification. 
-// 		                Thus we will copy contents into new streams and modify there.
+// 		      explicitly support file modification. 
+// 		      Thus we will copy contents into new streams and modify there.
 //
 
-cf_pdf_t*                             // O - Pointer to cf_pdf_t struct
-cfCopyPDFdoc(cf_pdf_t *input_doc,     // I - Pointer to input PDF file
-	     FILE *output_file,                 // I - Pointer to output PDF file
-	     iterate_data_t *iterate_helper)      // I - PDF iteration helper data 
+cf_pdf_t*
+cfCopyPDFdoc(cf_pdf_t *input_doc, 
+	     FILE *output_file,
+	     iterate_data_t *iterate_helper)
 {
   cf_pdf_t *pdf = (cf_pdf_t*)pdfioFileCreateOutput(cf_pdf_write_cb, output_file,
 		 			    pdfioFileGetVersion((pdfio_file_t *)input_doc), 					       NULL, NULL, NULL, NULL);
@@ -260,13 +258,13 @@ cfPDFPrependStream(cf_pdf_t *pdf,		// I - Pointer to PDF file
 
 //
 // 'cfPDFPrependStream1()' - Replacement API for the original above.
-// 			                     Prepend a stream to the contents of a specified
+// 			     Prepend a stream to the contents of a specified
 //                           page in PDF file.
 //
 
 int 						  // O - 0 on success, 1 on error
 cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
-		    iterate_data_t *iterate_helper,   // I - PDF iteration helper data
+		    iterate_data_t *iterate_helper,
 		    unsigned page_num, 		// I - page number to prepend to
 		    const char *buf, 		// I - Buffer containing stream data
 		    size_t len) 		// I - Length of Buffer
@@ -358,13 +356,13 @@ cfPDFAddType1Font(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 
 //
 // 'cfPDFAddType1Font1()' - Replacement to the API just above
-// 			                    Add the specified type1 font face to the specified
-//                          page in a PDF document.
+// 			    Add the specified type1 font face to the specified
+//                         page in a PDF document.
 //
 
 int 					  // O - 0 on success , 1 on error
 cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
-		   iterate_data_t *iterate_helper,  // I/O - PDF iteration helper data
+		   iterate_data_t *iterate_helper,
 		   unsigned page_num, 	// I - Page number to add font to
 		   const char *name) 	// I - Name of the font
 {
@@ -598,8 +596,8 @@ cfPDFDuplicatePage(cf_pdf_t *pdf, 	// I - pointer to PDF file
 //
 
 void 
-cfPDFWrite(cf_pdf_t *pdf,   // I - Pointer to PDF object
-	   FILE *file)            // I - Output FILE
+cfPDFWrite(cf_pdf_t *pdf, 
+	   FILE *file) 
 {
   // PDFio doesn't work this way.
 }
@@ -608,9 +606,8 @@ cfPDFWrite(cf_pdf_t *pdf,   // I - Pointer to PDF object
 // 'cfPDFFillForm()' - Fill recognized fields with information
 //
 
-int                             // O - 0 on sucess, 1 on failure
-cfPDFFillForm(cf_pdf_t *doc,    // I - PDF document 
-  cf_opt_t *opt)                // I - PDF form options
+int
+cfPDFFillForm(cf_pdf_t *doc, cf_opt_t *opt)
 {
   // TODO: PDFio does not directly support form filling.
   return 1;

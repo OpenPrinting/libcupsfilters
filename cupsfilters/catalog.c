@@ -25,14 +25,12 @@
 #include <cupsfilters/catalog.h>
 #include <cupsfilters/libcups2-private.h>
 
-//
-// 'cfGetURI()' - Get a file from the given URI and save it to a temporary file.
-//
 
-int				                     	// O  - 1 on success, 0 on failure
-cfGetURI(const char *url,	    	// I  - URL to get
-	 char       *name,	        	// I  - Temporary filename
-	 size_t     namesize)		      // I  - Size of temporary filename buffer
+int					// O  - 1 on success, 0 on failure
+cfGetURI(const char *url,		// I  - URL to get
+	 char       *name,		// I  - Temporary filename
+	 size_t     namesize)		// I  - Size of temporary filename
+					//      buffer
 {
   http_t		*http = NULL;
   char			scheme[32],	// URL scheme
@@ -78,14 +76,15 @@ cfGetURI(const char *url,	    	// I  - URL to get
   return (1);
 }
 
+
 //
-// 'cfCatalogSearchDirLocale()' - Search a directory for a CUPS message catalog file 
-//                                  matching the given locale.
+// 'cfCatalogFind()' - Find a CUPS message catalog file containing
+//                     human-readable standard option and choice names
+//                     for IPP printers
 //
 
-char *                                              // O - Catalog file path, or NULL if not found
-cfCatalogSearchDirLocale(const char *dirname,       // I - Directory name
-  const char *locale)                               // I - Locale name 
+char *
+cfCatalogSearchDirLocale(const char *dirname, const char *locale)
 {
   char *catalog = NULL;
   char catalogpath[2048];
@@ -102,14 +101,8 @@ cfCatalogSearchDirLocale(const char *dirname,       // I - Directory name
   return (catalog);
 }
 
-//
-// 'cfCatalogSearchDirLang()' - Search a directory for a CUPS message catalog file
-//                              matching the given language.
-//
-
-char *                                                // O - Catalog file path, or NULL if not found
-cfCatalogSearchDirLang(const char *dirname,           // I - Directory name
-   const char *lang)                                  // I - Language name
+char *
+cfCatalogSearchDirLang(const char *dirname, const char *lang)
 {
   size_t lang_len;
   const char *c1, *c2;
@@ -168,13 +161,8 @@ cfCatalogSearchDirLang(const char *dirname,           // I - Directory name
   return (catalog);
 }
 
-//
-// 'cfCatalogSearchDir()' - Search a directory for a CUPS message catalog file matching
-//                          the preferred locale.
-
-char *                                        // O - Catalog file path, or NULL if not found  
-cfCatalogSearchDir(const char *dirname,       // I - Directory name
-  const char *preferredlocale)                // I - Preferred locale name
+char *
+cfCatalogSearchDir(const char *dirname, const char *preferredlocale)
 {
   const char *c1, *c2;
   char *catalog = NULL;
@@ -280,15 +268,9 @@ cfCatalogSearchDir(const char *dirname,       // I - Directory name
   return (catalog);
 }
 
-//
-// 'cfCatalogFind()' - Find a CUPS message catalog file containing
-//                     human-readable standard option and choice names
-//                     for IPP printers.
-//
 
-char *                                     // O - Catalog file path, or NULL if not found   
-cfCatalogFind(const char *preferreddir,    // I - Preferred directory 
-   const char *preferredlocale)            // I - Preferred locale name
+char *
+cfCatalogFind(const char *preferreddir, const char *preferredlocale)
 {
   const char *c;
   char buf[1024];
@@ -350,14 +332,10 @@ compare_options(void *a,
 		     ((catalog_opt_strings_t *)b)->name));
 }
 
-//
-// 'cfCatalogFreeChoiceStrings()' - Free a choice strings entry containing the
-//                                   localized human-readable choice name.
-//
 
 void
-cfCatalogFreeChoiceStrings(void* entry,          // I - Choice strings entry
-			   void* user_data)                       // I - User data (unused)
+cfCatalogFreeChoiceStrings(void* entry,
+			   void* user_data)
 {
   catalog_choice_strings_t *entry_rec = (catalog_choice_strings_t *)entry;
 
@@ -369,14 +347,10 @@ cfCatalogFreeChoiceStrings(void* entry,          // I - Choice strings entry
   }
 }
 
-//
-// 'cfCatalogFreeOptionStrings()' - Free memory allocated for an option strings
-//                                  entry in the catalog.
-//
 
 void
-cfCatalogFreeOptionStrings(void* entry,    // I - Option strings entry
-			   void* user_data)                  // I - User data (unused)  
+cfCatalogFreeOptionStrings(void* entry,
+			   void* user_data)
 {
   catalog_opt_strings_t *entry_rec = (catalog_opt_strings_t *)entry;
 
@@ -389,24 +363,18 @@ cfCatalogFreeOptionStrings(void* entry,    // I - Option strings entry
   }
 }
 
-//
-// 'cfCatalogOptionArrayNew()' - Create a new array to store catalog option string entries.
-//
 
-cups_array_t *              // O - New array
+cups_array_t *
 cfCatalogOptionArrayNew()
 {
   return (cupsArrayNew(compare_options, NULL, NULL, 0,
 			NULL, cfCatalogFreeOptionStrings));
 }
 
-//
-// 'cfCatalogFindOption()' - Find a catalog option strings entry by name.
-//
 
-catalog_opt_strings_t *                      // O - Option strings entry, or NULL if not found
-cfCatalogFindOption(cups_array_t *options,   // I - Catalog choice array
-		    char *name)                          // I - Option name
+catalog_opt_strings_t *
+cfCatalogFindOption(cups_array_t *options,
+		    char *name)
 {
   catalog_opt_strings_t opt;
 
@@ -417,13 +385,10 @@ cfCatalogFindOption(cups_array_t *options,   // I - Catalog choice array
   return (cupsArrayFind(options, &opt));
 }
 
-//
-// 'cfCatalogFindChoice()' - Find a catalog choice strings entry by name.
-//
 
-catalog_choice_strings_t *                 // O - Choice strings entry, or NULL if not found
-cfCatalogFindChoice(cups_array_t *choices, // I - Catalog choice array
-		    char *name)                        // I - Choice name
+catalog_choice_strings_t *
+cfCatalogFindChoice(cups_array_t *choices,
+		    char *name)
 {
   catalog_choice_strings_t choice;
 
@@ -434,14 +399,11 @@ cfCatalogFindChoice(cups_array_t *choices, // I - Catalog choice array
   return (cupsArrayFind(choices, &choice));
 }
 
-//
-// 'cfCatalogAddOption()' - Add a catalog option strings entry to the options array.
-//
 
-catalog_opt_strings_t *             // O - Option strings entry
-cfCatalogAddOption(char *name,      // I - Option name
-		   char *human_readable,        // I - Human-readable option text
-		   cups_array_t *options)       // I - Catalog option array
+catalog_opt_strings_t *
+cfCatalogAddOption(char *name,
+		   char *human_readable,
+		   cups_array_t *options)
 {
   catalog_opt_strings_t *opt = NULL;
 
@@ -475,15 +437,12 @@ cfCatalogAddOption(char *name,      // I - Option name
   return (opt);
 }
 
-//
-// 'cfCatalogAddChoice()' - Add a catalog choice strings entry to the option's choices array.
-//
 
-catalog_choice_strings_t *          // O - Catalog choice entry
-cfCatalogAddChoice(char *name,      // I - Choice name
-		    char *human_readable,       // I - Human-readable choice text
-		    char *opt_name,             // I - Parent option name
-		    cups_array_t *options)      // I - Catalog option array
+catalog_choice_strings_t *
+cfCatalogAddChoice(char *name,
+		    char *human_readable,
+		    char *opt_name,
+		    cups_array_t *options)
 {
   catalog_choice_strings_t *choice = NULL;
   catalog_opt_strings_t *opt;
@@ -515,14 +474,12 @@ cfCatalogAddChoice(char *name,      // I - Choice name
   return (choice);
 
 }
-//
-// 'cfCatalogLookUpOption()' - Look up the human-readable text for a catalog option.
-//
 
-char *                                            // O - Human-readable option text or NULL
-cfCatalogLookUpOption(char *name,                 // I - Option name
-		      cups_array_t *options,                  // I - Catalog option array
-		      cups_array_t *printer_options)          // I - Printer-specific option array
+
+char *
+cfCatalogLookUpOption(char *name,
+		      cups_array_t *options,
+		      cups_array_t *printer_options)
 {
   catalog_opt_strings_t *opt = NULL;
 
@@ -538,15 +495,12 @@ cfCatalogLookUpOption(char *name,                 // I - Option name
     return (NULL);
 }
 
-//
-// 'cfCatalogLookUpChoice()' - Look up the human-readable text for a catalog choice.
-//
 
-char *                               // O - Human-readable choice text or NULL 
-cfCatalogLookUpChoice(char *name,    // I - Choice name
-		      char *opt_name,             // I - Parent option name
-		      cups_array_t *options,      // I - Catalog option array
-		      cups_array_t *printer_options)    // I - Printer-specific option array
+char *
+cfCatalogLookUpChoice(char *name,
+		      char *opt_name,
+		      cups_array_t *options,
+		      cups_array_t *printer_options)
 {
   catalog_opt_strings_t *opt = NULL;
   catalog_choice_strings_t *choice = NULL;
@@ -565,14 +519,11 @@ cfCatalogLookUpChoice(char *name,    // I - Choice name
     return (NULL);
 }
 
-//
-// 'cfCatalogLoad()' - Load a catalog file.
-//
 
 void
-cfCatalogLoad(const char *location,             // I - Catalog file location (path or URL)
-              const char *preferredlocale,        // I - Preferred locale name
-	      cups_array_t *options)                    // I - Catalog option array
+cfCatalogLoad(const char *location,
+              const char *preferredlocale,
+	      cups_array_t *options)
 {
   char tmpfile[1024];
   const char *filename = NULL;

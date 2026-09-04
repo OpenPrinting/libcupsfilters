@@ -52,40 +52,50 @@ extern "C" {
 
 typedef int (*cf_filter_iscanceledfunc_t)(void *data);
 
-typedef struct cf_filter_data_s  // *** Data structure for filter functions ***
+typedef struct cf_filter_data_s
 {
   char *printer;             // Print queue name or NULL
   int job_id;                // Job ID or 0
   char *job_user;            // Job user or NULL
   char *job_title;           // Job title or NULL
-  int copies;                // Number of copies (1 if filter(s) should not treat it)
-  char *content_type;        // Input MIME type (CUPS env variable CONTENT_TYPE) or NULL
-  char *final_content_type;  // Output MIME type (CUPS env variable FINAL_CONTENT_TYPE) or NULL
+  int copies;                // Number of copies
+                             // (1 if filter(s) should not treat it)
+  char *content_type;        // Input MIME type (CUPS env variable
+                             // CONTENT_TYPE) or NULL
+  char *final_content_type;  // Output MIME type (CUPS env variable
+			     // FINAL_CONTENT_TYPE) or NULL
   ipp_t *job_attrs;          // IPP attributes passed along with the job
-  ipp_t *printer_attrs;      // Printer capabilities in IPP format (what is answered to get-printer-attributes)
-  cups_page_header_t *header; // CUPS/PWG Raster header (optional)
-  int           num_options;  // Number of job options
+  ipp_t *printer_attrs;      // Printer capabilities in IPP format
+			     // (what is answered to get-printer-attributes
+  cups_page_header_t *header;
+                             // CUPS/PWG Raster header (optional)
+  int           num_options;
   cups_option_t *options;    // Job options as key/value pairs
   int back_pipe[2];          // File descriptors of backchannel pipe
   int side_pipe[2];          // File descriptors of sidechannel pipe
   cups_array_t *extension;   // Extension data
   cf_logfunc_t logfunc;      // Logging function, NULL for no logging
   void *logdata;             // User data for logging function, can be NULL
-  cf_filter_iscanceledfunc_t iscanceledfunc; // Function returning 1 when job is canceled, NULL for not supporting stop on cancel
-  void *iscanceleddata;      // User data for is-canceled function, can be NULL
+  cf_filter_iscanceledfunc_t iscanceledfunc;
+                             // Function returning 1 when job is
+			     // canceled, NULL for not supporting stop
+			     // on cancel
+  void *iscanceleddata;      // User data for is-canceled function, can be
+			     // NULL
 } cf_filter_data_t;
 
-typedef struct cf_filter_data_ext_s   // *** Extension data for cf_filter_data_t ***
+typedef struct cf_filter_data_ext_s
 {
-  char *name;		// Name of the extension data
-  void *ext;		// Pointer to the extension data
+  char *name;
+  void *ext;
 } cf_filter_data_ext_t;
 
 typedef int (*cf_filter_function_t)(int inputfd, int outputfd,
 				    int inputseekable, cf_filter_data_t *data,
 				    void *parameters);
 
-typedef enum cf_filter_out_format_e   // *** Possible output formats for filter functions ***
+typedef enum cf_filter_out_format_e   // Possible output formats for filter
+				      // functions
 {
   CF_FILTER_OUT_FORMAT_PDF,	      // PDF
   CF_FILTER_OUT_FORMAT_PDF_IMAGE,     // Raster-only PDF
@@ -96,35 +106,53 @@ typedef enum cf_filter_out_format_e   // *** Possible output formats for filter 
   CF_FILTER_OUT_FORMAT_PXL            // PCL-XL
 } cf_filter_out_format_t;
 
-typedef struct cf_filter_filter_in_chain_s // *** Filter entry for CUPS array to be supplied to cfFilterChain() filter function ***
+typedef struct cf_filter_filter_in_chain_s // filter entry for CUPS array to
+					   // be supplied to cfFilterChain()
+					   // filter function
 {
   cf_filter_function_t function; // Filter function to be called
   void *parameters;              // Parameters for this filter function call
   char *name;                    // Name/comment, only for logging
 } cf_filter_filter_in_chain_t;
 
-typedef struct cf_filter_external_s // *** Parameters for the cfFilterExternal() filter function ***
+typedef struct cf_filter_external_s // Parameters for the
+				    // cfFilterExternal() filter
+				    // function
 {
-  const char *filter;        // Path/Name of the CUPS filter to be called by this filter function, required 
-  int exec_mode;             // 0 if we call a CUPS filter, -1 if we call a System V interface script, 1 if we call a CUPS backend, 2 if we call a CUPS backend in device discovery mode
+  const char *filter;        // Path/Name of the CUPS filter to be called by
+			     // this filter function, required
+  int exec_mode;             // 0 if we call a CUPS filter, -1 if we call
+                             // a System V interface script, 1 if we call a CUPS
+			     // backend, 2 if we call a CUPS backend in
+			     // device discovery mode
   int num_options;           // Extra options for the 5th command line
-  cups_option_t *options;    // argument, options of filter_data have priority, 0/NULL if none
-  char **envp;               // Additional environment variables, the already defined ones stay valid but can be overwritten by these ones, NULL if none
+  cups_option_t *options;    // argument, options of filter_data have
+                             // priority, 0/NULL if none
+  char **envp;               // Additional environment variables, the already
+                             // defined ones stay valid but can be overwritten
+                             // by these ones, NULL if none
 } cf_filter_external_t;
 
-typedef struct cf_filter_texttopdf_parameter_s // *** parameters container of environemnt variables needed by texttopdf filter function ***
+typedef struct cf_filter_texttopdf_parameter_s // parameters container of
+					       // environemnt variables needed
+					       // by texttopdf filter
+					       // function
 {
-  char *data_dir;			// Data directory to be used for fonts and charsets, or NULL for default
-  char *char_set;			// Charset to be used for prettyprint, or NULL for default
-  char *content_type;		// Content type to be used for prettyprint, or NULL for default
-  char *classification;		// Classification to be used for overprint/watermark, or NULL for default
+  char *data_dir;
+  char *char_set;
+  char *content_type;
+  char *classification;
 } cf_filter_texttopdf_parameter_t;
 
-typedef struct cf_filter_universal_parameter_s // *** Contains input and output type to be supplied to the universal function, and also parameters for cfFilterTextToPDF() ***
+typedef struct cf_filter_universal_parameter_s // Contains input and output
+					       // type to be supplied to the
+					       // universal function, and also
+					       // parameters for
+					       // cfFilterTextToPDF()
 {
-  char *actual_output_type;									// Output MIME type 
-  cf_filter_texttopdf_parameter_t texttopdf_params;			// Parameters for cfFilterTextToPDF() filter function
-  const char *bannertopdf_template_dir;						// Template directory for cfFilterBannerToPDF() filter function
+  char *actual_output_type;
+  cf_filter_texttopdf_parameter_t texttopdf_params;
+  const char *bannertopdf_template_dir;
 } cf_filter_universal_parameter_t;
 
 

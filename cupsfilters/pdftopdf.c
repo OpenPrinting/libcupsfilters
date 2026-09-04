@@ -860,13 +860,9 @@ prepare_pages(
   }
 }
 
-//
-// 'getArrayAsMatrix()' - Convert a PDF array into a transformation matrix.
-//
-
 void
-getArrayAsMatrix(pdfio_array_t *array,      // I - PDF array containing 6 matrix values
-		 pdfio_matrix_t cm)                     // O - Transformation matrix
+getArrayAsMatrix(pdfio_array_t *array,
+		 pdfio_matrix_t cm)
 {
   size_t array_size = pdfioArrayGetSize(array);
   if(array_size != 6)
@@ -886,12 +882,8 @@ getArrayAsMatrix(pdfio_array_t *array,      // I - PDF array containing 6 matrix
   return;
 }
 
-//
-// 'get_flags()' - Get the annotation flags from a PDF annotation dictionary.
-//
-
-double                                            // O - Annotation flags
-get_flags(pdfio_dict_t *annots_dict)              // I - PDF annotation dictionary
+double
+get_flags(pdfio_dict_t *annots_dict)
 {
   double val = pdfioDictGetNumber(annots_dict, "F");
   return val;
@@ -1035,13 +1027,9 @@ transform_point(const pdfio_matrix_t matrix,
     *yp = matrix[0][1] * x + matrix[1][1] * y + matrix[2][1];
 }
 
-//
-// 'transform_rectangle()' - Transform a rectangle using a transformation matrix.
-//
-
-pdfio_rect_t                                              // O - Transformed rectangle
-transform_rectangle(const pdfio_matrix_t matrix,          // I - Transformation matrix
-		    pdfio_rect_t r)                                   // I - Rectangle to transform
+pdfio_rect_t
+transform_rectangle(const pdfio_matrix_t matrix,
+		    pdfio_rect_t r)
 {
   double min_x = DBL_MAX, min_y = DBL_MAX;
   double max_x = -DBL_MAX, max_y = -DBL_MAX;
@@ -1073,12 +1061,8 @@ transform_rectangle(const pdfio_matrix_t matrix,          // I - Transformation 
   return transformed;
 }
 
-//
-// 'unparse_matrix()' - Convert a transformation matrix into a PDF matrix string.
-//
-
-char*                                     // O - Matrix string, or NULL on error
-unparse_matrix(pdfio_matrix_t matrix)     // I - Transformation matrix
+char*
+unparse_matrix(pdfio_matrix_t matrix)
 {
   double comps[6] = {matrix[0][0], matrix[0][1], matrix[1][0],
                      matrix[1][1], matrix[2][0], matrix[2][1]};
@@ -1127,13 +1111,8 @@ unparse_matrix(pdfio_matrix_t matrix)     // I - Transformation matrix
   return result;
 }
 
-//
-// 'getAppearance()' - Get the appearance object for a PDF annotation.
-//
-
-pdfio_obj_t*                                  // O - Appearance object, or NULL if not found
-getAppearance(pdfio_dict_t *Annot_dict,       // I - Annotation dictinonary
-                           char* value)       // I - Appearance key
+pdfio_obj_t*
+getAppearance(pdfio_dict_t *Annot_dict, char* value)
 {
   pdfio_dict_t *AP_dict = pdfioDictGetDict(Annot_dict, "AP");
   pdfio_obj_t* appearance_obj = pdfioDictGetObj(AP_dict, value);
@@ -1214,16 +1193,12 @@ get_pdf_matrix(pdfio_dict_t *d,
   return 1;
 }
 
-//
-// 'pdfio_annotation_get_content()' - Get the content stream for a PDF annotation.
-//
-
-char*                                                         // O - Content stream string, or NULL on error
-special_pdfio_annotation_get_content(pdfio_obj_t  *annot,     // I - PDF annotation object
-	       			     const char   *name,                        // I - XObject name
-				     int           page_rotate,                       // I - Page rotation angle
-				     int           forbidden_flags,                   // I - Annoation flag that must not be set
-				     int           required_flags)                    // I - Annoation flag that must be set
+char*
+special_pdfio_annotation_get_content(pdfio_obj_t  *annot,
+	       			     const char   *name, 
+				     int           page_rotate, 
+				     int           forbidden_flags,
+				     int           required_flags)
 {
   if (!annot || !name) 
   {
@@ -1305,16 +1280,12 @@ special_pdfio_annotation_get_content(pdfio_obj_t  *annot,     // I - PDF annotat
   return out;
 }
 
-//
-// 'pdfio_annotation_get_content()' - Get the content stream for a PDF annotation.
-//
-
-char*                                                   // O - Content stream string, or NULL on error
-pdfio_annotation_get_content(pdfio_obj_t  *annot,       // I - PDF annotation object
-			     const char   *name,                          // I - XObject name
-			     int           page_rotate,                   // I - Page rotation angle
-			     int           forbidden_flags,               // I - Annotation flags that must not be set
-			     int           required_flags)                // I - Annotation flags that must be set
+char*
+pdfio_annotation_get_content(pdfio_obj_t  *annot,
+			     const char   *name, 
+			     int           page_rotate,
+			     int           forbidden_flags,
+			     int           required_flags)
 {
   if (!annot || !name) 
   {
@@ -1452,26 +1423,17 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,       // I - PDF annotation ob
   return out;
 }
 
-//
-// 'merge_resources()' - Merge resources from the PDF dictionary into another.
-//
-
 void 
-merge_resources(pdfio_dict_t *dest,       // I - Destination resource dictionary
-		pdfio_dict_t *source)                 // I - Source resource dictionary
+merge_resources(pdfio_dict_t *dest, 
+		pdfio_dict_t *source)
 {
   pdfioDictIterateKeys(source, (pdfio_dict_cb_t)merge_resources_cb, dest);
 }
 
-//
-// 'extractFontDetails()' - Extract the font key and size from a font description string.
-//
-
-bool                                    // O - Returns true on success, false on failure.
-extractFontDetails(const char *da,    // I - input string 
-                   char *font_key,    // O - parsed font name output
-                   size_t keylen,       // I - buffer size
-                   double *font_size)   // O - parsed size output
+bool
+extractFontDetails(const char *da,
+                   char *font_key, size_t keylen,
+                   double *font_size)
 {
   if (!da || !font_key || keylen == 0 || !font_size)
     return false;
@@ -2763,14 +2725,10 @@ prepare_documents(
   return (ret);
 }
 
-//
-// 'copy_fd_to_tempfile()' - Coping inputfp data to temp_fp, so that we have a filename, 
-//                         as it is required in pdfioFileOpen API.
-//
-
-int                                   // O - 0 on success, -1 on failure
-copy_fd_to_tempfile(int inputfd,      // I - Input file descriptor
-		    FILE *temp_file)              // I - Temporary output file
+// coping inputfp data to temp_fp, so that we have a filename, as it is required in pdfioFileOpen API
+int
+copy_fd_to_tempfile(int inputfd,
+		    FILE *temp_file)
 {
   char buffer[BUFSIZ];
   ssize_t bytes_read, bytes_written;
@@ -2794,17 +2752,12 @@ copy_fd_to_tempfile(int inputfd,      // I - Input file descriptor
   return 0;
 }
 
-//
-// 'cfFilterPDFToPDF()' - Filter a PDF file and write the processed 
-//                      PDF to the output.
-//
-
-int                                 // O - Returns 0 on success, 1 on failure
-cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor 
-		 int outputfd,                  // I - Output file descriptor
-		 int inputseekable,             // I - Whether input is seekable
-		 cf_filter_data_t *data,        // I - Filter data
-		 void *parameters)              // I - Filter parameters 
+int
+cfFilterPDFToPDF(int inputfd,
+		 int outputfd,
+		 int inputseekable,
+		 cf_filter_data_t *data,
+		 void *parameters)
 {
   cf_logfunc_t       log = data->logfunc;
   void               *ld = data->logdata;
