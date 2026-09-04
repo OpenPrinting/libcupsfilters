@@ -36,11 +36,11 @@ struct _cf_opt
   cf_opt_t *next;
 };
 
-typedef struct iterate_data_s
+typedef struct iterate_data_s		// *** Helper structure for PDF page iteration ***
 {
-  cf_pdf_t 	*pdf;
-  pdfio_dict_t	*page_dict;
-  pdfio_dict_t  *page_resdict;
+  cf_pdf_t 	*pdf;				// PDF document
+  pdfio_dict_t	*page_dict;		// Current page dictionary
+  pdfio_dict_t  *page_resdict;	// Current page resources dictionary 
 }iterate_data_t;
 
 cf_pdf_t* cfPDFLoadTemplate(const char *filename);

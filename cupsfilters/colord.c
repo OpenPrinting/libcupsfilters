@@ -24,12 +24,17 @@
 #define QUAL_RESOLUTION   2
 #define QUAL_SIZE         3
 
-char **
-cfColordGetQualifier(cf_filter_data_t *data,
-		     const char *color_space,
-		     const char *media_type,
-		     int x_res,
-		     int y_res)
+//
+// 'cfColordGetQualifier()' - Get the qualifier strings for the specified color space, 
+//                            media type, and resolution.
+//
+
+char **                                         // O - Qualifier strings
+cfColordGetQualifier(cf_filter_data_t *data,    // I - Filter data
+		     const char *color_space,               // I - Color space
+		     const char *media_type,                // I - Media type
+		     int x_res,                            // I - Horizontal resolution
+		     int y_res)                            // I - Vertical resolution
 {
   int i, len;
   const char *val;
@@ -311,10 +316,15 @@ get_device_path_for_device_id(cf_filter_data_t *data,
   return (device_path);
 }
 
-char *
-cfColordGetProfileForDeviceID(cf_filter_data_t *data,
-			      const char *device_id,
-			      const char **qualifier_tuple)
+//
+// 'cfColordGetProfileForDeviceID()' - Get the color profile for the specified
+//                                     device ID and qualifier tuple.
+//
+
+char *                                                    // O - Profile filename
+cfColordGetProfileForDeviceID(cf_filter_data_t *data,     // I - Filter data
+			      const char *device_id,                        // I - Device ID
+			      const char **qualifier_tuple)                 // I - Qualifier tuple
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -438,9 +448,14 @@ get_profile_inhibitors(cf_filter_data_t *data,
   return (inhibitors);
 }
 
-int
-cfColordGetInhibitForDeviceID(cf_filter_data_t *data,
-			      const char *device_id)
+//
+// 'cfColordGetInhibitForDeviceID()' - Get the number of inhibitors for the specified
+//                                     device ID.
+//
+
+int                                                     // O - Non-zero if inhibited, 0 otherwise
+cfColordGetInhibitForDeviceID(cf_filter_data_t *data,   // I - Filter data
+			      const char *device_id)                      // I - Device ID
 {
   cf_logfunc_t log = data->logfunc;
   void* ld = data->logdata;
@@ -478,10 +493,15 @@ cfColordGetInhibitForDeviceID(cf_filter_data_t *data,
 
 #else
 
-char *
-cfColordGetProfileForDeviceID(cf_filter_data_t *data,
-			      const char *device_id,
-			      const char **qualifier_tuple)
+//
+// 'cfColordGetQualifier()' - Get the qualifier strings for the specified color space, 
+//                            media type, and resolution.
+//
+
+char *                                                  // O - Qualifier strings
+cfColordGetProfileForDeviceID(cf_filter_data_t *data,   // I - Filter data
+			      const char *device_id,                    // I - Device ID
+			      const char **qualifier_tuple)             // I - Qualifier tuple
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;
@@ -490,9 +510,14 @@ cfColordGetProfileForDeviceID(cf_filter_data_t *data,
   return (NULL);
 }
 
-int
-cfColordGetInhibitForDeviceID(cf_filter_data_t *data,
-			      const char *device_id)
+//
+// 'cfColordGetInhibitForDeviceID()' - Get the number of inhibitors for the specified
+//                                     device ID.
+//
+
+int                                                     // O - Non-zero if inhibited, 0 otherwise
+cfColordGetInhibitForDeviceID(cf_filter_data_t *data,   // I - Filter data
+			      const char *device_id)                      // I - Device ID
 {
   cf_logfunc_t log = data->logfunc;
   void *ld = data->logdata;

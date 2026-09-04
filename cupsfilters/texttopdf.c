@@ -481,7 +481,7 @@ typedef struct			// **** Character/attribute structure... ****
 		attr;		// Any attributes
 } lchar_t;
 
-typedef struct texttopdf_doc_s
+typedef struct texttopdf_doc_s          // *** Document data for texttopdf filter ***
 {
   int		NumFonts;	// Number of fonts to use
   _cf_fontembed_emb_params_t *Fonts[256][4]; // Fonts to use
@@ -489,23 +489,21 @@ typedef struct texttopdf_doc_s
   unsigned char	Codes[65536];	// Unicode glyph mapping to font
   int		Widths[256];	// Widths of each font
   int		Directions[256];// Text directions for each font
-  _cf_pdf_out_t	*pdf;
+  _cf_pdf_out_t	*pdf;   // PDF output stream
   int		FontResource;   // Object number of font resource dictionary
   float		FontScaleX, FontScaleY; // The font matrix
   lchar_t	*Title, *Date;	// The title and date strings
 
-  cups_page_header_t h;        // CUPS Raster page header, to
-                                // accommodate results of command
-                                // line/IPP attribute parsing
-  cf_filter_texttopdf_parameter_t env_vars;
-  int		NumKeywords;
+  cups_page_header_t h;     // CUPS Raster page header, to accommodate results of command line/IPP attribute parsing
+  cf_filter_texttopdf_parameter_t env_vars;   // Environment variables for texttopdf filter
+  int		NumKeywords;  // Number of keywords in the list
   float		PageLeft,	// Left margin
 		PageRight,	// Right margin
 		PageBottom,	// Bottom margin
 		PageTop,	// Top margin
 		PageWidth,	// Total page width
-		PageLength;
-  int		NumPages;
+		PageLength;   // Total page length
+  int		NumPages;   // Number of pages in the document
   int		WrapLines,	// Wrap text in lines
 		SizeLines,	// Number of lines on a page
 		SizeColumns,	// Number of columns on a line
@@ -516,14 +514,14 @@ typedef struct texttopdf_doc_s
 		Copies;		// Number of copies to produce
   float		CharsPerInch,	// Number of character columns per inch
 		LinesPerInch;	// Number of lines per inch
-  int		UTF8;
+  int		UTF8;   // Use UTF-8 encoding?
   char		**Keywords;	// List of known keywords...
 
   int		Orientation,	// 0 = portrait, 1 = landscape, etc.
 		Duplex,		// Duplexed?
 		LanguageLevel,	// Language level of printer
-		ColorDevice;
-  lchar_t	**Page;
+		ColorDevice;    // Color device?
+  lchar_t	**Page;     // The pages of the document, each page is a string of lchar_t
 } texttopdf_doc_t;
 
 

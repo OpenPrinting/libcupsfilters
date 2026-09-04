@@ -35,9 +35,9 @@
 // Types...
 //
 
-struct pdfObject
+struct pdfObject        // **** PDF object information ****
 {
-    int offset;
+    int offset;     // Offset of object in output file
 };
 
 typedef struct imagetopdf_doc_s         // **** Document information ****
@@ -58,14 +58,14 @@ typedef struct imagetopdf_doc_s         // **** Document information ****
         	PageTop,        	// Top margin
         	PageWidth,      	// Total page width
         	PageLength;     	// Total page length
-  struct pdfObject *objects;
-  int		currentObjectNo;
-  int		allocatedObjectNum;
-  int		currentOffset;
-  int		xrefOffset;
-  int		*pageObjects;
-  int		catalogObj;
-  int		pagesObj;
+  struct pdfObject *objects;  // PDF objects
+  int		currentObjectNo;      // Current object number
+  int		allocatedObjectNum;   // Allocated number of objects
+  int		currentOffset;        // Current offset in output file
+  int		xrefOffset;           // Offset of xref table
+  int		*pageObjects;         // Page objects
+  int		catalogObj;           // Catalog object
+  int		pagesObj;       // Pages object
   const char	*title;
   int		xpages,			// # x pages
 		ypages,			// # y pages
@@ -82,15 +82,15 @@ typedef struct imagetopdf_doc_s         // **** Document information ****
   float		xsize,			// Total size in points
 		ysize,
 		xsize2,
-		ysize2;
+		ysize2;           // Total size in points for 2-up printing
   float		aspect;			// Aspect ratio
   cf_image_t	*img;			// Image to print
   int		colorspace;		// Output colorspace
   cf_ib_t	*row;			// Current row
   float		gammaval;		// Gamma correction value
   float		brightness;		// Gamma correction value
-  char		linebuf[LINEBUFSIZE];
-  FILE		*outputfp;
+  char		linebuf[LINEBUFSIZE];   // Line buffer for output
+  FILE		*outputfp;              // Output file pointer
 } imagetopdf_doc_t;
 
 
@@ -582,11 +582,9 @@ out_image(imagetopdf_doc_t *doc,
 int                                     // O - Error status
 cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 		   int outputfd,        // I - File descriptor output stream
-		   int inputseekable,   // I - Is input stream seekable?
-		                        //     (unused)
+		   int inputseekable,   // I - Is input stream seekable? (unused)
 		   cf_filter_data_t *data, // I - Job and printer data
-		   void *parameters)    // I - Filter-specific parameters
-                                        //     (unused)
+		   void *parameters)    // I - Filter-specific parameters (unused)
 {
   imagetopdf_doc_t	doc;		// Document information
   cups_page_header_t h;                // CUPS Raster page header, to

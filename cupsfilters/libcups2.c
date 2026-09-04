@@ -34,10 +34,13 @@ convert_to_port(char *a)
   return (port);
 }
 
+//
+// 'cfResolveURI2()' - Resolve a URI, for example a DNS-SD-service-name-based URI to a host-name-based URI.
+//
 
-char *
-cfResolveURI2(const char *uri,
-	      int is_fax)
+char *                            // O - Resolved URI
+cfResolveURI2(const char *uri,    // I - Raw URI
+	      int is_fax)               // I - 1: Fax printer; 0: Not a fax printer
 {
   int  ippfind_pid = 0,		// Process ID of ippfind for IPP
        post_proc_pipe[2],	// Pipe to post-processing for IPP
