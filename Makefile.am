@@ -108,6 +108,7 @@ check_PROGRAMS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
+	test-ieee1284-normalize \
 	testfilters
 
 TESTS = \
@@ -117,6 +118,7 @@ TESTS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
+	test-ieee1284-normalize \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
@@ -291,6 +293,15 @@ test1284_LDADD = \
 test1284_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
+
+test_ieee1284_normalize_SOURCES = \
+	cupsfilters/test-ieee1284-normalize.c
+test_ieee1284_normalize_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_ieee1284_normalize_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
 
 testpdf1_SOURCES = \
 	cupsfilters/testpdf1.c \

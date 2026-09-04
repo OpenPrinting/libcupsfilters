@@ -804,8 +804,8 @@ cfIEEE1284NormalizeMakeModel(
       makeptr ++;
       bufptr ++;
     }
-    while (isspace(*(bufptr - 1))) bufptr --;
-    if (bufptr < buffer + bufsize - 1)
+    while (bufptr > buffer && isspace(*(bufptr - 1))) bufptr --;
+    if (bufptr > buffer && bufptr < buffer + bufsize - 1)
     {
       *bufptr = ' ';
       makeptr ++;
@@ -822,7 +822,7 @@ cfIEEE1284NormalizeMakeModel(
       modelptr ++;
       bufptr ++;
     }
-    while (isspace(*(bufptr - 1))) bufptr --;
+    while (bufptr > buffer && isspace(*(bufptr - 1))) bufptr --;
     *bufptr = '\0';
     if (!nomakemodel && makeptr != bufptr)
       modelptr = makeptr;
@@ -1160,6 +1160,9 @@ cfIEEE1284NormalizeMakeModel(
     //
     // Remove repeated manufacturer names...
     //
+
+    if (!modelptr || modelptr > buffer + strlen(buffer))
+      modelptr = buffer + strlen(buffer);
 
     compare_len = modelptr - buffer;
     while (compare_len > 0 && strncasecmp(buffer, modelptr, compare_len) == 0)
