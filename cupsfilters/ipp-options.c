@@ -368,7 +368,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
   ippo->copies                     = 1;
   ippo->image_orientation          = CF_FILTER_ORIENT_NONE;
   ippo->multiple_document_handling = CF_FILTER_HANDLING_COLLATED_COPIES;
-  ippo->print_scaling 		   = CF_FILTER_SCALING_NONE;
+  ippo->print_scaling 		   = CF_FILTER_SCALING_AUTO;
   ippo->number_up                  = 1;
   ippo->orientation_requested      = CF_FILTER_ORIENT_NONE;
   ippo->page_set      		   = CF_FILTER_PAGESET_ALL;
