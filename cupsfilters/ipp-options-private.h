@@ -114,6 +114,13 @@ typedef enum cf_filter_orient_s         // "orientation-requested" values
   CF_FILTER_ORIENT_NONE                       // No rotation
 } cf_filter_orient_t;
 
+typedef enum pdftopdf_booklet_mode_e
+{
+  CF_PDFTOPDF_BOOKLET_OFF,
+  CF_PDFTOPDF_BOOKLET_ON,
+  CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE
+} pdftopdf_booklet_mode_t;
+
 typedef enum cf_filter_error_report_e	// Combination of "job-error-sheet-type" and "job-error-sheet-when" values
 {
   CF_FILTER_ERROR_REPORT_NONE,		// "job-error-sheet-type" = 'none'
@@ -190,8 +197,10 @@ typedef struct cf_filter_options_s	// All filter options in one structure
   size_t	num_force_front_side;	// Number of "force-front-side" values
   int		force_front_side[100];	// "force-front-side" values
   cf_filter_orient_t image_orientation;	// "image-orientation" value
-  char		imposition_template[128];
-					// "imposition-template" value, if any
+  pdftopdf_booklet_mode_t booklet;
+					// "booklet" or "imposition-template" value
+  int		booklet_signature;
+					// "booklet-signature" value, in sheets; -1 means all pages
   ippopt_error_sheet_t job_error_sheet;	// "job-error-sheet" value
   char		job_name[256];		// "job-name" value
   char		job_originating_user_name[256];

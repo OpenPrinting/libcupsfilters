@@ -704,7 +704,7 @@ prepare_number_up(xform_prepare_t *p)	// I - Preparation data
 		height;			// Height of layout rectangle
 
 
-  if (!strcmp(p->options->imposition_template, "booklet"))
+  if (p->options->booklet == CF_PDFTOPDF_BOOKLET_ON)
   {
     // "imposition-template" = 'booklet' forces 2-up output...
     p->num_layout   = 2;
@@ -839,7 +839,115 @@ prepare_pages(
   bool		use_page;		// Use this page?
 
 
-  if (!strcmp(p->options->imposition_template, "booklet"))
+  if (p->options->booklet == CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE)
+  {
+    pdfio_obj_t *selected_pages[XFORM_MAX_PAGES] = {NULL};
+    size_t selected_page_count = 0;
+    size_t output_page_count;
+    size_t signature_size;
+
+    // First collect the selected pages in their normal document order.
+    for (page = 1, i = num_documents, d = documents; i > 0; i--, d++)
+    {
+      while (page <= d->last_page)
+      {
+        if ((p->options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
+             cfFilterOptionsIsPageInRange(p->options, page - d->first_page + 1)) ||
+            (p->options->multiple_document_handling >= CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
+             cfFilterOptionsIsPageInRange(p->options, page)))
+        {
+          selected_pages[selected_page_count++] =
+              pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+        }
+        page++;
+      }
+
+      if (p->options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT)
+        page = 1;
+    }
+
+    // A sheet has two sides, so each signature contains four pages per sheet.
+    signature_size = p->options->booklet_signature > 0 ?
+        (size_t)p->options->booklet_signature * 4 : selected_page_count;
+    if (signature_size < 4)
+      signature_size = 4;
+
+    // Add blank pages to complete the last signature.
+    output_page_count = (selected_page_count + signature_size - 1) /
+        signature_size * signature_size;
+    p->num_outpages = output_page_count;
+
+    // Each signature is ordered from the outside inward:
+    // last, first, second, penultimate, ...
+    for (current = 0; current < output_page_count; current++)
+    {
+      size_t signature_start = (current / signature_size) * signature_size;
+      size_t signature_slot = current % signature_size;
+      size_t source_page;
+      size_t pair = signature_slot / 2;
+
+      if ((signature_slot & 1) == 0)
+        source_page = signature_start + signature_size - 1 - pair;
+      else
+        source_page = signature_start + pair;
+
+      p->outpages[current].pdf = p->pdf;
+      if (source_page < selected_page_count)
+        p->outpages[current].input[0] = selected_pages[source_page];
+    }
+  }
+  else if (p->options->booklet == CF_PDFTOPDF_BOOKLET_ON &&
+           p->options->booklet_signature > 0)
+  {
+    pdfio_obj_t *selected_pages[XFORM_MAX_PAGES] = { NULL };
+    size_t selected_page_count = 0;
+    size_t signature_size = (size_t)p->options->booklet_signature * 4;
+    size_t shuffled_page_count;
+
+    // Collect the pages selected for printing.
+    for (page = 1, i = num_documents, d = documents; i > 0; i--, d++)
+    {
+      while (page <= d->last_page)
+      {
+        if ((p->options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
+             cfFilterOptionsIsPageInRange(p->options, page - d->first_page + 1)) ||
+            (p->options->multiple_document_handling >= CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
+             cfFilterOptionsIsPageInRange(p->options, page)))
+          selected_pages[selected_page_count++] =
+              pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+
+        page++;
+      }
+
+      if (p->options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT)
+        page = 1;
+    }
+
+    // Pad each signature to a complete set of sheets, then create 2-up pages.
+    shuffled_page_count = (selected_page_count + signature_size - 1) /
+        signature_size * signature_size;
+    p->num_outpages = shuffled_page_count / 2;
+
+    for (current = 0; current < shuffled_page_count; current ++)
+    {
+      size_t signature_start = (current / signature_size) * signature_size;
+      size_t signature_slot = current % signature_size;
+      size_t pair = signature_slot / 2;
+      size_t source_page;
+      size_t output_page = current / 2;
+      size_t output_slot = current % 2;
+
+      if ((signature_slot & 1) == 0)
+        source_page = signature_start + signature_size - 1 - pair;
+      else
+        source_page = signature_start + pair;
+
+      p->outpages[output_page].pdf = p->pdf;
+      if (source_page < selected_page_count)
+        p->outpages[output_page].input[output_slot] = selected_pages[source_page];
+    }
+  }
+  else if (p->options->booklet == CF_PDFTOPDF_BOOKLET_ON)
   {
     // Booklet printing arranges input pages so that the folded output can be
     // stapled along the midline...
@@ -856,7 +964,7 @@ prepare_pages(
 	else
 	  use_page = cfFilterOptionsIsPageInRange(p->options, page);
 
-        if (use_page)
+  if (use_page)
         {
 	  if (current < p->num_outpages)
 	    outpage = p->outpages + current;

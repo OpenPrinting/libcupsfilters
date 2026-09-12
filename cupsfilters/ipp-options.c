@@ -366,6 +366,8 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
     return (NULL);
 
   ippo->copies                     = 1;
+  ippo->booklet                    = CF_PDFTOPDF_BOOKLET_OFF;
+  ippo->booklet_signature          = -1;
   ippo->image_orientation          = CF_FILTER_ORIENT_NONE;
   ippo->multiple_document_handling = CF_FILTER_HANDLING_COLLATED_COPIES;
   ippo->print_scaling 		   = CF_FILTER_SCALING_AUTO;
@@ -493,16 +495,25 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
   if ((value = get_option("imposition-template", num_options, options)) != NULL ||
       (value = get_option("booklet", num_options, options)) != NULL)
   {
-    if(!strcasecmp(value, "yes") ||
-       !strcasecmp(value, "true") ||
-       !strcasecmp(value, "booklet")) 
-    {
-      cupsCopyString(ippo->imposition_template, "booklet", sizeof(ippo->imposition_template));
-    }
-    else
-    {
+    if (!strcasecmp(value, "shuffle-only"))
+      ippo->booklet = CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE;
+    else if (!strcasecmp(value, "yes") ||
+             !strcasecmp(value, "true") ||
+             !strcasecmp(value, "booklet"))
+      ippo->booklet = CF_PDFTOPDF_BOOKLET_ON;
+    else if (strcasecmp(value, "no") &&
+             strcasecmp(value, "false") &&
+             strcasecmp(value, "none"))
       fprintf(stderr, "cfFilterPDFToPDF: Unsupported booklet value %s, using booklet off", value);
-    }
+  }
+
+  if ((value = get_option("booklet-signature", num_options, options)) != NULL)
+  {
+    intvalue = atoi(value);
+    if (intvalue > 0)
+      ippo->booklet_signature = intvalue;
+    else
+      fprintf(stderr, "cfFilterPDFToPDF: Unsupported booklet-signature value %s, using all pages", value);
   }
 
   if ((value = get_option("job-error-sheet", num_options, options)) != NULL)
