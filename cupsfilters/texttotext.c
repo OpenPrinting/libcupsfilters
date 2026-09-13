@@ -344,6 +344,26 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 		   i, num_columns);
   }
 
+  // "PageWidth"/"PageHeight" (and the num-chars/lines-per-inch options
+  // above) only get checked against zero, not against any upper bound, so
+  // a job can ask for a page with billions of columns or lines. The output
+  // page buffer is sized a few lines down as
+  // ((num_columns + 2) * num_lines + 2) * 4, computed in a plain int, and
+  // an oversized request wraps that computation instead of failing it,
+  // handing the allocation a small size while the rest of the function
+  // still believes the page is as wide as requested. Reject such requests
+  // here, before that calculation runs, and fall back to the defaults.
+  if ((long long)(num_columns + 2) * (long long)num_lines >
+      (long long)(INT_MAX - 2) / 4)
+  {
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterTextToText: Page of %d columns by %d lines is too "
+		 "large to allocate a page buffer for, using default values: "
+		 "80 x 66", num_columns, num_lines);
+    num_columns = 80;
+    num_lines = 66;
+  }
+
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "cfFilterTextToText: Lines per page: %d; Characters per line: %d",
 	       num_lines, num_columns);
