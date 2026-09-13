@@ -76,6 +76,7 @@ FilterMapping filter_mappings[] = {
     { "pwgtopdf", cfFilterPWGToPDF, NULL },
     { "pdftopdf", cfFilterPDFToPDF, NULL },
     { "texttopdf", cfFilterTextToPDF, NULL },
+    { "texttotext", cfFilterTextToText, NULL },
 };
 
 cups_array_t*

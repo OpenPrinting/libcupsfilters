@@ -95,8 +95,7 @@ check_SCRIPTS = \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
-	cupsfilters/test-pdftoraster-copy-height.sh \
-	cupsfilters/test-texttotext-page-overflow.sh
+	cupsfilters/test-pdftoraster-copy-height.sh
 
 check_PROGRAMS = \
 	testcmyk \
@@ -123,8 +122,7 @@ TESTS = \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
-	cupsfilters/test-pdftoraster-copy-height.sh \
-	cupsfilters/test-texttotext-page-overflow.sh
+	cupsfilters/test-pdftoraster-copy-height.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
@@ -360,8 +358,6 @@ EXTRA_DIST += cupsfilters/gen-lorem-text.c
 # (not a check_PROGRAM, so it can skip when ASan is absent); named here so it
 # ships in "make dist".
 EXTRA_DIST += cupsfilters/test-pdftoraster-copy-height.c
-# Likewise for cupsfilters/test-texttotext-page-overflow.sh.
-EXTRA_DIST += cupsfilters/test-texttotext-page-overflow.c
 # Generated deterministic lorem text for texttopdf tests
 BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
 CLEANFILES   = cupsfilters/test_files/test_text_lorem.txt
