@@ -1021,6 +1021,14 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
   unlink(tempfile);
   if (inputfp)
     fclose(inputfp);
-  
+  // The output stream has to be flushed and closed here. When this filter
+  // function is called from cfFilterChain() (as the "universal" filter does),
+  // the parent closes the raw output file descriptor and exits right after
+  // this function returns, so a still buffered tail of the generated PDF
+  // (cross-reference table and "%%EOF") would be lost and the following
+  // filter in the chain would fail to parse the file.
+  if (outputfp)
+    fclose(outputfp);
+
   return (ret);
 }
