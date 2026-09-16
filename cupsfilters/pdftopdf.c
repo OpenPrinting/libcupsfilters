@@ -251,6 +251,80 @@ media_to_rect(cups_media_t *size,       // I - CUPS media (size) information
 }
 
 //
+// 'page_get_rect()' - Look up an inheritable rectangle attribute ("MediaBox"
+//                     or "CropBox") for a page.
+//
+// Page attributes may be inherited from ancestor /Pages nodes (ISO 32000-1
+// section 7.7.3.4), so walk up the /Parent chain.  Also resolve an indirect
+// reference to the rectangle array, which pdfioDictGetRect() does not do.
+//
+
+static bool                             // O - `true` if found, `false` otherwise
+page_get_rect(pdfio_obj_t  *page,       // I - Page object
+              const char   *key,        // I - Key ("MediaBox" or "CropBox")
+              pdfio_rect_t *rect)       // O - Rectangle
+{
+  pdfio_obj_t   *obj = page;            // Current page/pages node
+  pdfio_dict_t  *dict;                  // Current dictionary
+  pdfio_obj_t   *ref;                   // Indirect rectangle array object
+  pdfio_array_t *array;                 // Rectangle array
+  int           depth;                  // Loop guard against cyclic /Parent
+
+
+  for (depth = 0; obj && depth < 64; depth ++)
+  {
+    if ((dict = pdfioObjGetDict(obj)) == NULL)
+      break;
+
+    if (pdfioDictGetRect(dict, key, rect))
+      return (true);
+
+    if ((ref = pdfioDictGetObj(dict, key)) != NULL && (array = pdfioObjGetArray(ref)) != NULL && pdfioArrayGetSize(array) == 4)
+    {
+      rect->x1 = pdfioArrayGetNumber(array, 0);
+      rect->y1 = pdfioArrayGetNumber(array, 1);
+      rect->x2 = pdfioArrayGetNumber(array, 2);
+      rect->y2 = pdfioArrayGetNumber(array, 3);
+      return (true);
+    }
+
+    obj = pdfioDictGetObj(dict, "Parent");
+  }
+
+  memset(rect, 0, sizeof(pdfio_rect_t));
+  return (false);
+}
+
+
+//
+// 'page_get_rotate()' - Look up the inheritable /Rotate attribute for a page,
+//                       walking up the /Parent chain.
+//
+
+static int                              // O - Rotation in degrees (0 if unset)
+page_get_rotate(pdfio_obj_t *page)      // I - Page object
+{
+  pdfio_obj_t   *obj = page;            // Current page/pages node
+  pdfio_dict_t  *dict;                  // Current dictionary
+  int           depth;                  // Loop guard against cyclic /Parent
+
+
+  for (depth = 0; obj && depth < 64; depth ++)
+  {
+    if ((dict = pdfioObjGetDict(obj)) == NULL)
+      break;
+
+    if (pdfioDictGetType(dict, "Rotate") == PDFIO_VALTYPE_NUMBER)
+      return ((int)pdfioDictGetNumber(dict, "Rotate"));
+
+    obj = pdfioDictGetObj(dict, "Parent");
+  }
+
+  return (0);
+}
+
+
+//
 // 'prepare_log()' - Log an informational or error message while preparing
 //                   documents for printing.
 //
@@ -1518,7 +1592,7 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
   idict = pdfioObjGetDict(outpage->input[pg]); 
   
   annotsArray = pdfioDictGetArray(idict, "Annots"); 
-  rotate_val = (int)pdfioDictGetNumber(idict, "Rotate"); 
+  rotate_val = page_get_rotate(outpage->input[pg]);
   count = pdfioArrayGetSize(annotsArray); 
   
   p->annotation_contents = (char**)malloc(count * sizeof(char*)); 
@@ -2044,10 +2118,10 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   // Transform input page to output cell...
   idict = pdfioObjGetDict(outpage->input[layout]);
 
-  if (!pdfioDictGetRect(idict, "CropBox", &irect))
+  if (!page_get_rect(outpage->input[layout], "CropBox", &irect))
   {
     // No crop box, use media box...
-    if (!pdfioDictGetRect(idict, "MediaBox", &irect))
+    if (!page_get_rect(outpage->input[layout], "MediaBox", &irect))
     {
       // No media box, use output page size...
       irect = p->media;
