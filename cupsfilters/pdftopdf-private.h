@@ -82,6 +82,9 @@ typedef struct xform_page_ext_s             // Output page
 
 typedef struct xform_prepare_s          // Preparation data
 {
+  cf_logfunc_t  logfunc;                // Log function
+  void          *logdata;               // Log data
+  bool          has_errors;            // At least one error was logged
   cf_filter_options_t *options;               // Print options
   cups_array_t  *errors;                // Error messages
   int           document,               // Current document

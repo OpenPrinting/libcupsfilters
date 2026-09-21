@@ -346,6 +346,8 @@ prepare_log(xform_prepare_t *p,         // I - Preparation data
   buffer[0] = error ? 'E' : 'I';
 
   cupsArrayAdd(p->errors, buffer);
+  if (error)
+    p->has_errors = true;
 
   /*
   if (error)
@@ -359,21 +361,27 @@ prepare_log(xform_prepare_t *p,         // I - Preparation data
 // 'pdfio_error_cb()' - Log an error from the PDFio library.
 //
 
-static bool                             // O - `false` to stop
+static bool                             // O - `true` for warnings, `false` for errors
 pdfio_error_cb(pdfio_file_t *pdf,       // I - PDF file (unused)
                const char   *message,   // I - Error message
                void         *cb_data)   // I - Preparation data
 {
   xform_prepare_t       *p = (xform_prepare_t *)cb_data;
                                         // Preparation data
+  bool                  warning = !strncmp(message, "WARNING:", 8);
+                                        // Recoverable PDFio warning?
 
+
+  if (p->logfunc)
+    p->logfunc(p->logdata, warning ? CF_LOGLEVEL_WARN : CF_LOGLEVEL_ERROR,
+               "cfFilterPDFToPDF: %s", message);
 
   if (pdf != p->pdf)
-    prepare_log(p, true, "Input Document %d: %s", p->document, message);
+    prepare_log(p, !warning, "Input Document %d: %s", p->document, message);
   else
-    prepare_log(p, true, "Output Document: %s", message);
+    prepare_log(p, !warning, "Output Document: %s", message);
 
-  return (false);
+  return (warning);
 }
 
 //
@@ -2556,7 +2564,8 @@ prepare_documents(
     size_t           outsize,		// I - Output filename buffer size
     const char       *outformat,	// I - Output format
     unsigned         *outpages,		// O - Number of pages
-    bool             generate_copies)	// I - Generate copies in output PDF?
+    bool             generate_copies,	// I - Generate copies in output PDF?
+    cf_filter_data_t *data)		// I - Filter data for logging
 {
   bool			ret = false;	// Return value
   int			copies;		// Number of copies
@@ -2579,6 +2588,8 @@ prepare_documents(
   p.has_form = false;
   p.has_annotations = false;
   p.options = options;
+  p.logfunc = data->logfunc;
+  p.logdata = data->logdata;
   p.errors  = cupsArrayNew(NULL, NULL, NULL, 0, (cups_acopy_cb_t)strdup, (cups_afree_cb_t)free);
 
   media_to_rect(&options->media, &p.media, &p.crop);
@@ -2628,6 +2639,7 @@ prepare_documents(
   // Loop through the input documents to count pages, etc.
   for (i = num_documents, d = documents, document = 1, page = 1; i > 0; i --, d ++, document ++)
   {
+    p.document = document;
     if (Verbosity)
       fprintf(stderr, "DEBUG: Preparing document %d: '%s' (%s)\n", document, d->filename, d->format);
 
@@ -2906,7 +2918,7 @@ prepare_documents(
     generate_job_sheets(&p);
 
   // Add job-error-sheet content as needed...
-  if (options->job_error_sheet.report == CF_FILTER_ERROR_REPORT_ALWAYS || (options->job_error_sheet.report == CF_FILTER_ERROR_REPORT_ON_ERROR && cupsArrayGetCount(p.errors) > 0))
+  if (options->job_error_sheet.report == CF_FILTER_ERROR_REPORT_ALWAYS || (options->job_error_sheet.report == CF_FILTER_ERROR_REPORT_ON_ERROR && p.has_errors))
     generate_job_error_sheet(&p);
 
   ret = true;
@@ -3047,7 +3059,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   file.format = "application/pdf";
   file.pdf_filename = temp_filename;
 
-  if (!prepare_documents(1, &file, filter_options, sheet_back, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf")))
+  if (!prepare_documents(1, &file, filter_options, sheet_back, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf"), data))
   {
     // Unable to prepare documents, exit...
     cfFilterOptionsDelete(filter_options);
