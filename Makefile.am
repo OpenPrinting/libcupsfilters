@@ -96,7 +96,8 @@ check_SCRIPTS = \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh \
-	cupsfilters/test-pdftopdf-inherited-mediabox.sh
+	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
+	cupsfilters/test-pdftopdf-no-appearance.sh
 
 check_PROGRAMS = \
 	testcmyk \
@@ -124,7 +125,8 @@ TESTS = \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh \
-	cupsfilters/test-pdftopdf-inherited-mediabox.sh
+	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
+	cupsfilters/test-pdftopdf-no-appearance.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
 #	testimage # requires also some ppm file as argument
@@ -361,6 +363,7 @@ EXTRA_DIST += cupsfilters/gen-lorem-text.c
 # ships in "make dist".
 EXTRA_DIST += cupsfilters/test-pdftoraster-copy-height.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-inherited-mediabox.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-no-appearance.c
 # Generated deterministic lorem text for texttopdf tests
 BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
 CLEANFILES   = cupsfilters/test_files/test_text_lorem.txt
@@ -379,6 +382,7 @@ EXTRA_DIST += \
 	cupsfilters/test_files/filled-2.pdf \
 	cupsfilters/test_files/form_english.pdf \
 	cupsfilters/test_files/inherited_mediabox.pdf \
+	cupsfilters/test_files/link-annots-no-appearance.pdf \
 	cupsfilters/test_files/malformed.pdf \
 	cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg \
 	cupsfilters/test_files/test_file_1pg.pdf \
