@@ -370,15 +370,30 @@ cfPDFAddType1Font1(cf_pdf_t *pdf, 	// I - Pointer to PDF object
 {
   pdfio_dict_t *fonts;
   pdfio_dict_t *pageDict = iterate_helper->page_dict;
+  pdfio_valtype_t resources_type;
   if (!pageDict) 
     return 1; 
 
   // Locate or create the Resources dictionary
-  pdfio_dict_t *resources = pdfioDictGetDict(pageDict, "Resources");
-  if (!resources) 
+  pdfio_dict_t *resources;
+  resources_type = pdfioDictGetType(pageDict, "Resources");
+  if (resources_type == PDFIO_VALTYPE_INDIRECT)
+  {
+    pdfio_obj_t *resources_obj = pdfioDictGetObj(pageDict, "Resources");
+
+    if (!resources_obj ||
+	(resources = pdfioDictCopy((pdfio_file_t *)iterate_helper->pdf,
+				   pdfioObjGetDict(resources_obj))) == NULL ||
+	!pdfioDictSetDict(pageDict, "Resources", resources))
+      return 1;
+  }
+  else if (resources_type == PDFIO_VALTYPE_DICT)
+    resources = pdfioDictGetDict(pageDict, "Resources");
+  else
   {
     resources = pdfioDictCreate((pdfio_file_t *)iterate_helper->pdf);
-    pdfioDictSetDict(pageDict, "Resources", resources);
+    if (!resources || !pdfioDictSetDict(pageDict, "Resources", resources))
+      return 1;
   }
 
   // Locate or create the Font dictionary within Resources
@@ -615,4 +630,3 @@ cfPDFFillForm(cf_pdf_t *doc,    // I - PDF document
   // TODO: PDFio does not directly support form filling.
   return 1;
 }
-

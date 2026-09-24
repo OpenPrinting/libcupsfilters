@@ -106,7 +106,7 @@ main(int argc, char *argv[])
 {
   pdfio_file_t *pdf;
   pdfio_obj_t *page;
-  pdfio_dict_t *resources, *fonts, *unicode_font;
+  pdfio_dict_t *resources, *fonts, *unicode_font, *xobjects;
   char *contents;
   int status = 1;
 
@@ -134,6 +134,15 @@ main(int argc, char *argv[])
       (fonts = get_dict(resources, "Font")) == NULL)
   {
     fputs("Output page has no font resources.\n", stderr);
+    goto done;
+  }
+
+  if ((xobjects = get_dict(resources, "XObject")) == NULL ||
+      pdfioDictGetObj(xobjects, "x6") == NULL ||
+      pdfioDictGetObj(xobjects, "x7") == NULL ||
+      pdfioDictGetObj(xobjects, "x8") == NULL)
+  {
+    fputs("Template image resources were not preserved.\n", stderr);
     goto done;
   }
 
@@ -178,6 +187,15 @@ main(int argc, char *argv[])
       !strstr(contents, "<00E9> Tj"))
   {
     fputs("Unicode text was not emitted with the embedded font.\n", stderr);
+    free(contents);
+    goto done;
+  }
+
+  if (!strstr(contents, "/x6 Do") ||
+      !strstr(contents, "/x7 Do") ||
+      !strstr(contents, "/x8 Do"))
+  {
+    fputs("Template image drawing commands were not preserved.\n", stderr);
     free(contents);
     goto done;
   }
