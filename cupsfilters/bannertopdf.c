@@ -19,6 +19,10 @@
 #include <cupsfilters/raster.h>
 #include <cupsfilters/libcups2-private.h>
 
+#ifdef HAVE_FONTCONFIG
+#include <fontconfig/fontconfig.h>
+#endif
+
 #ifndef HAVE_OPEN_MEMSTREAM
 #include <fcntl.h>
 #include <sys/types.h>
@@ -27,6 +31,7 @@
 
 #include <cups/cups.h>
 #include <cups/pwg.h>
+#include <pdfio-content.h>
 
 // Banner information flags.
 typedef enum banner_info_e
@@ -57,6 +62,33 @@ typedef struct banner_s         // Banner data structure
   char *header, *footer;    // I - Header and footer text
   unsigned infos;           // I - Banner information flags
 } banner_t;
+
+typedef struct banner_font_s
+{
+#ifdef HAVE_FONTCONFIG
+  FcPattern *pattern;
+#endif
+  char resource[32];
+} banner_font_t;
+
+#ifdef HAVE_FONTCONFIG
+#  define BANNER_MAX_FONTS 32
+#endif
+
+typedef struct banner_fonts_s
+{
+  iterate_data_t *iterate_helper;
+  cf_logfunc_t log;
+  void *log_data;
+  int warned_missing_font;
+  int warned_supplementary;
+#ifdef HAVE_FONTCONFIG
+  banner_font_t fonts[BANNER_MAX_FONTS];
+#else
+  banner_font_t fonts[1];
+#endif
+  size_t num_fonts;
+} banner_fonts_t;
 
 static void
 banner_free(banner_t *banner)
@@ -344,30 +376,299 @@ duplex_marked(cf_filter_data_t *data)
   return (0);
 }
 
+static unsigned int
+utf8_next(const unsigned char **s)
+{
+  const unsigned char *p = *s;
+
+  if (*p < 0x80)
+  {
+    *s = p + 1;
+    return *p;
+  }
+  if ((*p & 0xe0) == 0xc0 && *p >= 0xc2 &&
+      (p[1] & 0xc0) == 0x80)
+  {
+    *s = p + 2;
+    return ((*p & 0x1f) << 6) | (p[1] & 0x3f);
+  }
+  if ((*p & 0xf0) == 0xe0 &&
+      (p[1] & 0xc0) == 0x80 &&
+      (p[2] & 0xc0) == 0x80 &&
+      !(*p == 0xe0 && p[1] < 0xa0) &&
+      !(*p == 0xed && p[1] >= 0xa0))
+  {
+    *s = p + 3;
+    return ((*p & 0x0f) << 12) |
+           ((p[1] & 0x3f) << 6) |
+           (p[2] & 0x3f);
+  }
+  if ((*p & 0xf8) == 0xf0 && *p <= 0xf4 &&
+      (p[1] & 0xc0) == 0x80 &&
+      (p[2] & 0xc0) == 0x80 &&
+      (p[3] & 0xc0) == 0x80 &&
+      !(*p == 0xf0 && p[1] < 0x90) &&
+      !(*p == 0xf4 && p[1] >= 0x90))
+  {
+    *s = p + 4;
+    return ((*p & 0x07) << 18) |
+           ((p[1] & 0x3f) << 12) |
+           ((p[2] & 0x3f) << 6) |
+           (p[3] & 0x3f);
+  }
+
+  *s = p + 1;
+  return 0xfffd;
+}
+
+#ifdef HAVE_FONTCONFIG
+static int
+banner_add_font_file(banner_fonts_t *font_context,
+		     const char *resource_name,
+		     const char *filename)
+{
+  pdfio_obj_t *font;
+
+  font = pdfioFileCreateFontObjFromFile(
+      (pdfio_file_t *)font_context->iterate_helper->pdf, filename, true);
+  if (!font)
+    return 1;
+
+  return pdfioPageDictAddFont(font_context->iterate_helper->page_dict,
+			      resource_name, font) ? 0 : 1;
+}
+
+static int
+banner_font_for_char(banner_fonts_t *font_context, unsigned int ch)
+{
+  FcCharSet *charset = NULL;
+  FcFontSet *matches;
+  FcPattern *query;
+  FcResult result;
+  size_t i;
+  int match_num;
+
+  for (i = 0; i < font_context->num_fonts; i ++)
+    if (FcPatternGetCharSet(font_context->fonts[i].pattern, FC_CHARSET, 0,
+			    &charset) == FcResultMatch &&
+	FcCharSetHasChar(charset, ch))
+      return (int)i;
+
+  if (!FcInit() || font_context->num_fonts >= BANNER_MAX_FONTS ||
+      (charset = FcCharSetCreate()) == NULL)
+    return -1;
+  if ((query = FcPatternCreate()) == NULL)
+  {
+    FcCharSetDestroy(charset);
+    return -1;
+  }
+
+  FcCharSetAddChar(charset, ch);
+  FcPatternAddCharSet(query, FC_CHARSET, charset);
+  FcPatternAddBool(query, FC_SCALABLE, FcTrue);
+  FcPatternAddBool(query, FC_OUTLINE, FcTrue);
+  FcCharSetDestroy(charset);
+  FcConfigSubstitute(NULL, query, FcMatchPattern);
+  FcDefaultSubstitute(query);
+  matches = FcFontSort(NULL, query, FcFalse, NULL, &result);
+  FcPatternDestroy(query);
+  if (!matches)
+    return -1;
+
+  for (match_num = 0; match_num < matches->nfont; match_num ++)
+  {
+    FcChar8 *filename;
+    int index = 0;
+    banner_font_t *font;
+
+    if (FcPatternGetCharSet(matches->fonts[match_num], FC_CHARSET, 0,
+			    &charset) !=
+	    FcResultMatch || !FcCharSetHasChar(charset, ch) ||
+	FcPatternGetString(matches->fonts[match_num], FC_FILE, 0, &filename) !=
+	    FcResultMatch)
+      continue;
+
+    // PDFio opens the first face in a TrueType collection.
+    FcPatternGetInteger(matches->fonts[match_num], FC_INDEX, 0, &index);
+    if (index != 0)
+      continue;
+
+    font = font_context->fonts + font_context->num_fonts;
+    snprintf(font->resource, sizeof(font->resource),
+	     "bannertopdf-unicode-%u", (unsigned)font_context->num_fonts);
+    font->pattern = FcPatternDuplicate(matches->fonts[match_num]);
+    if (!font->pattern)
+      continue;
+    if (banner_add_font_file(font_context, font->resource,
+			     (const char *)filename) != 0)
+    {
+      FcPatternDestroy(font->pattern);
+      font->pattern = NULL;
+      continue;
+    }
+
+    font_context->num_fonts ++;
+    FcFontSetDestroy(matches);
+    return (int)(font_context->num_fonts - 1);
+  }
+
+  FcFontSetDestroy(matches);
+  return -1;
+}
+
+static void
+banner_fonts_free(banner_fonts_t *font_context)
+{
+  size_t i;
+
+  for (i = 0; i < font_context->num_fonts; i ++)
+    FcPatternDestroy(font_context->fonts[i].pattern);
+}
+#else
+static int
+banner_font_for_char(banner_fonts_t *font_context, unsigned int ch)
+{
+  (void)font_context;
+  (void)ch;
+  return -1;
+}
+
+static void
+banner_fonts_free(banner_fonts_t *font_context)
+{
+  (void)font_context;
+}
+#endif
+
+static void
+pdf_write_ascii_char(FILE *s, unsigned int ch)
+{
+  switch (ch)
+  {
+    case '\n' : fputs("\\n", s); break;
+    case '\r' : fputs("\\r", s); break;
+    case '\t' : fputs("\\t", s); break;
+    case '\b' : fputs("\\b", s); break;
+    case '\f' : fputs("\\f", s); break;
+    case '('  : fputs("\\(", s); break;
+    case ')'  : fputs("\\)", s); break;
+    case '\\' : fputs("\\\\", s); break;
+    default   :
+        if (ch < 0x20 || ch == 0x7f)
+          fprintf(s, "\\%03o", ch);
+        else
+          fputc((int)ch, s);
+        break;
+  }
+}
+
 static void
 info_linef(FILE *s,
+	   banner_fonts_t *font_context,
 	   const char *key,
 	   const char *valuefmt, ...)
 {
-  va_list ap;
+  va_list ap, ap_copy;
+  char *line;
+  size_t keylen;
+  int valuelen, current_font = -2;
+  const unsigned char *p;
 
   va_start(ap, valuefmt);
-  fprintf(s, "(%s: ", key);
-  vfprintf(s, valuefmt, ap);
-  fprintf(s, ") Tj T*\n");
+  va_copy(ap_copy, ap);
+  valuelen = vsnprintf(NULL, 0, valuefmt, ap_copy);
+  va_end(ap_copy);
+  keylen = strlen(key);
+  if (valuelen < 0 ||
+      (line = malloc(keylen + (size_t)valuelen + 3)) == NULL)
+  {
+    va_end(ap);
+    return;
+  }
+
+  memcpy(line, key, keylen);
+  line[keylen] = ':';
+  line[keylen + 1] = ' ';
+  vsnprintf(line + keylen + 2, (size_t)valuelen + 1, valuefmt, ap);
   va_end(ap);
+
+  for (p = (const unsigned char *)line; *p;)
+  {
+    unsigned int ch = utf8_next(&p);
+    int font_num;
+
+    if (ch < 0x80)
+    {
+      if (current_font != -1)
+      {
+        fputs("/bannertopdf-font 14 Tf\n", s);
+        current_font = -1;
+      }
+      fputc('(', s);
+      pdf_write_ascii_char(s, ch);
+      while (*p && *p < 0x80)
+        pdf_write_ascii_char(s, *p ++);
+      fputs(") Tj\n", s);
+      continue;
+    }
+
+    if (ch > 0xffff)
+    {
+      if (!font_context->warned_supplementary && font_context->log)
+      {
+        font_context->log(font_context->log_data, CF_LOGLEVEL_WARN,
+			  "cfFilterBannerToPDF: PDFio 1.6 cannot map "
+			  "supplementary Unicode character U+%06X", ch);
+        font_context->warned_supplementary = 1;
+      }
+      ch = 0xfffd;
+    }
+
+    font_num = banner_font_for_char(font_context, ch);
+    if (font_num < 0)
+    {
+      if (!font_context->warned_missing_font && font_context->log)
+      {
+        font_context->log(font_context->log_data, CF_LOGLEVEL_WARN,
+			  "cfFilterBannerToPDF: No embeddable font found "
+			  "for Unicode character U+%04X", ch);
+        font_context->warned_missing_font = 1;
+      }
+      if (current_font != -1)
+      {
+        fputs("/bannertopdf-font 14 Tf\n", s);
+        current_font = -1;
+      }
+      fputs("(?) Tj\n", s);
+      continue;
+    }
+
+    if (current_font != font_num)
+    {
+      fprintf(s, "/%s 14 Tf\n", font_context->fonts[font_num].resource);
+      current_font = font_num;
+    }
+    fprintf(s, "<%04X> Tj\n", ch);
+  }
+
+  if (current_font != -1)
+    fputs("/bannertopdf-font 14 Tf\n", s);
+  fputs("T*\n", s);
+  free(line);
 }
 
 static void
 info_line(FILE *s,
+	  banner_fonts_t *font_context,
 	  const char *key,
 	  const char *value)
 {
-  info_linef(s, key, "%s", value);
+  info_linef(s, font_context, key, "%s", value);
 }
 
 static void
 info_line_time(FILE *s,
+	       banner_fonts_t *font_context,
 	       const char *key,
 	       const char *timestamp)
 {
@@ -378,10 +679,10 @@ info_line_time(FILE *s,
   {
     time = (time_t)atoll(timestamp);
     strftime(buf, sizeof buf, "%c", localtime(&time));
-    info_line(s, key, buf);
+    info_line(s, font_context, key, buf);
   }
   else
-    info_line(s, key, "unknown");
+    info_line(s, font_context, key, "unknown");
 }
 
 static const char *
@@ -604,6 +905,7 @@ generate_banner_pdf(banner_t *banner,
   ipp_attribute_t *ipp_attr;
   char buf2[1024];
   const char *value;
+  banner_fonts_t font_context = { 0 };
 #ifndef HAVE_OPEN_MEMSTREAM
   struct stat st;
 #endif
@@ -618,6 +920,9 @@ generate_banner_pdf(banner_t *banner,
 
   iterate_data_t *iterate_helper = (iterate_data_t *)malloc(sizeof(iterate_data_t));
   output_doc = cfCopyPDFdoc(input_doc, outputfp, iterate_helper);
+  font_context.iterate_helper = iterate_helper;
+  font_context.log = log;
+  font_context.log_data = ld;
 
   for (i = 0; i < 4; i ++)
     media_limits[i] = -1.0;
@@ -692,57 +997,57 @@ generate_banner_pdf(banner_t *banner,
 
   if ((banner->infos & INFO_PRINTER_NAME) &&
       data->printer && data->printer[0] && data->printer[0] != '/')
-    info_line(s, "Printer", data->printer);
+    info_line(s, &font_context, "Printer", data->printer);
 
   if ((banner->infos & INFO_PRINTER_INFO) &&
       (((value = cupsGetOption("printer-info",
 			       num_options, options)) != NULL && value[0]) ||
        ((value = getenv("PRINTER_INFO")) != NULL && value[0])))
-    info_line(s, "Description", value);
+    info_line(s, &font_context, "Description", value);
 
   if ((banner->infos & INFO_PRINTER_LOCATION) &&
       (((value = cupsGetOption("printer-location",
 			       num_options, options)) != NULL && value[0]) ||
        ((value = getenv("PRINTER_LOCATION")) != NULL && value[0])))
-    info_line(s, "Location", value);
+    info_line(s, &font_context, "Location", value);
 
   if ((banner->infos & INFO_JOB_ID) &&
       data->printer && data->printer[0] && data->printer[0] != '/' &&
       jobid && jobid[0])
-    info_linef(s, "Job ID", "%s-%s", data->printer, jobid);
+    info_linef(s, &font_context, "Job ID", "%s-%s", data->printer, jobid);
 
   if ((banner->infos & INFO_JOB_NAME) && jobtitle && jobtitle[0])
-    info_line(s, "Job Title", jobtitle);
+    info_line(s, &font_context, "Job Title", jobtitle);
 
   if ((banner->infos & INFO_JOB_ORIGINATING_HOST_NAME) &&
       (value = cupsGetOption("job-originating-host-name",
 			     num_options, options)) != NULL && value[0])
-    info_line(s, "Printed from", value);
+    info_line(s, &font_context, "Printed from", value);
 
   if ((banner->infos & INFO_JOB_ORIGINATING_USER_NAME) && user && user[0])
-    info_line(s, "Printed by", user);
+    info_line(s, &font_context, "Printed by", user);
 
   if ((banner->infos & INFO_TIME_AT_CREATION) &&
       (value =
        cupsGetOption("time-at-creation", num_options, options)) != NULL &&
       value[0])
-    info_line_time(s, "Created at", value);
+    info_line_time(s, &font_context, "Created at", value);
 
   if ((banner->infos & INFO_TIME_AT_PROCESSING) &&
       (value =
        cupsGetOption("time-at-processing", num_options, options)) != NULL &&
       value[0])
-    info_line_time(s, "Printed at", value);
+    info_line_time(s, &font_context, "Printed at", value);
 
   if ((banner->infos & INFO_JOB_BILLING) &&
       (value = cupsGetOption("job-billing", num_options, options)) != NULL &&
       value[0])
-    info_line(s, "Billing Information\n", value);
+    info_line(s, &font_context, "Billing Information\n", value);
 
   if ((banner->infos & INFO_JOB_UUID) &&
       (value = cupsGetOption("job-uuid", num_options, options)) != NULL &&
       value[0])
-    info_line(s, "Job UUID", value);
+    info_line(s, &font_context, "Job UUID", value);
 
   if ((banner->infos & INFO_PRINTER_DRIVER_NAME) ||
       (banner->infos & INFO_PRINTER_MAKE_AND_MODEL))
@@ -787,18 +1092,18 @@ generate_banner_pdf(banner_t *banner,
       snprintf(buf2, sizeof(buf2), "%s %s%s",
 	       make, model, (is_fax ? " (Fax)" : ""));
       char *nickname = buf2;
-      info_line(s, "Make and Model", nickname);
+      info_line(s, &font_context, "Make and Model", nickname);
     }
   }
 
   if (banner->infos & INFO_IMAGEABLE_AREA)
   {
-    info_linef(s, "Media Limits", "%.2f x %.2f to %.2f x %.2f inches",
+    info_linef(s, &font_context, "Media Limits", "%.2f x %.2f to %.2f x %.2f inches",
 	       media_limits[0] / 72.0,
 	       media_limits[1] / 72.0,
 	       media_limits[2] / 72.0,
 	       media_limits[3] / 72.0);
-    info_linef(s, "Media Limits", "%.2f x %.2f to %.2f x %.2f cm",
+    info_linef(s, &font_context, "Media Limits", "%.2f x %.2f to %.2f x %.2f cm",
 	       media_limits[0] / 72.0 * 2.54,
 	       media_limits[1] / 72.0 * 2.54,
 	       media_limits[2] / 72.0 * 2.54,
@@ -806,6 +1111,7 @@ generate_banner_pdf(banner_t *banner,
   }
 
   fprintf(s, "ET\n");
+  banner_fonts_free(&font_context);
 #ifndef HAVE_OPEN_MEMSTREAM
   fflush(s);
   if (fstat(fileno(s), &st) < 0)
