@@ -1595,7 +1595,19 @@ convert_raster(cups_raster_t *ras,
   while (cur_line < height) 
   {
     // Read raster data...
-    cupsRasterReadPixels(ras, PixelBuffer, bpl);
+    if (cupsRasterReadPixels(ras, PixelBuffer, bpl) < (unsigned)bpl)
+    {
+      // A short/failed read leaves the rest of PixelBuffer uninitialized;
+      // writing it into the PDF would disclose residual heap bytes. Stop
+      // the job instead of serializing bytes the raster decoder never set.
+      if (doc->logfunc)
+	doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+		     "cfFilterPWGToPDF: Unable to read raster line %u of %u.",
+		     cur_line, height);
+      free(buff);
+      free(PixelBuffer);
+      return 1;
+    }
 
 #if !ARCH_IS_BIG_ENDIAN
     if (info->bpc == 16) 
