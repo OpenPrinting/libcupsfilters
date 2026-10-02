@@ -89,6 +89,7 @@ m4/xsize.m4
 # ignore test tmp files
 *.log
 *.trs
+tempfile
 test-pdf
 test-ps
 testfilters
@@ -96,6 +97,7 @@ test-analyze
 Test_summary_final.txt
 test.pdf
 test.ps
+cupsfilters/test_files/output_files/*
 
 # ignore generated charset file
 charset/pdf.utf-8.simple

@@ -12,6 +12,8 @@
  * 'remove_white_space()' - Remove white spaces from beginning and end of a string
  */
 
+typedef int (*cf_filter_func_t)(int input_fd, int output_fd, int input_seekable, cf_filter_data_t *data, void *parameters);
+
 char* 
 remove_white_space(
     char* str)
@@ -29,6 +31,69 @@ remove_white_space(
   end[1] = '\0';
 
   return str;
+}
+
+typedef struct {
+    const char *name;
+    cf_filter_func_t function; // Correct type
+    void *(*param_generator)(const char *output_mime);
+} FilterMapping;
+
+void 
+*ghostscript_param_gen(const char *output_mime) 
+{
+    cf_filter_out_format_t *out = malloc(sizeof(cf_filter_out_format_t));
+    if (strcasecmp(output_mime, "application/pdf") == 0) {
+        *out = CF_FILTER_OUT_FORMAT_PDF;
+    } else if (strcasecmp(output_mime, "image/pwg-raster") == 0) {
+        *out = CF_FILTER_OUT_FORMAT_PWG_RASTER;
+    } else if (strcasecmp(output_mime, "image/urf") == 0) {
+        *out = CF_FILTER_OUT_FORMAT_APPLE_RASTER;
+    } else if (strcasecmp(output_mime, "application/PCLm") == 0) {
+        *out = CF_FILTER_OUT_FORMAT_PCLM;
+    } else {
+        free(out);
+        return NULL;
+    }
+    return out;
+}
+
+// Define the filter mappings
+FilterMapping filter_mappings[] = {
+    { "imagetoraster", cfFilterImageToRaster, NULL },
+    { "ghostscript", cfFilterGhostscript, ghostscript_param_gen },
+    { "rastertopwg", cfFilterRasterToPWG, NULL },
+    { "pwgtopdf", cfFilterPWGToPDF, NULL },
+    { "pdftopdf", cfFilterPDFToPDF, NULL },
+    { "texttopdf", cfFilterTextToPDF, NULL },
+};
+
+cups_array_t*
+parse_filter_chain(const char *filter_chain_str, 
+		   const char *output_mime) 
+{
+  cups_array_t *chain = cupsArrayNew(NULL, NULL);
+  char *saveptr;
+  char *filter_name = strtok_r((char *)filter_chain_str, ",", &saveptr);
+  while (filter_name) 
+  {
+    filter_name = remove_white_space(filter_name);
+    for (size_t i = 0; i < sizeof(filter_mappings)/sizeof(filter_mappings[0]); i++) 
+    {
+      if (strcasecmp(filter_name, filter_mappings[i].name) == 0) 
+      {
+        cf_filter_filter_in_chain_t *filter = malloc(sizeof(cf_filter_filter_in_chain_t));
+        filter->function = filter_mappings[i].function;
+        filter->name = (char *)filter_mappings[i].name; // Explicit cast here
+        filter->parameters = filter_mappings[i].param_generator ?  filter_mappings[i].param_generator(output_mime) : NULL;
+        cupsArrayAdd(chain, filter);
+        break;
+      }
+    }
+
+  filter_name = strtok_r(NULL, ",", &saveptr);
+  }
+  return chain;
 }
 
 /*
@@ -126,6 +191,8 @@ create_media_size(int width,		/* I - x-dimension in 2540ths */
  *
  */
 
+
+/*
 int					// O - Exit status
 test_wrapper(
      int  num_clargs,				// I - Number of command-line args
@@ -137,6 +204,21 @@ test_wrapper(
      char* outputMIME,
      char* inputFile,
      char* outputFile)                  
+{
+*/
+
+int 
+test_wrapper(
+   	int num_clargs, 
+    	char *clargs[], 
+	void *parameters, 
+	int *JobCanceled,
+    	ipp_t* emulated_ipp, 
+	char* inputMIME, 
+	char* outputMIME,
+    	char* inputFile, 
+	char* outputFile, 
+	cups_array_t *filter_chain) 
 {
   int	        inputfd;		// Print file descriptor
   int 		outputfd;		// File Descriptor for Output File
@@ -262,7 +344,22 @@ test_wrapper(
   // Fire up the filter function (output to stdout, file descriptor 1)
   //
 
-  retval = cfFilterUniversal(inputfd, outputfd, inputseekable, &filter_data, parameters);
+//  retval = cfFilterUniversal(inputfd, outputfd, inputseekable, &filter_data, parameters);
+
+   if (filter_chain && cupsArrayCount(filter_chain) > 0) {  
+        retval = cfFilterChain(inputfd, outputfd, inputseekable, &filter_data, filter_chain);
+	cf_filter_filter_in_chain_t *filter;
+        while ((filter = cupsArrayFirst(filter_chain)) != NULL) {  
+            free(filter->parameters);
+            cupsArrayRemove(filter_chain, filter);
+            free(filter);
+        }
+        cupsArrayDelete(filter_chain);
+    } else {
+        retval = cfFilterUniversal(inputfd, outputfd, inputseekable, &filter_data, parameters);
+    }
+
+
 
   return retval;
 }
@@ -1013,6 +1110,10 @@ run_test(
     char * test_case, 
     char * currentFile)
 {
+ 
+  cups_array_t *filter_chain = NULL;
+  char *filter_chain_str = NULL;
+
   char* make = (char*) malloc(100 * sizeof(char*));
   char* model = (char*) malloc(100 * sizeof(char*));
    
@@ -1122,6 +1223,14 @@ run_test(
       }
       continue;
      }
+     else if (globalFlag == 9) 
+     {
+            filter_chain_str = token;
+            filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
+            globalFlag++;
+        }
+
+
 
      clargs = realloc(clargs, (token_index+1)*sizeof(char*));
      char* tmp_token = (char*)malloc(100*sizeof(char*));
@@ -1132,7 +1241,14 @@ run_test(
    }  
   
    ipp_t* emulated_ipp = load_legacy_attributes(make, model, ppm, ppm_color, duplex, docformats);
-   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp, inputContentType, outputContentType, inputFileName, outputFileName);
+//   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp, inputContentType, outputContentType, inputFileName, outputFileName);
+
+   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp,
+                       inputContentType, outputContentType,
+                       inputFileName,    // Fixed variable name
+                       outputFileName,   // Fixed variable name
+                       filter_chain);
+
 }
 
 int main(int  argc,				// I - Number of command-line args

@@ -326,11 +326,10 @@ test_ps_LDADD = libcupsfilters.la
 testfilters_SOURCES = \
 	cupsfilters/testfilters.c \
 	$(pkgfiltersinclude_DATA)
-
 testfilters_LDADD = \
 	libcupsfilters.la \
-	-lm -ldl -lcups
-
+	$(CUPS_LIBS) \
+	-lm -ldl
 testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib
