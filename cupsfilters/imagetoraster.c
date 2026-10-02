@@ -38,6 +38,7 @@
 #include <math.h>
 #include <signal.h>
 #include <string.h>
+#include <limits.h>
 
 
 //
@@ -1351,11 +1352,31 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
     header.cupsHeight = (doc.Orientation & 1 ? xprint : yprint) *
       header.HWResolution[1];
   }
-  header.cupsBytesPerLine = (header.cupsBitsPerPixel *
-			     header.cupsWidth + 7) / 8;
+  {
+    // header.cupsBitsPerPixel and header.cupsWidth are both unsigned (32-bit);
+    // an extreme HWResolution/page-size combination from the PPD can make
+    // their product wrap before the +7/8 rounds it down to bytes, handing
+    // the formatter a cupsBytesPerLine far smaller than the row it actually
+    // writes. Compute in a wider type and reject the page instead of
+    // silently wrapping.
+    size_t bytes_per_line = ((size_t)header.cupsBitsPerPixel *
+			      (size_t)header.cupsWidth + 7) / 8;
 
-  if (header.cupsColorOrder == CUPS_ORDER_BANDED)
-    header.cupsBytesPerLine *= header.cupsNumColors;
+    if (header.cupsColorOrder == CUPS_ORDER_BANDED)
+      bytes_per_line *= header.cupsNumColors;
+
+    if (bytes_per_line > UINT_MAX)
+    {
+      if (log)
+	log(ld, CF_LOGLEVEL_ERROR,
+	    "cfFilterImageToRaster: Unsupported output dimensions (row would "
+	    "need %zu bytes).", bytes_per_line);
+      cfImageClose(img);
+      return (1);
+    }
+
+    header.cupsBytesPerLine = (unsigned)bytes_per_line;
+  }
 
   header.Margins[0] = doc.PageLeft;
   header.Margins[1] = doc.PageBottom;
