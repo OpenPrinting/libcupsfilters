@@ -1,0 +1,97 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ master, 2.0.x, 2.1.x ]
+  pull_request:
+    branches: [ master, 2.0.x, 2.1.x ]
+  workflow_dispatch:
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'c-cpp' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Update build environment
+        run: sudo apt-get update --fix-missing -y
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get install -y \
+            avahi-daemon \
+            libavahi-client-dev \
+            libssl-dev \
+            libpam-dev \
+            libusb-1.0-0-dev \
+            zlib1g-dev \
+            autotools-dev \
+            autopoint \
+            cmake \
+            libtool \
+            pkg-config \
+            libcups2-dev \
+            libexif-dev \
+            liblcms2-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            build-essential \
+            qtbase5-dev \
+            qtchooser \
+            libcairo2-dev \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libopenjp2-7-dev \
+            libjpeg-dev \
+            libjxl-dev \
+            libpoppler-cpp-dev \
+            libpython3-dev \
+            libdbus-1-dev \
+            mupdf-tools \
+            poppler-utils \
+            ghostscript \
+            cppcheck
+
+      - name: Install qpdf >= 11.6.3
+        run: |
+          cd ..
+          wget -O qpdf-11.6.3.tar.gz https://sourceforge.net/projects/qpdf/files/qpdf/11.6.3/qpdf-11.6.3.tar.gz
+          tar -xzf qpdf-11.6.3.tar.gz
+          cd qpdf-11.6.3
+          mkdir build &&
+          cd build &&
+          cmake -DCMAKE_INSTALL_PREFIX=/usr \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_STATIC_LIBS=OFF \
+          -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/qpdf-11.6.3 \
+          .. &&
+          make
+          sudo make install
+          cd "$GITHUB_WORKSPACE"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

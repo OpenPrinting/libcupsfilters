@@ -1,0 +1,11 @@
+Tests: libcupsfilters-2-dev
+Depends: build-essential,
+         dbus,
+	 libcups2-dev,
+         libcupsfilters-dev,
+         pkg-config,
+Restrictions: allow-stderr
+
+Tests: libcupsfilters-2-functionality
+Depends: libcupsfilters-tests
+Restrictions: allow-stderr

@@ -1,0 +1,74 @@
+#!/bin/sh
+# autopkgtest check: Run "make check" test programs using libcupsfilters
+# installed on the system.
+# (C) 2012 Canonical Ltd.
+# (C) 2023 Till Kamppeter
+# Authors: Martin Pitt, Till Kamppeter
+
+set -eux
+
+package=libcupsfilters
+WORKDIR="$(mktemp -d)"
+export HOME="$WORKDIR"
+export XDG_RUNTIME_DIR="$WORKDIR"
+trap 'cd /; rm -rf "$WORKDIR"' 0 INT QUIT ABRT PIPE TERM
+
+# Location of the installed test programs and their image data.  Default to the
+# system paths used when the package is installed (the normal Debian autopkgtest
+# case); allow a staged build tree to override them so the test assumes no
+# absolute paths and runs unprivileged on every architecture.
+: "${LIBCUPSFILTERS_BINDIR:=/usr/bin}"
+: "${LIBCUPSFILTERS_TESTDIR:=/usr/share/libcupsfilters-tests}"
+
+# Copy test image files into right place
+cp -r "$LIBCUPSFILTERS_TESTDIR" cupsfilters
+
+# Run the test programs and check the output files
+"$LIBCUPSFILTERS_BINDIR/testdither" > out
+echo "run test program 'testdither' on system's $package: OK"
+file out | grep -qi 'netpbm image data'
+echo "check output file ($package): OK"
+
+"$LIBCUPSFILTERS_BINDIR/testpdf1" > out
+echo "run test program 'testpdf1' on system's $package: OK"
+file out | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+"$LIBCUPSFILTERS_BINDIR/testpdf2" > out
+echo "run test program 'testpdf2' on system's $package: OK"
+file out | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+"$LIBCUPSFILTERS_BINDIR/test-analyze" > out
+echo "run test program 'test-analyze' on system's $package: OK"
+file out | grep -q 'ASCII text'
+echo "check output file ($package): OK"
+
+"$LIBCUPSFILTERS_BINDIR/test-pdf"
+echo "run test program 'test-pdf' on system's $package: OK"
+file test.pdf | grep -q 'PDF document'
+echo "check output file ($package): OK"
+
+"$LIBCUPSFILTERS_BINDIR/test-ps"
+echo "run test program 'test-ps' on system's $package: OK"
+file test.ps | grep -q 'PostScript document'
+echo "check output file ($package): OK"
+
+cd cupsfilters
+rm -rf test
+"$LIBCUPSFILTERS_BINDIR/testcmyk"
+echo "run test program 'testcmyk' on system's $package: OK"
+ls -1 test
+ls -1 test | wc -l
+ls -1 test | wc -l | grep -q '^58$'
+echo "check output directory ($package): OK"
+
+rm -rf test
+"$LIBCUPSFILTERS_BINDIR/testrgb"
+echo "run test program 'testrgb' on system's $package: OK"
+ls -1 test
+ls -1 test | wc -l
+ls -1 test | wc -l | grep -q '^10$'
+echo "check output directory ($package): OK"
+rm -rf test
+cd ..

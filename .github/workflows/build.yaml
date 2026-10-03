@@ -1,61 +1,124 @@
-name: Build and Test
+# Multi-Architecture / multi-CUPS Build and Test Workflow for libcupsfilters
+#
+# Matrix: 4 architectures x 3 CUPS releases = 12 combinations.
+#   architectures: x86_64, arm64 (native runners); armv7, riscv64 (QEMU)
+#   CUPS releases: 2.4.x (distro libcups2-dev), 2.5.x (OpenPrinting/cups
+#                  master), 3.x (OpenPrinting/libcups master)
+# All the per-combination work lives in ci/ci-setup.sh so the legs differ only
+# in which CUPS is provided and whether they run under emulation.
+name: Build and Test (Multi-Architecture, Multi-CUPS)
 
 on:
   push:
     branches:
-    - '**'
+      - '**'
   pull_request:
     branches:
-    - '**'
+      - '**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-linux-run-tests:
+  build-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64, armv7, riscv64]
+        cups: [system-2x, source-2.5.x, source-3.x]
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-latest
+            use-qemu: false
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            use-qemu: false
+          - arch: armv7
+            runs-on: ubuntu-latest
+            use-qemu: true
+          - arch: riscv64
+            runs-on: ubuntu-latest
+            use-qemu: true
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
+    name: Build & Test (${{ matrix.arch }}, ${{ matrix.cups }})
+    # Building CUPS 2.5 / libcups3 from source under QEMU is slow; allow plenty.
+    timeout-minutes: 360
 
     steps:
-    - uses: actions/checkout@v3
-    - name: show Ubuntu version
-      run: cat /etc/os-release | grep PRETTY_NAME | awk -F '=' '{print $2}'
-    - name: update build environment
-      run: sudo apt-get update --fix-missing -y && sudo apt-get upgrade --fix-missing -y
-    - name: install prerequisites
-      run: |
-       sudo apt-get install -y avahi-daemon libavahi-client-dev libssl-dev libpam-dev libusb-1.0-0-dev zlib1g-dev
-       sudo apt install autotools-dev autopoint cmake libtool pkg-config libcups2-dev libexif-dev liblcms2-dev libfontconfig1-dev
-       sudo apt install libfreetype6-dev build-essential qtbase5-dev qtchooser libcairo2-dev libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev libopenjp2-7-dev liblcms2-dev libjpeg-dev
-       sudo apt install -y libjxl-dev
-    - name: Install libqpdf > 11.0.0
-      run: |
-        cd ..
-        mkdir qpdf
-        wget -O qpdf-11.6.3.tar.gz https://sourceforge.net/projects/qpdf/files/qpdf/11.6.3/qpdf-11.6.3.tar.gz
-        tar -xzf qpdf-11.6.3.tar.gz
-        cd qpdf-11.6.3
-        mkdir build &&
-        cd build &&
-        cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_STATIC_LIBS=OFF \
-        -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/qpdf-11.6.3 \
-        .. &&
-        make
-        sudo make install
-        cd ..
-        cd ..
-    - name: Install poppler and mupdf
-      run: |
-       sudo apt install libpoppler-cpp-dev libpython3-dev libdbus-1-dev
-       sudo apt install mupdf-tools
-       
-    - name: Install ghostscript
-      run: sudo apt install ghostscript
+      - uses: actions/checkout@v4
 
-    - name: configure 
-      env:
-        CC: /usr/bin/gcc
-      run: ./autogen.sh && ./configure --enable-debug
-    - name: make
-      run: make
-    - name: Run Tests
-      run: make check || cat test/error_log*
+      # ==========================================
+      # NATIVE EXECUTION (x86_64 and arm64)
+      # ==========================================
+      - name: Build & Test (Native)
+        if: matrix.use-qemu == false
+        env:
+          CC: /usr/bin/gcc
+          CUPS_KIND: ${{ matrix.cups }}
+          EMULATED: "0"
+        run: |
+          set -ex
+          sh ci/ci-setup.sh deps
+          sh ci/ci-setup.sh cups "${{ matrix.cups }}"
+          sh ci/ci-setup.sh qpdf
+          sh ci/ci-setup.sh build-libcupsfilters
+
+      - name: Autopkgtest (DESTDIR staging, native)
+        # Run the downstream autopkgtest suite (consumer compile/link/run +
+        # functionality) against every CUPS version under test.
+        if: matrix.use-qemu == false
+        run: |
+          set -ex
+          make test-autopkgtest V=1
+
+      - name: Upload test artifacts (Native)
+        if: matrix.use-qemu == false && always()
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: libcupsfilters-logs-${{ matrix.arch }}-${{ matrix.cups }}
+          path: |
+            config.log
+            test-suite.log
+            cupsfilters/*.log
+          if-no-files-found: ignore
+
+      # ==========================================
+      # EMULATED EXECUTION (armv7 and riscv64)
+      # ==========================================
+      - name: Build & Test (Emulated)
+        if: matrix.use-qemu == true
+        uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ubuntu24.04
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update --fix-missing -y
+            DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata ca-certificates git
+          run: |
+            set -ex
+            export CUPS_KIND="${{ matrix.cups }}"
+            export EMULATED=1
+            sh ci/ci-setup.sh deps
+            sh ci/ci-setup.sh cups "${{ matrix.cups }}"
+            sh ci/ci-setup.sh qpdf
+            sh ci/ci-setup.sh build-libcupsfilters
+            make test-autopkgtest V=1
+
+      - name: Upload test artifacts (Emulated)
+        if: matrix.use-qemu == true && always()
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: libcupsfilters-logs-${{ matrix.arch }}-${{ matrix.cups }}
+          path: |
+            config.log
+            test-suite.log
+            cupsfilters/*.log
+          if-no-files-found: ignore
