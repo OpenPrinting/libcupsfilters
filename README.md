@@ -3,6 +3,20 @@
 Looking for compile instructions? Read the file "INSTALL"
 instead...
 
+## Why another 2.1.x release?
+
+We have found out in the 2.2.x releases of libcupsfilters that the transition
+from QPDF to PDFio by merging Pull Request #71 (the GSoC 2024 work of Uddhav
+Phatak) caused a lot of regressions and so printing with distros which have
+adopted these releases (note that Arch adopts all new upstream releases
+automatically) got rather broken.
+    
+To not require distros to stay with the rather old 2.1.1 release and so miss
+1.5 years of changes, especially many bug fixes, many of them security issues,
+we are doing this 2.1.2 release in the new 2.1.x branch here by starting the
+branch on the last commit before the merge of PR #71, skipping the merge, and
+then cherry-picking all the following commits which do not interfere with the
+changes of the transition from QPDF to PDFio.
 
 ## INTRODUCTION
 
