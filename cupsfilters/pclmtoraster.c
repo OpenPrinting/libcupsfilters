@@ -944,6 +944,22 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   if(pdfioDictGetNumber(pageDict, "Rotate"))
   {
     rotate = pdfioDictGetNumber(pageDict, "Rotate");
+
+    // rotate_bitmap() only implements 90/180/270; for any other value it logs
+    // and returns its *source* pointer unchanged, instead of the destination
+    // buffer the caller allocated. The caller below cannot tell the two
+    // cases apart (both look like "rotate_bitmap succeeded"): it frees the
+    // source, keeps using the now-dangling pointer, and frees it a second
+    // time at the end of this function. Reject the page here, before that
+    // allocate/rotate/free sequence ever runs, the same way an invalid
+    // mediaBox is rejected a few lines below.
+    if (rotate != 0 && rotate != 90 && rotate != 180 && rotate != 270)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPCLmToRaster: Page %d has an unsupported /Rotate "
+		   "value %lld", pgno + 1, rotate);
+      return (1);
+    }
   }
 
   // Get pagesize by the mediabox key of the page.
