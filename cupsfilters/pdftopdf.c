@@ -3089,7 +3089,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   xform_document_t file;
 
   //not confirmed
-  const char         *sheet_back = "rotated";
+  const char         *sheet_back = "normal";
   unsigned           pdf_pages;
 
   memset(&file, 0, sizeof(file));
