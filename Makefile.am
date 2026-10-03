@@ -105,8 +105,7 @@ check_PROGRAMS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
-	testfilters \
-	test-pdftoraster-copy-height
+	testfilters
 
 TESTS = \
 	testdither \
@@ -115,7 +114,6 @@ TESTS = \
 	test-analyze \
 	test-pdf \
 	test-ps \
-	test-pdftoraster-copy-height \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh
 
@@ -343,9 +341,6 @@ test_pdf_CFLAGS = $(CUPS_CFLAGS)
 test_ps_SOURCES = cupsfilters/fontembed/test-ps.c
 test_ps_LDADD = libcupsfilters.la $(CUPS_LIBS)
 test_ps_CFLAGS = $(CUPS_CFLAGS)
-
-test_pdftoraster_copy_height_SOURCES = \
-	cupsfilters/test-pdftoraster-copy-height.c
 
 testfilters_SOURCES = \
 	cupsfilters/testfilters.c \
