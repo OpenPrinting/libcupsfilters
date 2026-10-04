@@ -946,10 +946,20 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
     data->header.cupsHeight += height;
     bufsize = actual_data->getSize();
 
+    unsigned char *tmp;
     if (!pixel_count)
-      bitmap = (unsigned char *) malloc(bufsize);
+      tmp = (unsigned char *) malloc(bufsize);
     else
-      bitmap = (unsigned char *) realloc(bitmap, pixel_count + bufsize);
+      tmp = (unsigned char *) realloc(bitmap, pixel_count + bufsize);
+    if (tmp)
+      bitmap = tmp;
+    else
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPCLmToRaster: Unable to allocate memory for bitmaps");
+      if (bitmap) free(bitmap);
+      return (1);
+    }
     memcpy(bitmap + pixel_count, actual_data->getBuffer(), bufsize);
     pixel_count += bufsize;
 
