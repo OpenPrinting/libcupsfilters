@@ -1042,7 +1042,11 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
 	      i = page_column * (doc.ColumnWidth + doc.ColumnGutter);
 
-	      while (keycol < column)
+	      // With wrap disabled, 'column' can advance past the row's
+	      // allocation (doc.SizeColumns cells per line); clip the
+	      // highlight to what was actually allocated instead of
+	      // writing ATTR_BOLD past the end of doc.Page[line].
+	      while (keycol < column && keycol + i < doc.SizeColumns)
 	      {
 	        doc.Page[line][keycol + i].attr |= ATTR_BOLD;
 		keycol ++;
@@ -1114,7 +1118,11 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
 	      i = page_column * (doc.ColumnWidth + doc.ColumnGutter);
 
-	      while (keycol < column)
+	      // With wrap disabled, 'column' can advance past the row's
+	      // allocation (doc.SizeColumns cells per line); clip the
+	      // highlight to what was actually allocated instead of
+	      // writing ATTR_BOLD past the end of doc.Page[line].
+	      while (keycol < column && keycol + i < doc.SizeColumns)
 	      {
 	        doc.Page[line][keycol + i].attr |= ATTR_BOLD;
 		keycol ++;
@@ -1176,7 +1184,11 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
 	      i = page_column * (doc.ColumnWidth + doc.ColumnGutter);
 
-	      while (keycol < column)
+	      // With wrap disabled, 'column' can advance past the row's
+	      // allocation (doc.SizeColumns cells per line); clip the
+	      // highlight to what was actually allocated instead of
+	      // writing ATTR_BOLD past the end of doc.Page[line].
+	      while (keycol < column && keycol + i < doc.SizeColumns)
 	      {
 	        doc.Page[line][keycol + i].attr |= ATTR_BOLD;
 		keycol ++;
@@ -1285,7 +1297,11 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 
 	        i = page_column * (doc.ColumnWidth + doc.ColumnGutter);
 
-		while (keycol < column)
+		// With wrap disabled, 'column' can advance past the row's
+		// allocation (doc.SizeColumns cells per line); clip the
+		// highlight to what was actually allocated instead of
+		// writing ATTR_BOLD past the end of doc.Page[line].
+		while (keycol < column && keycol + i < doc.SizeColumns)
 		{
 	          doc.Page[line][keycol + i].attr |= ATTR_BOLD;
 		  keycol ++;
