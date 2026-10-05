@@ -2333,7 +2333,12 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   fprintf(stderr, "DEBUG: iwidth=%g, iheight=%g, cwidth=%g, cheight=%g, rotate=%s\n", iwidth, iheight, cwidth, cheight, rotate ? "true" : "false");
 
   scaling = cwidth / iwidth;
-  if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
+  if (p->options->print_scaling == CF_FILTER_SCALING_NONE)
+  {
+    // No scaling, keep the input page at its original size...
+    scaling = 1.0;
+  }
+  else if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
   {
     // Scale to fill...
     if ((iheight * scaling) < cheight)

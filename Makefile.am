@@ -98,6 +98,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
+	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-bannertopdf-unicode.sh
 
 check_PROGRAMS = \
@@ -128,6 +129,7 @@ TESTS = \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
+	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-bannertopdf-unicode.sh
 
 #	testcmyk # fails as it opens some image.ppm which is nowerhe to be found.
@@ -366,6 +368,7 @@ EXTRA_DIST += cupsfilters/gen-lorem-text.c
 EXTRA_DIST += cupsfilters/test-pdftoraster-copy-height.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-inherited-mediabox.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-no-appearance.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-print-scaling-none.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 # Generated deterministic lorem text for texttopdf tests
 BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
