@@ -1105,6 +1105,33 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   // Select convertline and convertscpace function
   select_convert_func(pgno, log, ld, data, convert);
 
+  //
+  // data->bitmap only holds as many bytes as process_image() actually
+  // read from the PDF image stream(s) (data->pixel_count), but
+  // rotate_bitmap() and the pixel-conversion loop below both walk it
+  // using the page's *declared* geometry (data->rowsize *
+  // cupsHeight, via data->header.cupsWidth/cupsHeight and the
+  // selected colorspace). A PDF that declares a larger image than it
+  // actually supplies reaches a heap-buffer-overflow read (and, after
+  // rotation, a write) past the end of that allocation. Reject the
+  // page instead of trusting the declared dimensions over what was
+  // actually decoded.
+  //
+
+  if (data->header.cupsHeight > 0 && data->rowsize > 0 &&
+      (size_t)data->pixel_count <
+      (size_t)data->rowsize * (size_t)data->header.cupsHeight)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPCLmToRaster: Page %d's image stream(s) supplied "
+		 "fewer bytes (%d) than its declared dimensions require",
+		 pgno + 1, data->pixel_count);
+    free(data->bitmap);
+    data->bitmap = NULL;
+    data->pixel_count = 0;
+    return (1);
+  }
+
   // If page is to be swapped in both x and y, rotate it by 180 degress
   if (data->header.Duplex && (pgno & 1) && data->swap_image_y &&
       data->swap_image_x)
