@@ -845,6 +845,7 @@ prepare_pages(
   xform_page_t	*outpage;		// Current output page
   xform_document_t *d;			// Current document
   bool		use_page;		// Use this page?
+  bool		reached_max_outpages = false; // Logged the XFORM_MAX_PAGES overflow yet?
 
 
   if (p->options->booklet == CF_PDFTOPDF_BOOKLET_JUST_SHUFFLE)
@@ -864,8 +865,17 @@ prepare_pages(
             (p->options->multiple_document_handling >= CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
              cfFilterOptionsIsPageInRange(p->options, page)))
         {
-          selected_pages[selected_page_count++] =
-              pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+          // selected_pages is a fixed XFORM_MAX_PAGES-entry array on the stack;
+          // selected_page_count was otherwise unbounded. Past the array's
+          // capacity this would corrupt the stack frame instead of just a heap
+          // struct. The write-site guards on p->outpages[] below independently
+          // cap the actual output, so it's enough to just stop collecting here.
+          if (selected_page_count < XFORM_MAX_PAGES)
+          {
+            selected_pages[selected_page_count] =
+                pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+          }
+          selected_page_count++;
         }
         page++;
       }
@@ -883,6 +893,17 @@ prepare_pages(
     // Add blank pages to complete the last signature.
     output_page_count = (selected_page_count + signature_size - 1) /
         signature_size * signature_size;
+    if (output_page_count > XFORM_MAX_PAGES)
+    {
+      // p->outpages is a fixed XFORM_MAX_PAGES-entry array; writing or later
+      // reading past it (via p->num_outpages) corrupts/over-reads adjacent
+      // struct fields. Clamping here, not just at the write loop below, keeps
+      // p->num_outpages itself an in-bounds, accurate count of what was
+      // actually written.
+      fprintf(stderr, "ERROR: Output page count exceeds the supported "
+              "maximum of %d; later pages are dropped\n", XFORM_MAX_PAGES);
+      output_page_count = XFORM_MAX_PAGES;
+    }
     p->num_outpages = output_page_count;
 
     // Each signature is ordered from the outside inward:
@@ -921,8 +942,15 @@ prepare_pages(
              cfFilterOptionsIsPageInRange(p->options, page - d->first_page + 1)) ||
             (p->options->multiple_document_handling >= CF_FILTER_HANDLING_SINGLE_DOCUMENT &&
              cfFilterOptionsIsPageInRange(p->options, page)))
-          selected_pages[selected_page_count++] =
-              pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+        {
+          // See the matching comment in the BOOKLET_JUST_SHUFFLE branch above.
+          if (selected_page_count < XFORM_MAX_PAGES)
+          {
+            selected_pages[selected_page_count] =
+                pdfioFileGetPage(d->pdf, (size_t)(page - d->first_page));
+          }
+          selected_page_count++;
+        }
 
         page++;
       }
@@ -935,6 +963,16 @@ prepare_pages(
     shuffled_page_count = (selected_page_count + signature_size - 1) /
         signature_size * signature_size;
     p->num_outpages = shuffled_page_count / 2;
+    if (p->num_outpages > XFORM_MAX_PAGES)
+    {
+      // p->outpages[output_page], output_page = current / 2, must stay inside
+      // the fixed XFORM_MAX_PAGES-entry array; clamp here so p->num_outpages
+      // and the loop bound below (shuffled_page_count) agree with it.
+      fprintf(stderr, "ERROR: Output page count exceeds the supported "
+              "maximum of %d; later pages are dropped\n", XFORM_MAX_PAGES);
+      p->num_outpages = XFORM_MAX_PAGES;
+      shuffled_page_count = XFORM_MAX_PAGES * 2;
+    }
 
     for (current = 0; current < shuffled_page_count; current ++)
     {
@@ -1003,6 +1041,24 @@ prepare_pages(
 	  use_page = cfFilterOptionsIsPageInRange(p->options, page - d->first_page + 1);
 	else
 	  use_page = cfFilterOptionsIsPageInRange(p->options, page);
+
+        if (use_page && current >= XFORM_MAX_PAGES)
+        {
+          // p->outpages is a fixed xform_page_t[XFORM_MAX_PAGES] array; 'current' is
+          // the next slot this iteration would write (outpage == p->outpages +
+          // current here, since both only ever advance together). Writing past it
+          // corrupts whatever follows the array in xform_prepare_t, including
+          // num_layout/num_outpages themselves, which later code trusts blindly.
+          // Stop scheduling once the output page count a real print job can use is
+          // exhausted, instead of writing out of bounds.
+          if (!reached_max_outpages)
+          {
+            fprintf(stderr, "ERROR: Output page count exceeds the supported "
+                    "maximum of %d; later pages are dropped\n", XFORM_MAX_PAGES);
+            reached_max_outpages = true;
+          }
+          use_page = false;
+        }
 
         if (use_page)
         {
