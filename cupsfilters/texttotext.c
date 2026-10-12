@@ -592,16 +592,20 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 	val += 7;
       tab_width = atoi(val);
     }
-    if (log)
+    if (tab_width <= 0 || tab_width > num_columns - 1)
     {
-      if (tab_width <= 0 || tab_width > num_columns - 1)
+      // An invalid value must not reach the "column % tab_width" below with
+      // tab_width still zero (or negative) -- restore the documented default
+      // instead of just logging that the default would be used.
+      tab_width = 8;
+      if (log)
 	log(ld, CF_LOGLEVEL_DEBUG,
 	    "cfFilterTextToText: Tab width not set or invalid, use default");
-      else
-	log(ld, CF_LOGLEVEL_DEBUG,
-	    "cfFilterTextToText: Tab width: %d columns",
-	    tab_width);
     }
+    else if (log)
+      log(ld, CF_LOGLEVEL_DEBUG,
+	  "cfFilterTextToText: Tab width: %d columns",
+	  tab_width);
   }
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "cfFilterTextToText: Tab width: %d", tab_width);
