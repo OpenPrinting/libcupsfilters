@@ -866,6 +866,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   struct sigaction sa;
   cf_cm_calibration_t cm_calibrate;
   int pxlcolor = 0; // 1 if printer is color printer otherwise 0.
+  int raster_pdf_gray = 0; // 1 if we use an 8-bit gray raster PDF device
   cups_halftone_type_t halftonetype = HALFTONE_DEFAULT;
   int ht_frequency = 133, ht_angle = 45, ht_dotshape = 0, ht_gamma = 0;
   ipp_attribute_t *ipp_attr;
@@ -1442,10 +1443,9 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
 	  // Color printer, according to printer attributes
 	  n = 1;
       }
-      if (n == 1 && h.cupsNumColors > 1)
-	cupsArrayAdd(gs_args, strdup("-sDEVICE=pdfimage24"));
-      else
-	cupsArrayAdd(gs_args, strdup("-sDEVICE=pdfimage8"));
+      raster_pdf_gray = !(n == 1 && h.cupsNumColors > 1);
+      cupsArrayAdd(gs_args, strdup(raster_pdf_gray ? "-sDEVICE=pdfimage8" :
+				   "-sDEVICE=pdfimage24"));
 
       // Compression method
 
@@ -1664,6 +1664,15 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
     if (pxlcolor == 0)
       cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=sgray.icc"));
     else if (pxlcolor == 1)
+      cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
+  }
+  else if (!cm_disabled && outformat == CF_FILTER_OUT_FORMAT_PDF_IMAGE)
+  {
+    // Raster-only PDF: The 8-bit device is gray, an RGB profile makes
+    // Ghostscript fail with "undefined in .putdeviceprops"
+    if (raster_pdf_gray)
+      cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=sgray.icc"));
+    else
       cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
   }
   else if (!cm_disabled)
