@@ -1,4 +1,24 @@
 # CHANGES - OpenPrinting libcupsfilters v2.2.1 - 2026-08-11
+## CHANGES IN V2.3b1 (TBA)
+
+- `cfFilterGhostscriptOCR()`: New filter function to turn scans
+  (raster-only PDF or PostScript from IPP Scan/Scanner Applications)
+  into searchable PDFs, using the `pdfocr8`/`pdfocr24` output devices
+  of Ghostscript (Tesseract OCR). Settings come from the new parameter
+  struct `cf_filter_ghostscript_ocr_params_t` or from the job options
+  `ocr-language`, `ocr-engine`, `ocr-pdfa`, `ocr-fallback`,
+  `ocr-resolution`, `ocr-tessdata-dir`. The Tesseract language data
+  is located automatically and passed to Ghostscript via
+  `TESSDATA_PREFIX`; if OCR is not possible or fails, a raster-only
+  PDF is produced instead (configurable).
+  `cfFilterGhostscriptOCRAvailable()` checks in advance whether OCR
+  output is possible.
+- `cfFilterGhostscript()`: New output format
+  `CF_FILTER_OUT_FORMAT_PDF_OCR` (searchable PDF), also selected by a
+  `final_content_type` containing "ocr".
+- CI test `test-ghostscript-ocr.sh` for the above.
+
+
 ## CHANGES IN V2.2.1 (11th August 2026)
 
 - Build system: Do not require C++ compiler any more, we use only regular

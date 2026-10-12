@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <cups/raster.h>
@@ -31,6 +32,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #define PDF_MAX_CHECK_COMMENT_LINES	20
 
@@ -95,6 +98,326 @@ static const char *ht_spot_functions[] =
   " ifelse} ifelse}"                               /* 20 Diamond */
 };
 #define HT_SPOT_FUNCTIONS_COUNT ((int)(sizeof(ht_spot_functions)/sizeof(ht_spot_functions[0])))
+
+//
+// Searchable PDF output uses the pdfocr8/pdfocr24 devices of Ghostscript,
+// which run Tesseract on the rendered pages. Tesseract finds its
+// "*.traineddata" files via TESSDATA_PREFIX, and the distributions
+// install them in different places, so we locate them ourselves.
+//
+
+typedef struct ocr_settings_s           // Resolved OCR settings
+{
+  char language[256];                   // Tesseract language(s), "eng+deu"
+  int engine;                           // -dOCREngine, -1 = not set
+  int pdfa;                             // -dPDFA, 0 = plain PDF
+  int fallback;                         // 1 = raster-only PDF on failure
+  int resolution;                       // dpi, 0 = use Raster header
+  char tessdata_dir[1024];              // Directory with *.traineddata
+  int num_extra_args;                   // Extra Ghostscript arguments
+  const char * const *extra_args;
+} ocr_settings_t;
+
+static const char *ocr_tessdata_candidates[] =
+{
+  "/usr/share/tesseract-ocr/5/tessdata",
+  "/usr/share/tesseract-ocr/4.00/tessdata",
+  "/usr/share/tesseract/tessdata",
+  "/usr/share/tessdata",
+  "/usr/local/share/tesseract-ocr/5/tessdata",
+  "/usr/local/share/tessdata",
+  "/opt/homebrew/share/tessdata",
+  "/opt/local/share/tessdata",
+  NULL
+};
+
+
+static int                              // O - 1 if true/on/yes
+ocr_option_is_true(const char *t)       // I - Option value
+{
+  return (t && (!strcasecmp(t, "true") || !strcasecmp(t, "on") ||
+		!strcasecmp(t, "yes") || !strcmp(t, "1")));
+}
+
+
+//
+// 'ocr_resolve_settings()' - Determine the OCR settings from parameters,
+//                            job options, and defaults (in this order)
+//
+
+static void
+ocr_resolve_settings(cf_filter_data_t *data,            // I - Job data
+		     const cf_filter_ghostscript_ocr_params_t *p, // I - Params
+		     ocr_settings_t *s)                 // O - Settings
+{
+  const char *t;
+  int num_options = data ? data->num_options : 0;
+  cups_option_t *options = data ? data->options : NULL;
+  char *q;
+
+  memset(s, 0, sizeof(*s));
+  strncpy(s->language, "eng", sizeof(s->language) - 1);
+  s->engine = -1;
+  s->fallback = 1;
+
+  // Job options
+  if ((t = cupsGetOption("ocr-language", num_options, options)) != NULL ||
+      (t = cupsGetOption("OCRLanguage", num_options, options)) != NULL)
+    strncpy(s->language, t, sizeof(s->language) - 1);
+  if ((t = cupsGetOption("ocr-engine", num_options, options)) != NULL)
+    s->engine = atoi(t);
+  if ((t = cupsGetOption("ocr-pdfa", num_options, options)) != NULL)
+    s->pdfa = atoi(t);
+  if ((t = cupsGetOption("ocr-fallback", num_options, options)) != NULL)
+    s->fallback = ocr_option_is_true(t);
+  if ((t = cupsGetOption("ocr-resolution", num_options, options)) != NULL)
+    s->resolution = atoi(t);
+  if ((t = cupsGetOption("ocr-tessdata-dir", num_options, options)) != NULL)
+    strncpy(s->tessdata_dir, t, sizeof(s->tessdata_dir) - 1);
+
+  // Explicit parameters
+  if (p)
+  {
+    if (p->language && p->language[0])
+      strncpy(s->language, p->language, sizeof(s->language) - 1);
+    if (p->engine >= 0)
+      s->engine = p->engine;
+    if (p->pdfa >= 0)
+      s->pdfa = p->pdfa;
+    if (p->fallback >= 0)
+      s->fallback = p->fallback;
+    if (p->resolution > 0)
+      s->resolution = p->resolution;
+    if (p->tessdata_dir && p->tessdata_dir[0])
+      strncpy(s->tessdata_dir, p->tessdata_dir, sizeof(s->tessdata_dir) - 1);
+    if (p->num_extra_args > 0 && p->extra_args)
+    {
+      s->num_extra_args = p->num_extra_args;
+      s->extra_args = p->extra_args;
+    }
+  }
+
+  // The language string goes onto the command line and into file names
+  for (q = s->language; *q; q ++)
+    if (!isalnum((unsigned char)*q) && *q != '_' && *q != '+' && *q != '/' &&
+	*q != '-')
+      *q = '_';
+  if (s->engine > 3)
+    s->engine = -1;
+  if (s->pdfa != 0 && s->pdfa != 1 && s->pdfa != 2 && s->pdfa != 3)
+    s->pdfa = 0;
+  if (s->resolution < 0)
+    s->resolution = 0;
+}
+
+
+//
+// 'ocr_gs_has_device()' - Check whether "gs -h" lists the given device
+//
+
+static int                              // O - 1 if device available
+ocr_gs_has_device(const char *device,   // I - Device name
+		  cf_logfunc_t log,     // I - Log function
+		  void *ld)             // I - Log function data
+{
+  char command[2048];
+  char *output = NULL,
+       *p;
+  size_t len = 0,
+         size = 0,
+         n,
+         devlen = strlen(device);
+  FILE *fp;
+  int found = 0;
+
+  snprintf(command, sizeof(command), "%s -h 2>&1", CUPS_GHOSTSCRIPT);
+  if ((fp = popen(command, "r")) == NULL)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterGhostscript: OCR: Unable to run \"%s\": %s",
+		 command, strerror(errno));
+    return (0);
+  }
+
+  // Read the complete output
+  while (1)
+  {
+    if (len + 4096 + 1 > size)
+    {
+      size = size ? size * 2 : 16384;
+      if ((p = realloc(output, size)) == NULL)
+	break;
+      output = p;
+    }
+    n = fread(output + len, 1, 4096, fp);
+    if (n == 0)
+      break;
+    len += n;
+  }
+  pclose(fp);
+  if (!output)
+    return (0);
+  output[len] = '\0';
+
+  // The device name must be a separate word
+  for (p = output; (p = strstr(p, device)) != NULL; p += devlen)
+    if ((p == output || isspace((unsigned char)p[-1])) &&
+	(p[devlen] == '\0' || isspace((unsigned char)p[devlen])))
+    {
+      found = 1;
+      break;
+    }
+
+  free(output);
+  return (found);
+}
+
+
+//
+// 'ocr_languages_in_dir()' - Check whether a directory has the
+//                            "<lang>.traineddata" file of each language
+//
+
+static int                              // O - 1 if all found
+ocr_languages_in_dir(const char *dir,   // I - Directory to check
+		     const char *languages, // I - "eng" or "eng+deu"
+		     char *missing,     // O - First missing language
+		     size_t missing_size) // I - Size of missing buffer
+{
+  const char *start = languages,
+             *end;
+  char lang[256],
+       path[2048];
+  size_t n;
+
+  if (!dir || !dir[0])
+    return (0);
+
+  while (*start)
+  {
+    if ((end = strchr(start, '+')) == NULL)
+      end = start + strlen(start);
+    n = (size_t)(end - start);
+    if (n > 0)
+    {
+      if (n >= sizeof(lang))
+	n = sizeof(lang) - 1;
+      memcpy(lang, start, n);
+      lang[n] = '\0';
+      snprintf(path, sizeof(path), "%s/%s.traineddata", dir, lang);
+      if (access(path, R_OK) != 0)
+      {
+	if (missing)
+	  snprintf(missing, missing_size, "%s", lang);
+	return (0);
+      }
+    }
+    start = (*end == '+' ? end + 1 : end);
+  }
+
+  return (1);
+}
+
+
+//
+// 'ocr_find_tessdata()' - Find the Tesseract language data: requested
+//                         directory, TESSDATA_PREFIX, well-known places
+//
+
+static int                              // O - 1 if found
+ocr_find_tessdata(ocr_settings_t *s,    // I/O - Settings (tessdata_dir gets
+                                        //       set on success)
+		  cf_logfunc_t log,     // I - Log function
+		  void *ld)             // I - Log function data
+{
+  const char *t;
+  char missing[256] = "";
+  int i;
+
+  if (s->tessdata_dir[0])
+  {
+    if (ocr_languages_in_dir(s->tessdata_dir, s->language, missing,
+			     sizeof(missing)))
+      return (1);
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterGhostscript: OCR: Tesseract language data for "
+		 "\"%s\" not found in requested directory \"%s\"",
+		 missing, s->tessdata_dir);
+    return (0);
+  }
+
+  if ((t = getenv("TESSDATA_PREFIX")) != NULL && t[0] &&
+      ocr_languages_in_dir(t, s->language, missing, sizeof(missing)))
+  {
+    strncpy(s->tessdata_dir, t, sizeof(s->tessdata_dir) - 1);
+    return (1);
+  }
+
+  for (i = 0; ocr_tessdata_candidates[i]; i ++)
+    if (ocr_languages_in_dir(ocr_tessdata_candidates[i], s->language,
+			     missing, sizeof(missing)))
+    {
+      strncpy(s->tessdata_dir, ocr_tessdata_candidates[i],
+	      sizeof(s->tessdata_dir) - 1);
+      return (1);
+    }
+
+  if (log) log(ld, CF_LOGLEVEL_ERROR,
+	       "cfFilterGhostscript: OCR: Tesseract language data "
+	       "\"%s.traineddata\" (languages: \"%s\") not found. Install the "
+	       "Tesseract language pack or set TESSDATA_PREFIX.",
+	       missing[0] ? missing : s->language, s->language);
+  return (0);
+}
+
+
+//
+// 'ocr_check_available()' - Check whether OCR output is possible
+//
+
+static int                              // O - 1 if OCR is possible
+ocr_check_available(ocr_settings_t *s,  // I/O - Settings
+		    cf_logfunc_t log,   // I - Log function
+		    void *ld)           // I - Log function data
+{
+  if (!ocr_gs_has_device("pdfocr8", log, ld))
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterGhostscript: OCR: Ghostscript (%s) does not provide "
+		 "the \"pdfocr8\" output device, it is probably built without "
+		 "Tesseract OCR support.", CUPS_GHOSTSCRIPT);
+    return (0);
+  }
+
+  if (!ocr_find_tessdata(s, log, ld))
+    return (0);
+
+  if (log) log(ld, CF_LOGLEVEL_DEBUG,
+	       "cfFilterGhostscript: OCR: Using Tesseract language data for "
+	       "\"%s\" from \"%s\"", s->language, s->tessdata_dir);
+  return (1);
+}
+
+
+//
+// 'copy_fd_to_fd()' - Copy the contents of one file descriptor to another
+//
+
+static int                              // O - 0 on success
+copy_fd_to_fd(int infd,                 // I - Source
+	      int outfd)                // I - Destination
+{
+  char buf[65536];
+  ssize_t n, w, off;
+
+  while ((n = read(infd, buf, sizeof(buf))) > 0)
+    for (off = 0; off < n; off += w)
+      if ((w = write(outfd, buf + off, (size_t)(n - off))) <= 0)
+	return (-1);
+
+  return (n < 0 ? -1 : 0);
+}
+
 
 static gs_doc_t
 parse_doc_type(FILE *fp)
@@ -828,18 +1151,25 @@ gs_spawn (const char *filename,
 }
 
 //
-// 'cfFilterGhostscript()' - Filter function to use Ghostscript for print
-//                           data conversions
+// 'ghostscript_filter()' - Common worker of cfFilterGhostscript() and
+//                          cfFilterGhostscriptOCR(): Use Ghostscript for
+//                          print/scan data conversions
 //
 
-int                                         // O - Error status
-cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
-		    int outputfd,           // I - File descriptor output stream
-		    int inputseekable,      // I - Is input stream seekable?
-		    cf_filter_data_t *data, // I - Job and printer data
-		    void *parameters)       // I - Filter-specific parameters
+static int                                  // O - Error status
+ghostscript_filter(int inputfd,            // I - File descriptor input stream
+		   int outputfd,           // I - File descriptor output stream
+		   int inputseekable,      // I - Is input stream seekable?
+		   cf_filter_data_t *data, // I - Job and printer data
+		   cf_filter_out_format_t outformat, // I - Output format
+		   const cf_filter_ghostscript_ocr_params_t *ocr_params,
+                                           // I - OCR parameters or NULL
+		   int scan_mode)          // I - Input is a scan: Keep pages
+                                           //     as they are, no printer
+                                           //     margins
 {
-  cf_filter_out_format_t outformat;
+  cf_filter_out_format_t hdr_outformat;   // Output format as seen by the
+                                          // Raster header helpers
   char buf[BUFSIZ];
   char *filename = NULL;
   char *icc_profile = NULL;
@@ -847,7 +1177,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   char tmpstr[1024],
        tempfile[1024];
   const char *t = NULL;
-  char *envp[4];
+  char *envp[8];
   int num_env = 0;
   cups_array_t *gs_args = NULL;
   cups_option_t *options = NULL;
@@ -874,41 +1204,17 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   void          *ld = data->logdata;
   cf_filter_iscanceledfunc_t iscanceled = data->iscanceledfunc;
   void          *icd = data->iscanceleddata;
+  ocr_settings_t ocr;                     // Resolved OCR settings
+  int ocr_active = 0;                     // Producing searchable PDF?
+  int retry_fd = -1;                      // Copy of input fd for fallback
+  int gs_outfd = outputfd;                // Where Ghostscript writes to
+  int outputfd_closed = 0;                // Did the fallback close outputfd?
+  char ocr_tempfile[1024];                // Temp file for OCR output
+  int ocr_tempfd = -1;
 
 
-  if (parameters)
-  {
-    outformat = *(cf_filter_out_format_t *)parameters;
-    if (outformat != CF_FILTER_OUT_FORMAT_PDF &&
-	outformat != CF_FILTER_OUT_FORMAT_PDF_IMAGE &&
-	outformat != CF_FILTER_OUT_FORMAT_PCLM &&
-	outformat != CF_FILTER_OUT_FORMAT_CUPS_RASTER &&
-	outformat != CF_FILTER_OUT_FORMAT_PWG_RASTER &&
-	outformat != CF_FILTER_OUT_FORMAT_APPLE_RASTER &&
-	outformat != CF_FILTER_OUT_FORMAT_PXL)
-      outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
-  }
-  else
-  {
-    t = data->final_content_type;
-    if (t)
-    {
-      if (strcasestr(t, "pwg"))
-	outformat = CF_FILTER_OUT_FORMAT_PWG_RASTER;
-      else if (strcasestr(t, "urf"))
-	outformat = CF_FILTER_OUT_FORMAT_APPLE_RASTER;
-      else if (strcasestr(t, "pclm"))
-	outformat = CF_FILTER_OUT_FORMAT_PCLM;
-      else if (strcasestr(t, "pcl-xl"))
-	outformat = CF_FILTER_OUT_FORMAT_PXL;
-      else if (strcasestr(t, "pdf"))
-	outformat = CF_FILTER_OUT_FORMAT_PDF;
-      else
-	outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
-    }
-    else
-      outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
-  }
+  ocr_tempfile[0] = '\0';
+  memset(&ocr, 0, sizeof(ocr));
 
   //
   // Note: With the CF_FILTER_OUT_FORMAT_APPLE_RASTER selection and a
@@ -931,7 +1237,43 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
 		   (outformat == CF_FILTER_OUT_FORMAT_PDF_IMAGE ?
 		    "raster-only PDF" :
 		    (outformat == CF_FILTER_OUT_FORMAT_PCLM ? "PCLm" :
-		     "PCL XL")))))));
+		     (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR ?
+		      "searchable PDF (OCR)" :
+		      "PCL XL"))))))));
+
+  // Searchable PDF: Check whether OCR is possible, otherwise fall back
+  // to raster-only PDF or fail
+  if (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
+  {
+    ocr_resolve_settings(data, ocr_params, &ocr);
+    if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		 "cfFilterGhostscript: OCR: language=%s engine=%d pdfa=%d "
+		 "fallback=%d resolution=%d",
+		 ocr.language, ocr.engine, ocr.pdfa, ocr.fallback,
+		 ocr.resolution);
+    if (ocr_check_available(&ocr, log, ld))
+      ocr_active = 1;
+    else if (ocr.fallback)
+    {
+      if (log) log(ld, CF_LOGLEVEL_WARN,
+		   "cfFilterGhostscript: OCR not available, falling back to "
+		   "raster-only PDF without text layer");
+      outformat = CF_FILTER_OUT_FORMAT_PDF_IMAGE;
+    }
+    else
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterGhostscript: OCR not available and fallback to "
+		   "raster-only PDF disabled, failing job");
+      close(inputfd);
+      close(outputfd);
+      return (1);
+    }
+  }
+
+  // The Raster header helpers treat searchable PDF like raster-only PDF
+  hdr_outformat = (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR ?
+		   CF_FILTER_OUT_FORMAT_PDF_IMAGE : outformat);
   
   memset(&sa, 0, sizeof(sa));
   // Ignore SIGPIPE and have write return an error instead
@@ -963,7 +1305,68 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
     num_env ++;
   }
 
+  if (ocr_active)
+  {
+    // Tell Ghostscript's Tesseract where the language data is
+    char *tessenv = NULL;
+    if (asprintf(&tessenv, "TESSDATA_PREFIX=%s", ocr.tessdata_dir) > 0 &&
+	tessenv)
+    {
+      envp[num_env] = tessenv;
+      num_env ++;
+    }
+  }
+
   envp[num_env] = NULL;
+
+  // With fallback enabled we may have to run Ghostscript a second time
+  // without OCR, so the input must be re-readable and the OCR output
+  // goes into a temporary file first
+  if (ocr_active && ocr.fallback)
+  {
+    if (!inputseekable)
+    {
+      if ((fd = cupsCreateTempFd(NULL, NULL, tempfile, sizeof(tempfile))) < 0)
+      {
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterGhostscript: Unable to copy input file: %s",
+		     strerror(errno));
+	goto out;
+      }
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterGhostscript: OCR: Copying input to temp file "
+		   "\"%s\" to be able to re-run without OCR", tempfile);
+      unlink(tempfile);
+      if (copy_fd_to_fd(inputfd, fd) < 0 || lseek(fd, 0, SEEK_SET) < 0)
+      {
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterGhostscript: Unable to copy input file: %s",
+		     strerror(errno));
+	close(fd);
+	goto out;
+      }
+      close(inputfd);
+      inputfd = fd;
+      inputseekable = 1;
+    }
+    if ((retry_fd = dup(inputfd)) < 0)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterGhostscript: Unable to duplicate input file "
+		   "descriptor: %s", strerror(errno));
+      goto out;
+    }
+    if ((ocr_tempfd = cupsCreateTempFd(NULL, NULL, ocr_tempfile,
+				       sizeof(ocr_tempfile))) < 0)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterGhostscript: Unable to create temporary output "
+		   "file: %s", strerror(errno));
+      ocr_tempfile[0] = '\0';
+      goto out;
+    }
+    gs_outfd = ocr_tempfd;
+  }
 
   //
   // Open the input data stream specified by the inputfd ...
@@ -1260,7 +1663,7 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   //
 
   cspace = -1;
-  cfRasterPrepareHeader(&h, data, outformat, outformat, 0, &cspace);
+  cfRasterPrepareHeader(&h, data, hdr_outformat, hdr_outformat, 0, &cspace);
 
   // Find print-rendering-intent
   h.cupsRenderingIntent[0] = '\0';
@@ -1290,7 +1693,8 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   // Note that these output formats require Ghostscript 9.55.0 or later
 
   if (outformat == CF_FILTER_OUT_FORMAT_PDF_IMAGE ||
-      outformat == CF_FILTER_OUT_FORMAT_PCLM)
+      outformat == CF_FILTER_OUT_FORMAT_PCLM ||
+      outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
   {
     int res_x, res_y,
         sup_res_x, sup_res_y,
@@ -1302,12 +1706,13 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
     char c;
 
     ipp_attr = NULL;
-    if (outformat == CF_FILTER_OUT_FORMAT_PCLM || // PCLm forced
-	// PCLm supported according to printer IPP attributes
-	(printer_attrs &&
-	 (ipp_attr =
-	  ippFindAttribute(printer_attrs, "pclm-source-resolution-supported",
-			   IPP_TAG_ZERO)) != NULL))
+    if (outformat != CF_FILTER_OUT_FORMAT_PDF_OCR && // Never PCLm for OCR
+	(outformat == CF_FILTER_OUT_FORMAT_PCLM || // PCLm forced
+	 // PCLm supported according to printer IPP attributes
+	 (printer_attrs &&
+	  (ipp_attr =
+	   ippFindAttribute(printer_attrs, "pclm-source-resolution-supported",
+			    IPP_TAG_ZERO)) != NULL)))
     {
       outformat = CF_FILTER_OUT_FORMAT_PCLM;
 
@@ -1443,13 +1848,41 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
 	  // Color printer, according to printer attributes
 	  n = 1;
       }
+      else if (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
+	// Scans: Without device capabilities keep the color of the input
+	n = 1;
       raster_pdf_gray = !(n == 1 && h.cupsNumColors > 1);
-      cupsArrayAdd(gs_args, strdup(raster_pdf_gray ? "-sDEVICE=pdfimage8" :
-				   "-sDEVICE=pdfimage24"));
+      if (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
+	cupsArrayAdd(gs_args, strdup(raster_pdf_gray ? "-sDEVICE=pdfocr8" :
+				     "-sDEVICE=pdfocr24"));
+      else
+	cupsArrayAdd(gs_args, strdup(raster_pdf_gray ? "-sDEVICE=pdfimage8" :
+				     "-sDEVICE=pdfimage24"));
 
       // Compression method
 
       cupsArrayAdd(gs_args, strdup("-sCompression=Flate"));
+
+      // OCR (Tesseract) options
+
+      if (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
+      {
+	snprintf(tmpstr, sizeof(tmpstr), "-sOCRLanguage=%s", ocr.language);
+	cupsArrayAdd(gs_args, strdup(tmpstr));
+	if (ocr.engine >= 0)
+	{
+	  snprintf(tmpstr, sizeof(tmpstr), "-dOCREngine=%d", ocr.engine);
+	  cupsArrayAdd(gs_args, strdup(tmpstr));
+	}
+	if (ocr.pdfa > 0)
+	{
+	  snprintf(tmpstr, sizeof(tmpstr), "-dPDFA=%d", ocr.pdfa);
+	  cupsArrayAdd(gs_args, strdup(tmpstr));
+	}
+	for (i = 0; i < ocr.num_extra_args; i ++)
+	  if (ocr.extra_args[i] && ocr.extra_args[i][0])
+	    cupsArrayAdd(gs_args, strdup(ocr.extra_args[i]));
+      }
     }
 
     // Common option: Downscaling factor
@@ -1551,8 +1984,15 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   h.MirrorPrint = CUPS_FALSE;
   h.Orientation = CUPS_ORIENT_0;
 
+  // Requested OCR resolution
+  if (ocr_active && ocr.resolution > 0)
+  {
+    h.HWResolution[0] = ocr.resolution;
+    h.HWResolution[1] = ocr.resolution;
+  }
+
   // get all the data from the header and pass it to ghostscript
-  header_to_gs_args(&h, gs_args, outformat, pxlcolor);
+  header_to_gs_args(&h, gs_args, hdr_outformat, pxlcolor);
 
   // CUPS Raster versions: 2 = compressed; 3 = uncompressed
   // Requires Ghostscript 10.00.0 or later
@@ -1666,10 +2106,13 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
     else if (pxlcolor == 1)
       cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=srgb.icc"));
   }
-  else if (!cm_disabled && outformat == CF_FILTER_OUT_FORMAT_PDF_IMAGE)
+  else if (!cm_disabled &&
+	   (outformat == CF_FILTER_OUT_FORMAT_PDF_IMAGE ||
+	    outformat == CF_FILTER_OUT_FORMAT_PDF_OCR))
   {
-    // Raster-only PDF: The 8-bit device is gray, an RGB profile makes
-    // Ghostscript fail with "undefined in .putdeviceprops"
+    // Raster-only PDF (with or without OCR text layer): The 8-bit
+    // devices are gray, an RGB profile makes Ghostscript fail with
+    // "undefined in .putdeviceprops"
     if (raster_pdf_gray)
       cupsArrayAdd(gs_args, strdup("-sOutputICCProfile=sgray.icc"));
     else
@@ -1786,7 +2229,9 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   // important.
   //
 
-  if (h.cupsImagingBBox[3] > 0.0 && outformat != CF_FILTER_OUT_FORMAT_PDF)
+  // Scans (OCR output) are kept as they are, without printer margins
+  if (h.cupsImagingBBox[3] > 0.0 && outformat != CF_FILTER_OUT_FORMAT_PDF &&
+      !scan_mode)
   {
     snprintf(tmpstr, sizeof(tmpstr),
 	     "<</.HWMargins[%f %f %f %f] /Margins[0 0]>>setpagedevice",
@@ -1967,8 +2412,61 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
 
   // call Ghostscript
   rewind(fp);
-  status = gs_spawn (tmpstr, gs_args, envp, fp, outputfd, log, ld,
+  status = gs_spawn (tmpstr, gs_args, envp, fp, gs_outfd, log, ld,
 		     iscanceled, icd);
+
+  if (ocr_active && ocr.fallback)
+  {
+    // Copy the temporary OCR output to the output on success, otherwise
+    // run again without OCR
+    struct stat st;
+
+    if (status == 0 &&
+	(fstat(ocr_tempfd, &st) < 0 || st.st_size == 0))
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterGhostscript: OCR: Ghostscript produced no output");
+      status = 1;
+    }
+
+    if (status == 0)
+    {
+      if (lseek(ocr_tempfd, 0, SEEK_SET) < 0 ||
+	  copy_fd_to_fd(ocr_tempfd, outputfd) < 0)
+      {
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterGhostscript: OCR: Unable to copy output: %s",
+		     strerror(errno));
+	status = 1;
+      }
+    }
+    else if (!iscanceled || !iscanceled(icd))
+    {
+      if (log) log(ld, CF_LOGLEVEL_WARN,
+		   "cfFilterGhostscript: OCR failed, falling back to "
+		   "raster-only PDF without text layer");
+      close(ocr_tempfd);
+      ocr_tempfd = -1;
+      unlink(ocr_tempfile);
+      ocr_tempfile[0] = '\0';
+      if (lseek(retry_fd, 0, SEEK_SET) < 0)
+      {
+	if (log) log(ld, CF_LOGLEVEL_ERROR,
+		     "cfFilterGhostscript: Unable to rewind input for "
+		     "fallback: %s", strerror(errno));
+	status = 1;
+      }
+      else
+      {
+	// The nested call reads retry_fd and closes it and outputfd
+	status = ghostscript_filter(retry_fd, outputfd, 1, data,
+				    CF_FILTER_OUT_FORMAT_PDF_IMAGE, NULL, 1);
+	retry_fd = -1;
+	outputfd_closed = 1;
+      }
+    }
+  }
+
   if (status != 0)
     status = 1;
 out:
@@ -1989,6 +2487,126 @@ out:
     cupsArrayDelete(gs_args);
   }
   free(icc_profile);
-  close(outputfd);
+  if (ocr_tempfd >= 0)
+    close(ocr_tempfd);
+  if (ocr_tempfile[0])
+    unlink(ocr_tempfile);
+  if (retry_fd >= 0)
+    close(retry_fd);
+  if (!outputfd_closed)
+    close(outputfd);
   return (status);
+}
+
+
+//
+// 'cfFilterGhostscript()' - Filter function to use Ghostscript for print
+//                           data conversions
+//
+
+int                                         // O - Error status
+cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
+		    int outputfd,           // I - File descriptor output stream
+		    int inputseekable,      // I - Is input stream seekable?
+		    cf_filter_data_t *data, // I - Job and printer data
+		    void *parameters)       // I - Filter-specific parameters
+{
+  cf_filter_out_format_t outformat;
+  const char *t;
+
+
+  if (parameters)
+  {
+    outformat = *(cf_filter_out_format_t *)parameters;
+    if (outformat != CF_FILTER_OUT_FORMAT_PDF &&
+	outformat != CF_FILTER_OUT_FORMAT_PDF_IMAGE &&
+	outformat != CF_FILTER_OUT_FORMAT_PDF_OCR &&
+	outformat != CF_FILTER_OUT_FORMAT_PCLM &&
+	outformat != CF_FILTER_OUT_FORMAT_CUPS_RASTER &&
+	outformat != CF_FILTER_OUT_FORMAT_PWG_RASTER &&
+	outformat != CF_FILTER_OUT_FORMAT_APPLE_RASTER &&
+	outformat != CF_FILTER_OUT_FORMAT_PXL)
+      outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
+  }
+  else
+  {
+    t = data->final_content_type;
+    if (t)
+    {
+      if (strcasestr(t, "pwg"))
+	outformat = CF_FILTER_OUT_FORMAT_PWG_RASTER;
+      else if (strcasestr(t, "urf"))
+	outformat = CF_FILTER_OUT_FORMAT_APPLE_RASTER;
+      else if (strcasestr(t, "pclm"))
+	outformat = CF_FILTER_OUT_FORMAT_PCLM;
+      else if (strcasestr(t, "pcl-xl"))
+	outformat = CF_FILTER_OUT_FORMAT_PXL;
+      else if (strcasestr(t, "ocr"))
+	outformat = CF_FILTER_OUT_FORMAT_PDF_OCR;
+      else if (strcasestr(t, "pdf"))
+	outformat = CF_FILTER_OUT_FORMAT_PDF;
+      else
+	outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
+    }
+    else
+      outformat = CF_FILTER_OUT_FORMAT_CUPS_RASTER;
+  }
+
+  return (ghostscript_filter(inputfd, outputfd, inputseekable, data,
+			     outformat, NULL,
+			     outformat == CF_FILTER_OUT_FORMAT_PDF_OCR));
+}
+
+
+//
+// 'cfFilterGhostscriptOCR()' - Filter function to turn scans into
+//                              searchable PDFs using Ghostscript's OCR
+//                              output devices
+//
+
+int                                         // O - Error status
+cfFilterGhostscriptOCR(int inputfd,         // I - File descriptor input stream
+		       int outputfd,        // I - File descriptor output stream
+		       int inputseekable,   // I - Is input stream seekable?
+		       cf_filter_data_t *data, // I - Job and printer data
+		       void *parameters)    // I - cf_filter_ghostscript_ocr_params_t*
+                                            //     or NULL
+{
+  return (ghostscript_filter(inputfd, outputfd, inputseekable, data,
+			     CF_FILTER_OUT_FORMAT_PDF_OCR,
+			     (const cf_filter_ghostscript_ocr_params_t *)
+			     parameters, 1));
+}
+
+
+//
+// 'cfFilterGhostscriptOCRAvailable()' - Check whether searchable PDF
+//                                       output is possible
+//
+
+int                                         // O - 1 if available, 0 if not
+cfFilterGhostscriptOCRAvailable(
+    cf_filter_data_t *data,                 // I - Job data (options, logging)
+                                            //     or NULL
+    const cf_filter_ghostscript_ocr_params_t *params, // I - Parameters or NULL
+    char *tessdata_dir,                     // O - Directory of language data
+                                            //     or NULL
+    size_t tessdata_dir_size)               // I - Size of tessdata_dir buffer
+{
+  ocr_settings_t ocr;
+  cf_logfunc_t log = data ? data->logfunc : NULL;
+  void *ld = data ? data->logdata : NULL;
+
+
+  ocr_resolve_settings(data, params, &ocr);
+  if (!ocr_check_available(&ocr, log, ld))
+    return (0);
+
+  if (tessdata_dir && tessdata_dir_size > 0)
+  {
+    strncpy(tessdata_dir, ocr.tessdata_dir, tessdata_dir_size - 1);
+    tessdata_dir[tessdata_dir_size - 1] = '\0';
+  }
+
+  return (1);
 }
