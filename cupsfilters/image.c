@@ -991,6 +991,8 @@ _cfImageReadEXIF(cf_image_t *img,
     return (2);
   }
 
+  int xRes = 0, yRes = 0;
+
   if (entryX)
   {
     char buf1[1024];
@@ -1001,9 +1003,7 @@ _cfImageReadEXIF(cf_image_t *img,
 
     if (*buf1)
     {
-      int xRes;
       sscanf(buf1, "%d", &xRes);
-      img->xppi = xRes;
     }
     else
     {
@@ -1021,15 +1021,24 @@ _cfImageReadEXIF(cf_image_t *img,
 
     if (*buf2)
     {
-      int yRes;
       sscanf(buf2, "%d", &yRes);
-      img->yppi = yRes;
     }
     else{
       free(buf);
       return (2);
     }
   }
+
+  if (xRes <= 0 || yRes <= 0)
+  {
+    DEBUG_printf(("DEBUG: Ignoring invalid EXIF resolution %dx%d PPI.\n",
+		  xRes, yRes));
+    free(buf);
+    return (2);
+  }
+
+  img->xppi = xRes;
+  img->yppi = yRes;
 
   free(buf);
   return (1);
