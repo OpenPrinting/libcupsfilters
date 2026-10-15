@@ -146,16 +146,27 @@ cfPackHorizontal2(const unsigned char *ipixels,	// I - Input pixels
   // Then do the last N bytes (N < 4)...
   //
 
+  // The fallthrough has to build b starting from ipixels[0] (the first
+  // pixel), the same order the whole-byte loop above uses, or the leftover
+  // 2-3 pixels at the end of a row come out reversed: ipixels[(width-1) *
+  // step] would land in the most significant bits instead of ipixels[0].
   b = 0;
 
   switch (width)
   {
     case 3 :
-	b = ipixels[2 * step];
-    case 2 :
+	b = ipixels[0];
 	b = (b << 2) | ipixels[step];
+	b = (b << 2) | ipixels[2 * step];
+        *obytes = b << (8 - 2 * width);
+        break;
+    case 2 :
+	b = ipixels[0];
+	b = (b << 2) | ipixels[step];
+        *obytes = b << (8 - 2 * width);
+        break;
     case 1 :
-	b = (b << 2) | ipixels[0];
+	b = ipixels[0];
         *obytes = b << (8 - 2 * width);
         break;
   }
