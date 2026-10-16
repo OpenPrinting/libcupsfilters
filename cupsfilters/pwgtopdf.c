@@ -1788,7 +1788,8 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
     //setting up of pclm-strip-height-preferred
     char *attr_name = (char *)"pclm-strip-height-preferred";
     if ((ipp_attr = ippFindAttribute(printer_attrs, attr_name,
-				     IPP_TAG_ZERO)) != NULL)
+				     IPP_TAG_ZERO)) != NULL &&
+	ippGetInteger(ipp_attr, 0) > 0)
     {
       if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		  "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" with value %d",
@@ -1796,7 +1797,16 @@ cfFilterPWGToPDF(int inputfd,  // I - File descriptor input stream
       pdf.pclm_strip_height_preferred = ippGetInteger(ipp_attr, 0);
     }
     else
+    {
+      // Used as a divisor and modulo operand further down; a
+      // non-positive value (e.g. a malformed or hostile PPD) must
+      // never reach that math, so fall back to the default here.
+      if (log && ipp_attr != NULL)
+	log(ld, CF_LOGLEVEL_ERROR,
+	    "cfFilterPWGToPDF: Printer PCLm attribute \"%s\" has invalid value %d, using default",
+	    attr_name, ippGetInteger(ipp_attr, 0));
       pdf.pclm_strip_height_preferred = 16; // default strip height
+    }
 
     //setting up of pclm-strip-height-supported
     attr_name = (char *)"pclm-strip-height-supported";
