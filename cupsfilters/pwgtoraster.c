@@ -1609,6 +1609,16 @@ out_page(pwgtoraster_doc_t *doc,
     res_down_factor[i] = 1;
     res_up_factor[i] = 1;
 
+    if (doc->inheader.HWResolution[i] == 0 ||
+	doc->outheader.HWResolution[i] == 0)
+    {
+      log(ld, CF_LOGLEVEL_ERROR,
+	  "cfFilterPWGToRaster: %s resolution must not be zero (input: %d dpi, output: %d dpi)",
+	  i == 0 ? "Horizontal" : "Vertical", doc->inheader.HWResolution[i],
+	  doc->outheader.HWResolution[i]);
+      return (false);
+    }
+
     if (doc->outheader.HWResolution[i] == doc->inheader.HWResolution[i])
     {
       log(ld, CF_LOGLEVEL_DEBUG,
