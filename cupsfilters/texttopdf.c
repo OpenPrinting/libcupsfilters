@@ -1425,10 +1425,17 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 		     doc.PrettyPrint != PRETTY_SHELL)
 	    {
 	      //
-	      // Highlight first comment character...
+	      // Highlight first comment character... unless the preceding
+	      // '/' (lastch) was the last cell before an automatic line/page
+	      // wrap -- the wrap above already reset "column" to 0, so
+	      // "column - 1" would address the cell *before* doc.Page[line],
+	      // which after a page wrap is a freshly allocated/cleared
+	      // buffer. There is no previous cell on this line to highlight
+	      // in that case, so just skip it.
 	      //
 
-	      doc.Page[line][column - 1].attr = attr;
+	      if (column > 0)
+	        doc.Page[line][column - 1].attr = attr;
 	    }
 	    else if (ch == '\"' && lastch != '\\' && !cmntState &&
 		     strState == StrEnd)
