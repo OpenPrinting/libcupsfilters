@@ -1910,9 +1910,37 @@ write_prolog(const char *title,		// I - Title of job
   if (doc->PageColumns > 1)
   {
     doc->ColumnGutter = doc->CharsPerInch / 2;
-    doc->ColumnWidth  = (doc->SizeColumns - doc->ColumnGutter *
-			 (doc->PageColumns - 1)) /
-                        doc->PageColumns;
+
+    //
+    // doc->PageColumns comes straight from the "columns" option with only
+    // a lower-bound check (>= 1). Do the gutter product and the resulting
+    // ColumnWidth in a wider, checked type first -- a huge PageColumns
+    // value can overflow the plain "int" arithmetic below, wrapping
+    // ColumnGutter * (PageColumns - 1) (and/or the final division) into a
+    // small positive ColumnWidth instead of the near-zero/negative value
+    // the real math would produce. That bogus ColumnWidth later lets
+    // "page_column" climb far past what doc->SizeColumns was allocated
+    // for, since page_column is only bounds-checked against the (also
+    // wrong) doc->PageColumns -- see the write site in cfFilterTextToPDF()
+    // that computes "i = column + page_column * (ColumnWidth +
+    // ColumnGutter)" and writes doc->Page[line][i] with no further bound
+    // check.
+    //
+
+    long long gutter_total = (long long)doc->ColumnGutter *
+                              (long long)(doc->PageColumns - 1);
+    long long column_width = ((long long)doc->SizeColumns - gutter_total) /
+                              (long long)doc->PageColumns;
+
+    if (column_width < 1 || column_width > doc->SizeColumns)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterTextToPDF: columns value %d is too large for the "
+		   "page size", doc->PageColumns);
+      return (1);
+    }
+
+    doc->ColumnWidth = (int)column_width;
   }
   else
     doc->ColumnWidth = doc->SizeColumns;
