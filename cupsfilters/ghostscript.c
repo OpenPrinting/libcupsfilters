@@ -1422,7 +1422,30 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
 		   tempfile);
 
       while ((bytes = fread(buf, 1, sizeof(buf), fp)) > 0)
-	bytes = write(fd, buf, bytes);
+      {
+	char *ptr = buf;
+
+	while (bytes > 0)
+	{
+	  ssize_t written = write(fd, ptr, bytes);
+
+	  if (written < 0)
+	  {
+	    if (errno == EINTR)
+	      continue;
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterGhostscript: Unable to copy PDF file: %s",
+			 strerror(errno));
+	    fclose(fp);
+	    close(fd);
+	    unlink(tempfile);
+	    return (1);
+	  }
+
+	  ptr += written;
+	  bytes -= (int)written;
+	}
+      }
 
       fclose(fp);
       close(fd);
