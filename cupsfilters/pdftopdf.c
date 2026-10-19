@@ -45,7 +45,8 @@ static int              Verbosity = 0;
 
 static pdfio_stream_t * 		// O - Page content stream
 pdfio_start_page(xform_prepare_t *p,    // I - Preparation data
-                 pdfio_dict_t    *dict) // I - Page dictionary
+                 pdfio_dict_t    *dict, // I - Page dictionary
+                 const pdfio_rect_t *media) // I - Page media box
 {
   pdfio_stream_t        *st;            // Page content stream
 
@@ -53,8 +54,18 @@ pdfio_start_page(xform_prepare_t *p,    // I - Preparation data
   {
     if (p->use_duplex_xform && !(pdfioFileGetNumPages(p->pdf) & 1))
     {
+      pdfio_matrix_t duplex_xform =
+      {
+        { p->duplex_xform[0][0], p->duplex_xform[0][1] },
+        { p->duplex_xform[1][0], p->duplex_xform[1][1] },
+        { p->duplex_xform[2][0], p->duplex_xform[2][1] }
+      };
+      if (duplex_xform[0][0] < 0.0)
+        duplex_xform[2][0] = media->x2;
+      if (duplex_xform[1][1] < 0.0)
+        duplex_xform[2][1] = media->y2;
       pdfioContentSave(st);
-      pdfioContentMatrixConcat(st, p->duplex_xform);
+      pdfioContentMatrixConcat(st, duplex_xform);
     }
   }
 
@@ -110,7 +121,7 @@ generate_job_error_sheet(
   for (i = 0; i < count; i ++)
   {
     // Create the error sheet...
-    st = pdfio_start_page(p, dict);
+    st = pdfio_start_page(p, dict, &p->media);
 
     // The job error sheet is a banner with the following information:
     //
@@ -199,7 +210,7 @@ generate_job_sheets(
   // Create pages...
   for (i = 0; i < count; i ++)
   {
-    st = pdfio_start_page(p, dict);
+    st = pdfio_start_page(p, dict, &p->media);
 
     // The job sheet is a banner with the following information:
     //
@@ -2232,9 +2243,9 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
           xform_page_t    *outpage,	// I - Output page
           size_t          layout)	// I - Layout cell
 {
-  pdfio_rect_t	*cell = p->layout + layout;
+  pdfio_rect_t	input_cell,
+		*cell = p->layout + layout;
 					// Layout cell
-  pdfio_dict_t	*idict;			// Input page dictionary
   pdfio_rect_t	irect;			// Input page rectangle
   double	cwidth,			// Cell width
 		cheight,		// Cell height
@@ -2259,6 +2270,12 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   // Skip if this cell is empty...
   if (!outpage->input[layout])
     return;
+
+  if (!p->options->pagesize_requested && p->num_layout == 1)
+  {
+    input_cell = outpage->media;
+    cell = &input_cell;
+  }
 
   // Save state for this cell...
   pdfioContentSave(outpage->output);
@@ -2299,8 +2316,6 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   pdfioContentPathEnd(outpage->output);
 
   // Transform input page to output cell...
-  idict = pdfioObjGetDict(outpage->input[layout]);
-
   if (!page_get_rect(outpage->input[layout], "CropBox", &irect))
   {
     // No crop box, use media box...
@@ -2372,7 +2387,7 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
 
   if (p->options->mirror)
   {
-    pdfio_matrix_t mirror_matrix = { {-1.0, 0.0}, {0.0, 1.0}, {p->media.x2, 0.0} };
+    pdfio_matrix_t mirror_matrix = { {-1.0, 0.0}, {0.0, 1.0}, {outpage->media.x2, 0.0} };
     pdfioContentMatrixConcat(outpage->output, mirror_matrix);
   }
 
@@ -2622,6 +2637,15 @@ prepare_documents(
   p.errors  = cupsArrayNew(NULL, NULL, NULL, 0, (cups_acopy_cb_t)strdup, (cups_afree_cb_t)free);
 
   media_to_rect(&options->media, &p.media, &p.crop);
+  if (options->page_width_pt > 0.0f && options->page_height_pt > 0.0f)
+  {
+    p.media.x2 = options->page_width_pt;
+    p.media.y2 = options->page_height_pt;
+    p.crop.x1 = options->page_left_pt;
+    p.crop.y1 = options->page_bottom_pt;
+    p.crop.x2 = options->page_width_pt - options->page_right_pt;
+    p.crop.y2 = options->page_height_pt - options->page_top_pt;
+  }
   prepare_number_up(&p);
 
   if (!strncmp(options->sides, "two-sided-", 10) && sheet_back && strcmp(sheet_back, "normal"))
@@ -2891,16 +2915,30 @@ prepare_documents(
 
       for (i = p.num_outpages; i > 0; i --, outpage += outdir)
       {
+	pdfio_rect_t	input_media;	// Input page dimensions
+
 	// Create a page dictionary that merges the resources from each of the
 	// input pages...
 	if (Verbosity)
 	  fprintf(stderr, "DEBUG: Laying out page %u/%u.\n", (unsigned)(outpage - p.outpages + 1), (unsigned)p.num_outpages);
 
+	outpage->media = p.media;
+	if (!p.options->pagesize_requested && p.num_layout == 1 &&
+	    outpage->input[0] &&
+	    (page_get_rect(outpage->input[0], "CropBox", &input_media) ||
+	     page_get_rect(outpage->input[0], "MediaBox", &input_media)))
+	{
+	  outpage->media.x1 = 0.0;
+	  outpage->media.y1 = 0.0;
+	  outpage->media.x2 = input_media.x2 - input_media.x1;
+	  outpage->media.y2 = input_media.y2 - input_media.y1;
+	}
+
 	outpage->pagedict = pdfioDictCreate(p.pdf);
 	outpage->resdict  = pdfioDictCreate(p.pdf);
 
-	pdfioDictSetRect(outpage->pagedict, "CropBox", &p.media);
-	pdfioDictSetRect(outpage->pagedict, "MediaBox", &p.media);
+	pdfioDictSetRect(outpage->pagedict, "CropBox", &outpage->media);
+	pdfioDictSetRect(outpage->pagedict, "MediaBox", &outpage->media);
 	pdfioDictSetDict(outpage->pagedict, "Resources", outpage->resdict);
 	pdfioDictSetName(outpage->pagedict, "Type", "Page");
 
@@ -2929,7 +2967,8 @@ prepare_documents(
 
 	// Now copy the content streams to build the composite page, using the
 	// resource map for any named resources...
-	outpage->output = pdfio_start_page(&p, outpage->pagedict);
+	outpage->output = pdfio_start_page(&p, outpage->pagedict,
+					   &outpage->media);
 
 	for (layout = 0; layout < p.num_layout; layout ++)
 	{
@@ -3056,6 +3095,43 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // "universal" filter.
   if (data->copies > 1 && filter_options->copies <= 1)
     filter_options->copies = data->copies;
+
+  filter_options->page_width_pt = -1.0f;
+  filter_options->page_height_pt = -1.0f;
+  filter_options->page_left_pt = -1.0f;
+  filter_options->page_bottom_pt = -1.0f;
+  filter_options->page_right_pt = -1.0f;
+  filter_options->page_top_pt = -1.0f;
+  filter_options->pagesize_requested = false;
+
+  if (data->printer_attrs)
+  {
+    filter_options->pagesize_requested =
+        (cfGetPageDimensions(data->printer_attrs, data->job_attrs,
+                             data->num_options, data->options, NULL, 0,
+                             &filter_options->page_width_pt,
+                             &filter_options->page_height_pt,
+                             &filter_options->page_left_pt,
+                             &filter_options->page_bottom_pt,
+                             &filter_options->page_right_pt,
+                             &filter_options->page_top_pt,
+                             NULL, NULL) == 1);
+    cfSetPageDimensionsToDefault(&filter_options->page_width_pt,
+                                 &filter_options->page_height_pt,
+                                 &filter_options->page_left_pt,
+                                 &filter_options->page_bottom_pt,
+                                 &filter_options->page_right_pt,
+                                 &filter_options->page_top_pt, log, ld);
+  }
+
+  if (!data->printer_attrs && !filter_options->pagesize_requested &&
+      filter_options->booklet == CF_PDFTOPDF_BOOKLET_OFF &&
+      filter_options->number_up == 1)
+    filter_options->print_scaling = CF_FILTER_SCALING_NONE;
+  else if (filter_options->print_scaling != CF_FILTER_SCALING_NONE ||
+           filter_options->booklet != CF_PDFTOPDF_BOOKLET_OFF ||
+           filter_options->number_up > 1)
+    filter_options->pagesize_requested = true;
 
   char temp_filename[] = "/tmp/tempfileXXXXXX";
   int temp_fd = mkstemp(temp_filename);

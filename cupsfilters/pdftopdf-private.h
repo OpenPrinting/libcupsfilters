@@ -59,6 +59,7 @@ typedef struct xform_document_s         // Document information
 typedef struct xform_page_s             // Output page
 {
   pdfio_file_t  *pdf;                   // Output PDF file
+  pdfio_rect_t  media;                  // Output page media box
   size_t        layout;                 // Current layout cell
   pdfio_obj_t   *input[XFORM_MAX_LAYOUT]; // Input page objects
   pdfio_dict_t  *pagedict;              // Page dictionary
