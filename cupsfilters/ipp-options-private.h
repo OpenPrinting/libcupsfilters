@@ -210,6 +210,9 @@ typedef struct cf_filter_options_s	// All filter options in one structure
   char		job_sheets[128];	// "job-sheets" value
   cups_media_t	job_sheets_media;	// "job-sheets-col" "media" or "media-col" value
   cups_media_t	media;			// "media" or "media-col" value
+  bool          pagesize_requested;     // Use a fixed output page size?
+  float         page_width_pt, page_height_pt;
+  float         page_left_pt, page_bottom_pt, page_right_pt, page_top_pt;
   cf_filter_handling_t multiple_document_handling;
 					// "multiple-document-handling" value
   int		number_up;		// "number-up" value
