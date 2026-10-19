@@ -164,13 +164,25 @@ cfPDFPagesFP(FILE *file) 	// I - File pointer of PDF
   size_t bytes_read;
   while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) 
   {
-    fwrite(buffer, 1, bytes_read, temp_fp);
+    if (fwrite(buffer, 1, bytes_read, temp_fp) != bytes_read)
+    {
+      fprintf(stderr, "fwrite: Could not write temporary file\n");
+      fclose(temp_fp);
+      unlink(temp_filename);
+      return (-1);
+    }
   }
 
   // call fflush(temp_fp) to flush the stdio buffer;
   // otherwise pdfioFileOpen() may not see the complete contents of temp_filename because
   // some data may still be buffered and not yet written to the file.
-  fflush(temp_fp);
+  if (fflush(temp_fp) != 0)
+  {
+    fprintf(stderr, "fflush: Could not write temporary file\n");
+    fclose(temp_fp);
+    unlink(temp_filename);
+    return (-1);
+  }
 
   // Open the temp file with pdfio
   pdfio_file_t *pdf = pdfioFileOpen(temp_filename, NULL, NULL, NULL, NULL);
