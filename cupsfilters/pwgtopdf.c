@@ -1466,8 +1466,9 @@ add_pdf_page(struct pdf_info *info,
 	     unsigned ydpi,
 	     pwgtopdf_doc_t *doc)
 {
-  prepare_pdf_page(info, width, height, bpl, bpp,
-		   bpc, render_intent, color_space, doc);  
+  if (prepare_pdf_page(info, width, height, bpl, bpp,
+		       bpc, render_intent, color_space, doc))
+    return (1);
 
   pdfio_dict_t *page_dict = pdfioDictCreate(info->pdf); 
   info->page_width = ((double)info->width / xdpi) * DEFAULT_PDF_UNIT;
