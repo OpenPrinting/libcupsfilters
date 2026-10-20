@@ -2271,8 +2271,13 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   if (!outpage->input[layout])
     return;
 
-  if (!p->options->pagesize_requested && p->num_layout == 1)
+  if ((!p->options->pagesize_requested ||
+       p->options->print_scaling == CF_FILTER_SCALING_NONE) &&
+      p->num_layout == 1)
   {
+    // Single page per sheet with no page size requested or no scaling:
+    // place the input page on the whole sheet, not just the printable
+    // area, like the fast-copy path does...
     input_cell = outpage->media;
     cell = &input_cell;
   }
@@ -2348,7 +2353,12 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   fprintf(stderr, "DEBUG: iwidth=%g, iheight=%g, cwidth=%g, cheight=%g, rotate=%s\n", iwidth, iheight, cwidth, cheight, rotate ? "true" : "false");
 
   scaling = cwidth / iwidth;
-  if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
+  if (p->options->print_scaling == CF_FILTER_SCALING_NONE)
+  {
+    // No scaling, keep the input page at its original size...
+    scaling = 1.0;
+  }
+  else if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
   {
     // Scale to fill...
     if ((iheight * scaling) < cheight)
