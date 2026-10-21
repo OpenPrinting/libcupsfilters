@@ -1072,7 +1072,10 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
   // Determine full path for the filter
   if (params->filter[0] == '/' ||
       (ptr1 = cfFilterGetEnvVar("CUPS_SERVERBIN", envp)) == NULL || !ptr1[0])
+  {
     strncpy(filter_path, params->filter, sizeof(filter_path) - 1);
+    filter_path[sizeof(filter_path) - 1] = '\0';
+  }
   else
     snprintf(filter_path, sizeof(filter_path), "%s/%s/%s", ptr1,
 	     params->exec_mode > 0 ? "backend" : "filter", params->filter);
