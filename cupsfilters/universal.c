@@ -80,6 +80,7 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
 	    sizeof(output) - 1);
   else
     strncpy(output, data->final_content_type, sizeof(output) - 1);
+  output[sizeof(output) - 1] = '\0';
 
   if (log) log(ld, CF_LOGLEVEL_DEBUG,
 	       "cfFilterUniversal: Converting from %s to %s", input, output);
