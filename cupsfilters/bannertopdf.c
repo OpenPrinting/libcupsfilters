@@ -1117,14 +1117,14 @@ generate_banner_pdf(banner_t *banner,
   if (fstat(fileno(s), &st) < 0)
   {
     if (log)
-      log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Cannot fstat(): %s\n", , strerror(errno));
+      log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Cannot fstat(): %s\n", strerror(errno));
     return (1);
   }
   fseek(s, 0L, SEEK_SET);
   if ((buf = malloc(st.st_size + 1)) == NULL)
   {
     if (log)
-      log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Cannot malloc(): %s\n", , strerror(errno));
+      log(ld, CF_LOGLEVEL_ERROR, "cfFilterBannerToPDF: Cannot malloc(): %s\n", strerror(errno));
     return (1);
   }
   size_t nbytes = fread(buf, 1, st.st_size, s);
