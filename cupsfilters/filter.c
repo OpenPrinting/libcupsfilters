@@ -925,7 +925,8 @@ sanitize_device_uri(const char *uri,	// I - Device URI
 
   // Copy the device URI to a temporary buffer so we can sanitize any auth
   // info in it...
-  strncpy(buf, uri, bufsize);
+  strncpy(buf, uri, bufsize - 1);
+  buf[bufsize - 1] = '\0';
 
   // Find the end of the scheme:// part...
   if ((ptr = strchr(buf, ':')) != NULL)
