@@ -54,17 +54,30 @@ cfColordGetQualifier(cf_filter_data_t *data,    // I - Filter data
       val[0] != '\0')
   {
     tuple = calloc(QUAL_SIZE + 1, sizeof(char*));
+    if (!tuple)
+    {
+      cupsFreeOptions(num_options, options);
+      return (NULL);
+    }
     ptr1 = ptr2 = val;
     for (i = 0; i < QUAL_SIZE; i ++)
     {
       while (*ptr2 && *ptr2 != '.') ptr2 ++;
       len = ptr2 - ptr1;
       tuple[i] = malloc((len + 1) * sizeof(char));
+      if (!tuple[i])
+      {
+	for (int j = 0; j < i; j ++)
+	  free(tuple[j]);
+	free(tuple);
+	cupsFreeOptions(num_options, options);
+	return (NULL);
+      }
       memcpy(tuple[i], ptr1, len);
       tuple[i][len] = '\0';
       if (*ptr2)
 	ptr2 ++;
-      ptr1 = ptr2; 
+      ptr1 = ptr2;
     }
   }
   else
@@ -79,6 +92,11 @@ cfColordGetQualifier(cf_filter_data_t *data,    // I - Filter data
 
     // return a NULL terminated array so we don't have to break it up later
     tuple = calloc(QUAL_SIZE + 1, sizeof(char*));
+    if (!tuple)
+    {
+      cupsFreeOptions(num_options, options);
+      return (NULL);
+    }
     tuple[QUAL_COLORSPACE] = strdup(color_space ? color_space : "");
     tuple[QUAL_MEDIA]      = strdup(media_type ? media_type : "");
     tuple[QUAL_RESOLUTION] = strdup(buf);
