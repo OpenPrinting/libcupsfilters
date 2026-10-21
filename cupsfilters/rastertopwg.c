@@ -534,6 +534,13 @@ cfFilterRasterToPWG(int inputfd,         // I - File descriptor input stream
       lineoffset = linesize - inheader.cupsBytesPerLine;
 
     line = malloc(linesize);
+    if (!line)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterRasterToPWG: Unable to allocate line buffer.");
+      res = 1;
+      goto fail;
+    }
 
     memset(line, white, linesize);
     for (y = page_top; y > 0; y --)
