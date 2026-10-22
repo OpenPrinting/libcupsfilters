@@ -319,7 +319,7 @@ zoom_nearest(cf_izoom_t   *z,		// I - Zoom record to fill
 
   if (iy > z->ymax)
     iy = z->ymax;
-  if (z->yflip < 0)
+  if (z->yflip)
     iy = z->ymax - iy;
 
   z->row ^= 1;
