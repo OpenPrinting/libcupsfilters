@@ -239,6 +239,42 @@ generate_job_sheets(
 }
 
 
+//
+// 'job_sheet_wanted()' - Check whether "job-sheets" asks for a start or end
+//                        banner.
+//
+// CUPS passes "job-sheets" as "start" or "start,end".  A single value only
+// applies to the start of the job, and "none" disables the banner.
+//
+
+static bool				// O - `true` if a banner is wanted
+job_sheet_wanted(const char *job_sheets,// I - "job-sheets" value
+                 bool       end)	// I - `true` for the end banner
+{
+  const char	*value = job_sheets,	// Start of the value to check
+		*comma;			// Comma separating start and end
+  size_t	len;			// Length of the value to check
+
+
+  comma = strchr(job_sheets, ',');
+
+  if (end)
+  {
+    if (!comma)
+      return (false);
+
+    value = comma + 1;
+    len   = strlen(value);
+  }
+  else if (comma)
+    len = (size_t)(comma - value);
+  else
+    len = strlen(value);
+
+  return (len > 0 && (len != 4 || strncasecmp(value, "none", 4)));
+}
+
+
 
 //
 // 'media_to_rect()' - Convert `cups_media_t` to `pdfio_rect_t` for media and crop boxes.
@@ -2929,7 +2965,7 @@ prepare_documents(
   prepare_pages(&p, num_documents, documents);
 
   // Add job-sheets content...
-  if (options->job_sheets[0] && strcmp(options->job_sheets, "none"))
+  if (job_sheet_wanted(options->job_sheets, false))
     generate_job_sheets(&p);
 
   // Copy pages to the output file...
@@ -3048,7 +3084,7 @@ prepare_documents(
   }
 
   // Add final job-sheets content...
-  if (options->job_sheets[0] && strcmp(options->job_sheets, "none"))
+  if (job_sheet_wanted(options->job_sheets, true))
     generate_job_sheets(&p);
 
   // Add job-error-sheet content as needed...
@@ -3161,6 +3197,20 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // "universal" filter.
   if (data->copies > 1 && filter_options->copies <= 1)
     filter_options->copies = data->copies;
+
+  // CUPS passes the job title and user as argv[3] and argv[2], not as
+  // "job-name" and "job-originating-user-name" options, so use them for the
+  // banner unless the options are present.
+  if (data->job_title && data->job_title[0] &&
+      !cupsGetOption("job-name", data->num_options, data->options))
+    snprintf(filter_options->job_name, sizeof(filter_options->job_name),
+	     "%s", data->job_title);
+  if (data->job_user && data->job_user[0] &&
+      !cupsGetOption("job-originating-user-name", data->num_options,
+		     data->options))
+    snprintf(filter_options->job_originating_user_name,
+	     sizeof(filter_options->job_originating_user_name), "%s",
+	     data->job_user);
 
   filter_options->page_width_pt = -1.0f;
   filter_options->page_height_pt = -1.0f;
