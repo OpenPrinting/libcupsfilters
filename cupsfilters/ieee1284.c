@@ -616,7 +616,16 @@ move_right_part(
   if (num_chars > 0)
   {
     if (bytes_to_be_moved + num_chars > buf_space_available)
+    {
+      // No room left to shift by num_chars without overflowing the
+      // buffer -- clamp to 0 rather than letting this go negative. A
+      // negative byte count passed to memmove()'s size_t parameter
+      // wraps around to a huge value, turning a near-full buffer into
+      // an out-of-bounds write far past its end.
       bytes_to_be_moved = buf_space_available - num_chars;
+      if (bytes_to_be_moved < 0)
+        bytes_to_be_moved = 0;
+    }
     memmove(start_pos + num_chars, start_pos, bytes_to_be_moved);
   }
   else
