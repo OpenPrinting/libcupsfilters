@@ -275,7 +275,18 @@ cfFilterUniversal(int inputfd,		// I - File descriptor input stream
       }
 
 #if defined(HAVE_GHOSTSCRIPT)
-      if (strcasecmp(output_type, "vnd.cups-pdf"))
+      if (!strcasecmp(output_type, "vnd.cups-pdf-ocr"))
+      {
+	// Searchable PDF: OCR text layer on top of the (scanned) pages
+	filter = malloc(sizeof(cf_filter_filter_in_chain_t));
+	filter->function = cfFilterGhostscriptOCR;
+	filter->parameters = NULL;
+	filter->name = "ghostscriptocr";
+	cupsArrayAdd(filter_chain, filter);
+	if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		     "cfFilterUniversal: Adding %s to chain", filter->name);
+      }
+      else if (strcasecmp(output_type, "vnd.cups-pdf"))
       {
 	if (!strcasecmp(output_type, "vnd.cups-raster") ||
 	    !strcasecmp(output_type, "urf") ||

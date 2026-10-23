@@ -16,6 +16,9 @@
 - `cfFilterGhostscript()`: New output format
   `CF_FILTER_OUT_FORMAT_PDF_OCR` (searchable PDF), also selected by a
   `final_content_type` containing "ocr".
+- `cfFilterUniversal()`: New output type `application/vnd.cups-pdf-ocr`
+  (searchable PDF via `cfFilterGhostscriptOCR()`) for all its input
+  formats.
 - CI test `test-ghostscript-ocr.sh` for the above.
 
 
