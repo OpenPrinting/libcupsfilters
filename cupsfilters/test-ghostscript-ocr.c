@@ -7,7 +7,11 @@
 //
 // Modes: ocr (parameter struct), options (job options only),
 // content-type (OCR via final_content_type), image (raster-only PDF),
+// universal (cfFilterUniversal() to application/vnd.cups-pdf-ocr),
 // available (cfFilterGhostscriptOCRAvailable(), prints the directory)
+//
+// The OCR language is taken from the environment variable OCR_LANGUAGE
+// (default "eng").
 //
 // Copyright © 2026 by OpenPrinting
 //
@@ -128,12 +132,17 @@ main(int argc,                       // I - Number of arguments
     CF_FILTER_GHOSTSCRIPT_OCR_PARAMS_INITIALIZER;
   cf_filter_out_format_t outformat;
   char dir[1024];
+  const char *language = getenv("OCR_LANGUAGE");
+
+  if (!language || !language[0])
+    language = "eng";
 
   if (argc < 4)
   {
     fprintf(stderr,
-	    "Usage: %s <ocr|options|content-type|image|available> <input> "
-	    "<output> [tessdata_dir|-] [fallback] [seekable]\n", argv[0]);
+	    "Usage: %s <ocr|options|content-type|image|universal|available> "
+	    "<input> <output> [tessdata_dir|-] [fallback] [seekable]\n",
+	    argv[0]);
     return (2);
   }
 
@@ -155,8 +164,8 @@ main(int argc,                       // I - Number of arguments
 
   if (!strcmp(mode, "options"))
   {
-    data.num_options = cupsAddOption("ocr-language", "eng", data.num_options,
-				     &data.options);
+    data.num_options = cupsAddOption("ocr-language", language,
+				     data.num_options, &data.options);
     data.num_options = cupsAddOption("ocr-fallback", fallback ? "true" :
 				     "false", data.num_options,
 				     &data.options);
@@ -168,7 +177,7 @@ main(int argc,                       // I - Number of arguments
   }
   else
   {
-    params.language = "eng";
+    params.language = language;
     params.tessdata_dir = tessdata_dir;
     params.fallback = fallback;
     params.resolution = 300;
@@ -207,6 +216,14 @@ main(int argc,                       // I - Number of arguments
   {
     outformat = CF_FILTER_OUT_FORMAT_PDF_IMAGE;
     ret = cfFilterGhostscript(infd, outfd, seekable, &data, &outformat);
+  }
+  else if (!strcmp(mode, "universal"))
+  {
+    data.final_content_type = (char *)"application/vnd.cups-pdf-ocr";
+    if (tessdata_dir)
+      data.num_options = cupsAddOption("ocr-tessdata-dir", tessdata_dir,
+				       data.num_options, &data.options);
+    ret = cfFilterUniversal(infd, outfd, seekable, &data, NULL);
   }
   else
   {

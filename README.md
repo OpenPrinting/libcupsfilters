@@ -71,6 +71,97 @@ compatibility.
 
 ---
 
+## SEARCHABLE PDF OUTPUT FOR SCANS (OCR)
+
+Scans delivered as PDF by IPP Scan or a Scanner Application are
+raster images in a PDF container, nothing in them can be searched or
+selected. The filter function `cfFilterGhostscriptOCR()` turns such a
+PDF (or PostScript, or anything the other filter functions convert to
+PDF) into a searchable PDF: the pages stay as they are and an
+invisible text layer with the recognized text is added. The work is
+done by the `pdfocr8`/`pdfocr24` output devices of Ghostscript, which
+run the Tesseract OCR engine.
+
+### Requirements
+
+- Ghostscript built with Tesseract (`gs -h` lists the `pdfocr8`
+  device). The Ghostscript packages of the usual distributions have it.
+- The Tesseract language data for the languages to recognize (for
+  example the `tesseract-ocr-eng`, `tesseract-ocr-deu` packages). The
+  filter function searches the data in the directory given by the
+  caller, in `TESSDATA_PREFIX`, and in the usual directories of the
+  distributions, and passes the location to Ghostscript. This is
+  needed as Ghostscript's compiled-in default is often not where the
+  packages install the data.
+
+### Using the filter function
+
+    #include <cupsfilters/filter.h>
+
+    cf_filter_ghostscript_ocr_params_t params =
+      CF_FILTER_GHOSTSCRIPT_OCR_PARAMS_INITIALIZER;
+
+    params.language = "deu";          // Tesseract language code(s)
+    params.fallback = 1;              // Raster-only PDF if OCR fails
+
+    ret = cfFilterGhostscriptOCR(inputfd, outputfd, 1, &data, &params);
+
+`data` is the usual `cf_filter_data_t` with the job options, logging
+function, and (optionally) the job and printer IPP attributes. Every
+field of the parameter struct left at `NULL`/`-1` is taken from the
+job options or from the defaults:
+
+| Field          | Job option         | Default                        |
+|----------------|--------------------|--------------------------------|
+| `language`     | `ocr-language`     | `eng`                          |
+| `engine`       | `ocr-engine`       | Ghostscript's default (LSTM)   |
+| `pdfa`         | `ocr-pdfa`         | 0 (plain PDF), 2 or 3 for PDF/A |
+| `fallback`     | `ocr-fallback`     | 1                              |
+| `resolution`   | `ocr-resolution`   | 300 dpi (or `printer-resolution`) |
+| `tessdata_dir` | `ocr-tessdata-dir` | auto-detected                  |
+
+`extra_args`/`num_extra_args` pass additional Ghostscript command
+line arguments through, for example `"-dJPEGQ=75"`.
+
+So a Scanner Application which maps its IPP scan attributes to job
+options only has to call `cfFilterGhostscriptOCR()` with `NULL` as
+parameters. With the output type `application/vnd.cups-pdf-ocr`,
+`cfFilterUniversal()` does the same for any input format, including
+JPEG, PNG, TIFF, PWG/Apple Raster, and PostScript.
+
+### Checking in advance whether OCR is possible
+
+    char tessdata[1024];
+
+    if (cfFilterGhostscriptOCRAvailable(&data, NULL, tessdata,
+                                        sizeof(tessdata)))
+      // offer searchable PDF, language data is in tessdata
+    else
+      // Ghostscript without Tesseract or language data missing
+
+The check uses the language from the parameters or the job options
+in `data` (default `eng`), so it can be called per language. `data`
+can be `NULL`.
+
+### Fallback and errors
+
+If OCR is not possible (no `pdfocr8` device, language data missing)
+or Ghostscript fails or produces no output, the function produces a
+raster-only PDF without text layer and logs a warning, so that no
+scan is lost. With `fallback` set to 0 it logs an error and returns 1
+instead. Ghostscript writes into a temporary file first, so a failed
+OCR run never leaves partial output on the output file descriptor,
+and non-seekable input is buffered so that it can be read a second
+time.
+
+### Languages
+
+Tesseract language codes are three letters (`eng`, `deu`, `fra`,
+`chi_sim`, ...), several can be combined with `+`. Combining languages
+did not always give the expected result with Ghostscript 10.02 in our
+tests, so prefer the main language of the document. Recognition is
+done at the rendering resolution, 300 dpi is a good value for OCR.
+
 ## DEVELOPMENT AND CI/CD
 
 ### CodeQL Static Analysis Configuration

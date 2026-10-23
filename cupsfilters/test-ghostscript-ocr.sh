@@ -179,5 +179,38 @@ run_harness image "${INPUT}" "${OUT}" - 1 1 2>"${WORKDIR}/log8" ||
 check_pdf "${OUT}" 2
 check_no_text "${OUT}"
 
+echo "9. cfFilterUniversal(): application/pdf -> application/vnd.cups-pdf-ocr"
+OUT="${WORKDIR}/universal.pdf"
+run_harness universal "${INPUT}" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log9" ||
+  { cat "${WORKDIR}/log9" >&2; fail "cfFilterUniversal() to searchable PDF failed"; }
+check_pdf "${OUT}" 2
+check_text "${OUT}"
+
+echo "10. Second language (German)"
+if [[ -r "${TESSDATA}/deu.traineddata" ]]; then
+  # Umlauts and sharp s are only recognized with the German data
+  cat > "${WORKDIR}/deu.ps" <<'EOF'
+%!PS
+/Helvetica-Bold findfont dup length dict copy dup /Encoding ISOLatin1Encoding put
+/HB exch definefont pop
+/HB findfont 36 scalefont setfont
+72 650 moveto (GR\334SSE AUS M\334NCHEN) show
+72 590 moveto (Stra\337e und Gr\374\337e) show
+showpage
+EOF
+  DEU_INPUT="${WORKDIR}/deu.pdf"
+  "${GS}" -q -dSAFER -dNOPAUSE -dBATCH -sDEVICE=pdfimage8 -r300 \
+    -sOutputFile="${DEU_INPUT}" "${WORKDIR}/deu.ps"
+  OUT="${WORKDIR}/ocr-deu.pdf"
+  OCR_LANGUAGE=deu run_harness options "${DEU_INPUT}" "${OUT}" "${TESSDATA}" 1 1 \
+    2>"${WORKDIR}/log10" ||
+    { cat "${WORKDIR}/log10" >&2; fail "cfFilterGhostscriptOCR() with ocr-language=deu failed"; }
+  check_pdf "${OUT}" 1
+  pdftotext "${OUT}" - | grep "Grüße" >/dev/null ||
+    fail "${OUT}: German text with umlauts not found"
+else
+  echo "   deu.traineddata not installed, skipping this part"
+fi
+
 echo "PASS: cfFilterGhostscriptOCR()"
 exit 0

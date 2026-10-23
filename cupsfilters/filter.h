@@ -292,6 +292,9 @@ extern int cfFilterGhostscriptOCR(int inputfd,
 // produced if fallback is on, otherwise the function fails.
 //
 // Output formats: Raster-only PDF with OCR text layer, PDF/A-2, PDF/A-3
+//
+// cfFilterUniversal() produces the same output for the output type
+// "application/vnd.cups-pdf-ocr", from any of its input formats.
 
 
 extern int cfFilterGhostscriptOCRAvailable(cf_filter_data_t *data,
