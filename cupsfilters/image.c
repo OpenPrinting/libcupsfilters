@@ -400,7 +400,8 @@ cfImageOpenFP(
 #endif // HAVE_LIBPNG
 #ifdef HAVE_LIBJPEG
   if (!memcmp(header, "\377\330\377", 3) &&	// Start-of-Image
-      header[3] >= 0xe0 && header[3] <= 0xef)	// APPn
+      header[3] >= 0xc0 && header[3] <= 0xfe &&	// Any marker (APPn is
+      (header[3] < 0xd0 || header[3] > 0xda))	// optional) but RSTn-SOS
     status = _cfImageReadJPEG(img, fp, primary, secondary, saturation, hue,
 			      lut);
   else
