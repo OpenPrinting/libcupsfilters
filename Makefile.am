@@ -98,6 +98,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
+	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
@@ -131,6 +132,7 @@ TESTS = \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
+	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
@@ -394,6 +396,7 @@ EXTRA_DIST += \
 	cupsfilters/test_files/filled-2.pdf \
 	cupsfilters/test_files/form_english.pdf \
 	cupsfilters/test_files/inherited_mediabox.pdf \
+	cupsfilters/test_files/jpeg-no-app-marker.jpg \
 	cupsfilters/test_files/link-annots-no-appearance.pdf \
 	cupsfilters/test_files/malformed.pdf \
 	cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg \
