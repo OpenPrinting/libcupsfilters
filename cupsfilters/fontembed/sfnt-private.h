@@ -40,7 +40,7 @@ __cfFontEmbedGetUShort(const char *buf) // {{{
 static inline short
 __cfFontEmbedGetShort(const char *buf) // {{{
 {
-  return ((buf[0] << 8) | ((unsigned char)buf[1]));
+  return ((short)(((unsigned char)buf[0] << 8) | ((unsigned char)buf[1])));
 }
 // }}}
 
@@ -58,7 +58,7 @@ __cfFontEmbedGetUInt24(const char *buf) // {{{
 static inline unsigned int
 __cfFontEmbedGetULong(const char *buf) // {{{
 {
-  return (((unsigned char)buf[0] << 24) |
+  return (((unsigned int)(unsigned char)buf[0] << 24) |
 	  ((unsigned char)buf[1] << 16) |
 	  ((unsigned char)buf[2] << 8) |
 	  ((unsigned char)buf[3]));
@@ -69,10 +69,10 @@ __cfFontEmbedGetULong(const char *buf) // {{{
 static inline int
 __cfFontEmbedGetLong(const char *buf) // {{{
 {
-  return ((buf[0] << 24) |
-	  ((unsigned char)buf[1] << 16) |
-	  ((unsigned char)buf[2] << 8) |
-	  ((unsigned char)buf[3]));
+  return ((int)(((unsigned int)(unsigned char)buf[0] << 24) |
+		((unsigned char)buf[1] << 16) |
+		((unsigned char)buf[2] << 8) |
+		((unsigned char)buf[3])));
 }
 // }}}
 

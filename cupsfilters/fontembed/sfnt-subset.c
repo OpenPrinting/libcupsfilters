@@ -162,7 +162,8 @@ _cfFontEmbedOTFSubSet(_cf_fontembed_otf_file_t *otf,
   DEBUG_assert(glyphs);
   DEBUG_assert(output);
 
-  int iA, b, c;
+  int iA, b;
+  unsigned int c; // bit mask in glyphs[b], shifted until it wraps to 0
 
   // first pass: include all required glyphs
   _cfFontEmbedBitSet(glyphs, 0); // .notdef always required
