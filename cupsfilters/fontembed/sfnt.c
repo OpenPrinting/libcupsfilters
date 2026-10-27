@@ -1040,7 +1040,7 @@ __cfFontEmbedOTFActionReplace(void *param,
     if (ret != length)
     {
       unsigned int csum = __cfFontEmbedOTFCheckSum(data, ret - 4);
-      memcpy(pad, data + ret - 4, ret - length);
+      memcpy(pad, data + ret - 4, length - (ret - 4));
       csum += __cfFontEmbedGetULong(pad);
       *(unsigned int *)context = csum;
     }
