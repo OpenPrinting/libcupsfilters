@@ -598,13 +598,14 @@ cfImageSetMaxTiles(
     max_tiles = ((img->xsize + CF_TILE_SIZE - 1) / CF_TILE_SIZE) *
                 ((img->ysize + CF_TILE_SIZE - 1) / CF_TILE_SIZE);
 
+  // Default, also used when RIP_MAX_CACHE has no number (sscanf()
+  // returns 0 or EOF and leaves max_size alone)
+  max_size = 32 * 1024 * 1024;
+
   if ((cache_env = getenv("RIP_MAX_CACHE")) != NULL)
   {
     switch (sscanf(cache_env, "%d%254s", &max_size, cache_units))
     {
-      case 0 :
-          max_size = 32 * 1024 * 1024;
-	  break;
       case 1 :
           max_size *= 4 * CF_TILE_SIZE * CF_TILE_SIZE;
 	  break;
@@ -620,8 +621,6 @@ cfImageSetMaxTiles(
 	  break;
     }
   }
-  else
-    max_size = 32 * 1024 * 1024;
 
   // Compare in tiles, max_tiles * CF_TILE_SIZE * CF_TILE_SIZE * depth
   // overflows an int for large images
