@@ -583,9 +583,9 @@ cfImageSetMaxTiles(
     cf_image_t   *img,			// I - Image to set
     int          max_tiles)		// I - Number of tiles to cache
 {
-  int	cache_size,			// Size of tile cache in bytes
-	min_tiles,			// Minimum number of tiles to cache
-	max_size;			// Maximum cache size in bytes
+  int	min_tiles,			// Minimum number of tiles to cache
+	max_size,			// Maximum cache size in bytes
+	max_size_tiles;			// Maximum cache size in tiles
   char	*cache_env,			// Cache size environment variable
 	cache_units[255];		// Cache size units
 
@@ -597,9 +597,6 @@ cfImageSetMaxTiles(
   if (max_tiles == 0)
     max_tiles = ((img->xsize + CF_TILE_SIZE - 1) / CF_TILE_SIZE) *
                 ((img->ysize + CF_TILE_SIZE - 1) / CF_TILE_SIZE);
-
-  cache_size = max_tiles * CF_TILE_SIZE * CF_TILE_SIZE *
-               cfImageGetDepth(img);
 
   if ((cache_env = getenv("RIP_MAX_CACHE")) != NULL)
   {
@@ -626,9 +623,12 @@ cfImageSetMaxTiles(
   else
     max_size = 32 * 1024 * 1024;
 
-  if (cache_size > max_size)
-    max_tiles = max_size / CF_TILE_SIZE / CF_TILE_SIZE /
-                cfImageGetDepth(img);
+  // Compare in tiles, max_tiles * CF_TILE_SIZE * CF_TILE_SIZE * depth
+  // overflows an int for large images
+  max_size_tiles = max_size / CF_TILE_SIZE / CF_TILE_SIZE /
+                   cfImageGetDepth(img);
+  if (max_tiles > max_size_tiles)
+    max_tiles = max_size_tiles;
 
   if (max_tiles < min_tiles)
     max_tiles = min_tiles;
