@@ -361,7 +361,8 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
   else if (size_name_buf[0])
     _strlcpy(h->cupsPageSizeName, size_name_buf, sizeof(h->cupsPageSizeName));
 
-  log(ld, CF_LOGLEVEL_DEBUG, "Format of the input document: %s", data->content_type);
+  if (log)
+    log(ld, CF_LOGLEVEL_DEBUG, "Format of the input document: %s", data->content_type);
   if (data->content_type == NULL ||
       (strcmp(data->content_type, "application/postscript") &&
        strcmp(data->content_type, "application/vnd.cups-postscript") &&
@@ -374,14 +375,15 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
     // The input format of the document does not define the sizes of the
     // input pages in absolute dimensions, so if no output page size
     // is defined, fall back to US Letter
-    log(ld, CF_LOGLEVEL_DEBUG,
-	"Document's input format does not provide absolute size dimensions for each page, falling back to US Letter if no output page size is provided.");
+    if (log)
+      log(ld, CF_LOGLEVEL_DEBUG,
+	  "Document's input format does not provide absolute size dimensions for each page, falling back to US Letter if no output page size is provided.");
     cfSetPageDimensionsToDefault(&(dimensions[0]), &(dimensions[1]),
 				 &(margins[0]), &(margins[1]),
 				 &(margins[2]), &(margins[3]),
 				 log, ld);
   }
-  else
+  else if (log)
   {
     log(ld, CF_LOGLEVEL_DEBUG,
 	"Document's input format provides absolute size dimensions for each page, using these if no output page size is provided.");
