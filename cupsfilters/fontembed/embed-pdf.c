@@ -284,7 +284,8 @@ __cfFontEmbedEmbPDFFWCIDWidths(const _cf_fontembed_bit_set_t glyphs,
   if (default_width < 0)
     freq = __cfFontEmbedFrequentNew(3);
 
-  int iA, b, c;
+  int iA, b;
+  unsigned int c; // bit mask in glyphs[b], shifted until it wraps to 0
   int size = 0,
       in_region = 0; // current number of elements in after region start
 
