@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Test for cfFilterGhostscriptOCR(): Turn a raster-only PDF into a
+# Test for the searchable PDF (OCR) output of cfFilterGhostscript():
+# Turn a raster-only PDF into a
 # searchable PDF and check the text layer, the error handling without
 # language data, the fallback to raster-only PDF, and that
 # cfFilterGhostscript() still produces plain raster PDFs.
@@ -128,38 +129,45 @@ fi
 TESSDATA_PREFIX="${TESSDATA}" run_harness available "${INPUT}" /dev/null - >/dev/null 2>&1 ||
   fail "cfFilterGhostscriptOCRAvailable() did not honor TESSDATA_PREFIX"
 
-echo "2. Searchable PDF from seekable input (explicit parameters)"
+echo "2. Searchable PDF from seekable input (output format parameter)"
 OUT="${WORKDIR}/ocr-seekable.pdf"
 run_harness ocr "${INPUT}" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log2" ||
-  { cat "${WORKDIR}/log2" >&2; fail "cfFilterGhostscriptOCR() failed"; }
+  { cat "${WORKDIR}/log2" >&2; fail "cfFilterGhostscript() OCR output failed"; }
 check_pdf "${OUT}" 2
 check_text "${OUT}"
 
 echo "3. Searchable PDF from non-seekable input (pipe)"
 OUT="${WORKDIR}/ocr-pipe.pdf"
 run_harness ocr "${INPUT}" "${OUT}" "${TESSDATA}" 1 0 2>"${WORKDIR}/log3" ||
-  { cat "${WORKDIR}/log3" >&2; fail "cfFilterGhostscriptOCR() failed on pipe input"; }
+  { cat "${WORKDIR}/log3" >&2; fail "cfFilterGhostscript() OCR output failed on pipe input"; }
 check_pdf "${OUT}" 2
 check_text "${OUT}"
 
-echo "4. Settings via job options"
-OUT="${WORKDIR}/ocr-options.pdf"
-run_harness options "${INPUT}" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log4" ||
-  { cat "${WORKDIR}/log4" >&2; fail "cfFilterGhostscriptOCR() with job options failed"; }
-check_pdf "${OUT}" 2
-check_text "${OUT}"
-
-echo "5. OCR output selected via final_content_type in cfFilterGhostscript()"
+echo "4. OCR output selected via final_content_type in cfFilterGhostscript()"
 OUT="${WORKDIR}/ocr-content-type.pdf"
-run_harness content-type "${INPUT}" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log5" ||
-  { cat "${WORKDIR}/log5" >&2; fail "cfFilterGhostscript() with OCR content type failed"; }
+run_harness content-type "${INPUT}" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log4" ||
+  { cat "${WORKDIR}/log4" >&2; fail "cfFilterGhostscript() with OCR content type failed"; }
+check_pdf "${OUT}" 2
+check_text "${OUT}"
+
+echo "5. PostScript input: OCR via content type only converts to PDF, via parameter it OCRs"
+OUT="${WORKDIR}/ps-by-type.pdf"
+run_harness content-type "${WORKDIR}/scan.ps" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log5" ||
+  { cat "${WORKDIR}/log5" >&2; fail "cfFilterGhostscript() PostScript to PDF failed"; }
+check_pdf "${OUT}" 2
+if pdffonts "${OUT}" | grep GlyphLessFont >/dev/null; then
+  fail "${OUT}: PostScript input was OCRed although selected via content type"
+fi
+OUT="${WORKDIR}/ps-by-param.pdf"
+run_harness ocr "${WORKDIR}/scan.ps" "${OUT}" "${TESSDATA}" 1 1 2>"${WORKDIR}/log5" ||
+  { cat "${WORKDIR}/log5" >&2; fail "cfFilterGhostscript() OCR of PostScript failed"; }
 check_pdf "${OUT}" 2
 check_text "${OUT}"
 
 echo "6. Missing language data, fallback disabled: must fail cleanly"
 OUT="${WORKDIR}/ocr-nofallback.pdf"
 if run_harness ocr "${INPUT}" "${OUT}" "${EMPTY_TESSDATA}" 0 1 2>"${WORKDIR}/log6"; then
-  fail "cfFilterGhostscriptOCR() succeeded without language data"
+  fail "OCR output succeeded without language data"
 fi
 grep -q "language data" "${WORKDIR}/log6" || fail "no clear error message about missing language data"
 [[ ! -s "${OUT}" ]] || fail "output written although the job failed"
@@ -202,9 +210,9 @@ EOF
   "${GS}" -q -dSAFER -dNOPAUSE -dBATCH -sDEVICE=pdfimage8 -r300 \
     -sOutputFile="${DEU_INPUT}" "${WORKDIR}/deu.ps"
   OUT="${WORKDIR}/ocr-deu.pdf"
-  OCR_LANGUAGE=deu run_harness options "${DEU_INPUT}" "${OUT}" "${TESSDATA}" 1 1 \
+  OCR_LANGUAGE=deu run_harness ocr "${DEU_INPUT}" "${OUT}" "${TESSDATA}" 1 1 \
     2>"${WORKDIR}/log10" ||
-    { cat "${WORKDIR}/log10" >&2; fail "cfFilterGhostscriptOCR() with ocr-language=deu failed"; }
+    { cat "${WORKDIR}/log10" >&2; fail "OCR output with ocr-language=deu failed"; }
   check_pdf "${OUT}" 1
   pdftotext "${OUT}" - | grep "Grüße" >/dev/null ||
     fail "${OUT}: German text with umlauts not found"
@@ -212,5 +220,5 @@ else
   echo "   deu.traineddata not installed, skipping this part"
 fi
 
-echo "PASS: cfFilterGhostscriptOCR()"
+echo "PASS: searchable PDF output"
 exit 0

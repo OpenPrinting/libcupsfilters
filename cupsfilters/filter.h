@@ -114,22 +114,6 @@ typedef struct cf_filter_external_s // Parameters for the cfFilterExternal() fil
   char **envp;               // Additional environment variables, the already defined ones stay valid but can be overwritten by these ones, NULL if none
 } cf_filter_external_t;
 
-typedef struct cf_filter_ghostscript_ocr_params_s // Parameters for the cfFilterGhostscriptOCR() filter function, NULL/-1 = not set
-{
-  const char *language;     // Tesseract language(s), "eng", "eng+deu", ...
-  int engine;               // Tesseract engine, 0 = LSTM, 1 = legacy, 2 = both
-  int pdfa;                 // 0 = plain PDF, 2 = PDF/A-2, 3 = PDF/A-3
-  int fallback;             // 1 = raster-only PDF if OCR is not possible,
-                            // 0 = fail the job
-  int resolution;           // Rendering/OCR resolution in dpi
-  const char *tessdata_dir; // Directory with the "*.traineddata" files
-  int num_extra_args;       // Extra Ghostscript command line arguments
-  const char * const *extra_args;
-} cf_filter_ghostscript_ocr_params_t;
-
-#define CF_FILTER_GHOSTSCRIPT_OCR_PARAMS_INITIALIZER \
-	{ NULL, -1, -1, -1, -1, NULL, 0, NULL }
-
 typedef struct cf_filter_texttopdf_parameter_s // parameters container of environemnt variables needed by texttopdf filter function
 {
   char *data_dir;			// Data directory to be used for fonts and charsets, or NULL for default
@@ -253,10 +237,21 @@ extern int cfFilterGhostscript(int inputfd,
 // Output formats: PDF, raster-only PDF, searchable (OCR) PDF, PCLm,
 // PostScript, CUPS Raster, PWG Raster, Apple Raster, PCL-XL
 //
-// A final_content_type containing "ocr" (for example
-// "application/vnd.cups-pdf-ocr") or the parameter
-// CF_FILTER_OUT_FORMAT_PDF_OCR selects searchable PDF output, see
-// cfFilterGhostscriptOCR() below for the details.
+// Searchable PDF (CF_FILTER_OUT_FORMAT_PDF_OCR, or a final_content_type
+// containing "ocr", for example "application/vnd.cups-pdf-ocr"): For
+// scans from IPP Scan or a Scanner Application. The output is a
+// raster-only PDF with an invisible text layer, produced by the
+// pdfocr8/pdfocr24 devices of Ghostscript which run the Tesseract OCR
+// engine. Settings via the job options "ocr-language" (default "eng"),
+// "ocr-engine", "ocr-fallback" (default
+// true), "ocr-resolution" (default 300 dpi), "ocr-tessdata-dir"
+// (default: auto-detected). If Ghostscript has no pdfocr8 device, the
+// language data is missing, or Ghostscript fails, a raster-only PDF
+// without text layer is produced if fallback is on, otherwise the
+// function fails. Selected via the content type, PostScript input is
+// only converted to PDF, as this is the first step of a PostScript ->
+// pdftopdf -> OCR filter chain and the OCR is done by the later run on
+// the PDF. See also cfFilterGhostscriptOCRAvailable().
 //
 // Note: With the Apple Raster selection and a Ghostscript version
 // without "appleraster" output device (9.55.x and older) the output
@@ -268,46 +263,17 @@ extern int cfFilterGhostscript(int inputfd,
 // filter is required.
 
 
-extern int cfFilterGhostscriptOCR(int inputfd,
-				  int outputfd,
-				  int inputseekable,
-				  cf_filter_data_t *data,
-				  void *parameters);
-
-// Converts PDF or PostScript input (typically a scan from IPP Scan or a
-// Scanner Application) into a raster-only PDF with an invisible text
-// layer, so that the result is searchable without changing its
-// appearance. Uses the pdfocr8/pdfocr24 output devices of Ghostscript
-// which run the Tesseract OCR engine.
-//
-// Parameters: cf_filter_ghostscript_ocr_params_t* or NULL. Fields left
-// at NULL/-1 are taken from the job options "ocr-language",
-// "ocr-engine", "ocr-pdfa", "ocr-fallback", "ocr-resolution",
-// "ocr-tessdata-dir", otherwise the defaults are "eng", Ghostscript's
-// default engine, plain PDF, fallback on, 300 dpi, and auto-detection
-// of the language data directory.
-//
-// If Ghostscript has no pdfocr8 device, the language data is missing,
-// or Ghostscript fails, a raster-only PDF without text layer is
-// produced if fallback is on, otherwise the function fails.
-//
-// Output formats: Raster-only PDF with OCR text layer, PDF/A-2, PDF/A-3
-//
-// cfFilterUniversal() produces the same output for the output type
-// "application/vnd.cups-pdf-ocr", from any of its input formats.
-
-
 extern int cfFilterGhostscriptOCRAvailable(cf_filter_data_t *data,
-					   const cf_filter_ghostscript_ocr_params_t
-					   *params,
 					   char *tessdata_dir,
 					   size_t tessdata_dir_size);
 
-// Checks whether cfFilterGhostscriptOCR() can do OCR: Ghostscript must
-// have the pdfocr8 device and the language data for the requested
-// language(s) must be found. Returns 1 and the directory of the
-// language data in tessdata_dir (if not NULL) on success, 0 otherwise.
-// data can be NULL (no job options, no logging).
+// Checks whether cfFilterGhostscript() can produce searchable PDF:
+// Ghostscript must have the pdfocr8 device and the language data for
+// the language(s) requested via the job options in data (default
+// "eng") must be found. Returns 1 and the directory of the language
+// data in tessdata_dir (if not NULL) on success, 0 otherwise. data can
+// be NULL (no job options, no logging). cfFilterUniversal() produces
+// searchable PDF for the output type "application/vnd.cups-pdf-ocr".
 
 
 extern int cfFilterBannerToPDF(int inputfd,

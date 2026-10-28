@@ -1,17 +1,17 @@
 //
-// Harness for test-ghostscript-ocr.sh: run cfFilterGhostscriptOCR() and
-// cfFilterGhostscript() on a file.
+// Harness for test-ghostscript-ocr.sh: run cfFilterGhostscript() and
+// cfFilterUniversal() on a file.
 //
 // Usage: test-ghostscript-ocr <mode> <input> <output> [tessdata_dir|-]
 //                             [fallback] [seekable]
 //
-// Modes: ocr (parameter struct), options (job options only),
-// content-type (OCR via final_content_type), image (raster-only PDF),
-// universal (cfFilterUniversal() to application/vnd.cups-pdf-ocr),
-// available (cfFilterGhostscriptOCRAvailable(), prints the directory)
+// Modes: ocr (CF_FILTER_OUT_FORMAT_PDF_OCR as parameter), content-type
+// (OCR via final_content_type), image (raster-only PDF), universal
+// (cfFilterUniversal() to application/vnd.cups-pdf-ocr), available
+// (cfFilterGhostscriptOCRAvailable(), prints the directory)
 //
-// The OCR language is taken from the environment variable OCR_LANGUAGE
-// (default "eng").
+// The OCR settings are passed as job options; the language is taken
+// from the environment variable OCR_LANGUAGE (default "eng").
 //
 // Copyright © 2026 by OpenPrinting
 //
@@ -121,28 +121,22 @@ main(int argc,                       // I - Number of arguments
   const char *mode,
 	     *input,
 	     *output,
-	     *tessdata_dir = NULL;
+	     *tessdata_dir = NULL,
+	     *language = getenv("OCR_LANGUAGE");
   int fallback = 1,
       seekable = 1,
       infd,
       outfd,
       ret;
   cf_filter_data_t data;
-  cf_filter_ghostscript_ocr_params_t params =
-    CF_FILTER_GHOSTSCRIPT_OCR_PARAMS_INITIALIZER;
   cf_filter_out_format_t outformat;
   char dir[1024];
-  const char *language = getenv("OCR_LANGUAGE");
-
-  if (!language || !language[0])
-    language = "eng";
 
   if (argc < 4)
   {
     fprintf(stderr,
-	    "Usage: %s <ocr|options|content-type|image|universal|available> "
-	    "<input> <output> [tessdata_dir|-] [fallback] [seekable]\n",
-	    argv[0]);
+	    "Usage: %s <ocr|content-type|image|universal|available> <input> "
+	    "<output> [tessdata_dir|-] [fallback] [seekable]\n", argv[0]);
     return (2);
   }
 
@@ -155,6 +149,8 @@ main(int argc,                       // I - Number of arguments
     fallback = atoi(argv[5]);
   if (argc > 6)
     seekable = atoi(argv[6]);
+  if (!language || !language[0])
+    language = "eng";
 
   memset(&data, 0, sizeof(data));
   data.copies = 1;
@@ -162,30 +158,19 @@ main(int argc,                       // I - Number of arguments
   data.final_content_type = (char *)"application/pdf";
   data.logfunc = log_to_stderr;
 
-  if (!strcmp(mode, "options"))
-  {
-    data.num_options = cupsAddOption("ocr-language", language,
+  data.num_options = cupsAddOption("ocr-language", language,
+				   data.num_options, &data.options);
+  data.num_options = cupsAddOption("ocr-fallback", fallback ? "true" : "false",
+				   data.num_options, &data.options);
+  data.num_options = cupsAddOption("ocr-resolution", "300",
+				   data.num_options, &data.options);
+  if (tessdata_dir)
+    data.num_options = cupsAddOption("ocr-tessdata-dir", tessdata_dir,
 				     data.num_options, &data.options);
-    data.num_options = cupsAddOption("ocr-fallback", fallback ? "true" :
-				     "false", data.num_options,
-				     &data.options);
-    data.num_options = cupsAddOption("ocr-resolution", "300",
-				     data.num_options, &data.options);
-    if (tessdata_dir)
-      data.num_options = cupsAddOption("ocr-tessdata-dir", tessdata_dir,
-				       data.num_options, &data.options);
-  }
-  else
-  {
-    params.language = language;
-    params.tessdata_dir = tessdata_dir;
-    params.fallback = fallback;
-    params.resolution = 300;
-  }
 
   if (!strcmp(mode, "available"))
   {
-    ret = cfFilterGhostscriptOCRAvailable(&data, &params, dir, sizeof(dir));
+    ret = cfFilterGhostscriptOCRAvailable(&data, dir, sizeof(dir));
     if (ret)
       printf("%s\n", dir);
     return (ret ? 0 : 1);
@@ -201,15 +186,13 @@ main(int argc,                       // I - Number of arguments
   }
 
   if (!strcmp(mode, "ocr"))
-    ret = cfFilterGhostscriptOCR(infd, outfd, seekable, &data, &params);
-  else if (!strcmp(mode, "options"))
-    ret = cfFilterGhostscriptOCR(infd, outfd, seekable, &data, NULL);
+  {
+    outformat = CF_FILTER_OUT_FORMAT_PDF_OCR;
+    ret = cfFilterGhostscript(infd, outfd, seekable, &data, &outformat);
+  }
   else if (!strcmp(mode, "content-type"))
   {
     data.final_content_type = (char *)"application/vnd.cups-pdf-ocr";
-    if (tessdata_dir)
-      data.num_options = cupsAddOption("ocr-tessdata-dir", tessdata_dir,
-				       data.num_options, &data.options);
     ret = cfFilterGhostscript(infd, outfd, seekable, &data, NULL);
   }
   else if (!strcmp(mode, "image"))
@@ -220,9 +203,6 @@ main(int argc,                       // I - Number of arguments
   else if (!strcmp(mode, "universal"))
   {
     data.final_content_type = (char *)"application/vnd.cups-pdf-ocr";
-    if (tessdata_dir)
-      data.num_options = cupsAddOption("ocr-tessdata-dir", tessdata_dir,
-				       data.num_options, &data.options);
     ret = cfFilterUniversal(infd, outfd, seekable, &data, NULL);
   }
   else
