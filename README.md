@@ -114,7 +114,6 @@ settings are job options:
 |--------------------|-------------------------------------------|
 | `ocr-language`     | `eng`, Tesseract codes, `eng+deu` combines |
 | `ocr-engine`       | Ghostscript's default (LSTM); 0, 1, 2     |
-| `ocr-pdfa`         | 0 (plain PDF), 2 or 3 for PDF/A-2/3        |
 | `ocr-fallback`     | `true`: raster-only PDF if OCR fails       |
 | `ocr-resolution`   | 300 dpi (or `printer-resolution`)          |
 | `ocr-tessdata-dir` | auto-detected                              |

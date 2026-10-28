@@ -110,7 +110,6 @@ typedef struct ocr_settings_s           // Resolved OCR settings
 {
   char language[256];                   // Tesseract language(s), "eng+deu"
   int engine;                           // -dOCREngine, -1 = not set
-  int pdfa;                             // -dPDFA, 0 = plain PDF
   int fallback;                         // 1 = raster-only PDF on failure
   int resolution;                       // dpi, 0 = use Raster header
   char tessdata_dir[1024];              // Directory with *.traineddata
@@ -163,8 +162,6 @@ ocr_resolve_settings(cf_filter_data_t *data, // I - Job data
     strncpy(s->language, t, sizeof(s->language) - 1);
   if ((t = cupsGetOption("ocr-engine", num_options, options)) != NULL)
     s->engine = atoi(t);
-  if ((t = cupsGetOption("ocr-pdfa", num_options, options)) != NULL)
-    s->pdfa = atoi(t);
   if ((t = cupsGetOption("ocr-fallback", num_options, options)) != NULL)
     s->fallback = ocr_option_is_true(t);
   if ((t = cupsGetOption("ocr-resolution", num_options, options)) != NULL)
@@ -179,8 +176,6 @@ ocr_resolve_settings(cf_filter_data_t *data, // I - Job data
       *q = '_';
   if (s->engine > 3)
     s->engine = -1;
-  if (s->pdfa != 0 && s->pdfa != 1 && s->pdfa != 2 && s->pdfa != 3)
-    s->pdfa = 0;
   if (s->resolution < 0)
     s->resolution = 0;
 }
@@ -1222,10 +1217,9 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
   {
     ocr_resolve_settings(data, &ocr);
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
-		 "cfFilterGhostscript: OCR: language=%s engine=%d pdfa=%d "
+		 "cfFilterGhostscript: OCR: language=%s engine=%d "
 		 "fallback=%d resolution=%d",
-		 ocr.language, ocr.engine, ocr.pdfa, ocr.fallback,
-		 ocr.resolution);
+		 ocr.language, ocr.engine, ocr.fallback, ocr.resolution);
     if (ocr_check_available(&ocr, log, ld))
       ocr_active = 1;
     else if (ocr.fallback)
@@ -1897,11 +1891,6 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
 	if (ocr.engine >= 0)
 	{
 	  snprintf(tmpstr, sizeof(tmpstr), "-dOCREngine=%d", ocr.engine);
-	  cupsArrayAdd(gs_args, strdup(tmpstr));
-	}
-	if (ocr.pdfa > 0)
-	{
-	  snprintf(tmpstr, sizeof(tmpstr), "-dPDFA=%d", ocr.pdfa);
 	  cupsArrayAdd(gs_args, strdup(tmpstr));
 	}
       }

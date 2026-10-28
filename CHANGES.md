@@ -7,7 +7,7 @@
   Scan/Scanner Applications) into searchable PDFs, using the
   `pdfocr8`/`pdfocr24` output devices of Ghostscript (Tesseract OCR).
   Settings via the job options `ocr-language`, `ocr-engine`,
-  `ocr-pdfa`, `ocr-fallback`, `ocr-resolution`, `ocr-tessdata-dir`.
+  `ocr-fallback`, `ocr-resolution`, `ocr-tessdata-dir`.
   The Tesseract language data is located automatically and passed to
   Ghostscript via `TESSDATA_PREFIX`; if OCR is not possible or fails,
   a raster-only PDF is produced instead (configurable).

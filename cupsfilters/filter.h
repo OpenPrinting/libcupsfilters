@@ -243,7 +243,7 @@ extern int cfFilterGhostscript(int inputfd,
 // raster-only PDF with an invisible text layer, produced by the
 // pdfocr8/pdfocr24 devices of Ghostscript which run the Tesseract OCR
 // engine. Settings via the job options "ocr-language" (default "eng"),
-// "ocr-engine", "ocr-pdfa" (2 or 3 for PDF/A), "ocr-fallback" (default
+// "ocr-engine", "ocr-fallback" (default
 // true), "ocr-resolution" (default 300 dpi), "ocr-tessdata-dir"
 // (default: auto-detected). If Ghostscript has no pdfocr8 device, the
 // language data is missing, or Ghostscript fails, a raster-only PDF
