@@ -114,8 +114,6 @@ typedef struct ocr_settings_s           // Resolved OCR settings
   int fallback;                         // 1 = raster-only PDF on failure
   int resolution;                       // dpi, 0 = use Raster header
   char tessdata_dir[1024];              // Directory with *.traineddata
-  int num_extra_args;                   // Extra Ghostscript arguments
-  const char * const *extra_args;
 } ocr_settings_t;
 
 static const char *ocr_tessdata_candidates[] =
@@ -141,14 +139,13 @@ ocr_option_is_true(const char *t)       // I - Option value
 
 
 //
-// 'ocr_resolve_settings()' - Determine the OCR settings from parameters,
-//                            job options, and defaults (in this order)
+// 'ocr_resolve_settings()' - Determine the OCR settings from the job
+//                            options and the defaults
 //
 
 static void
-ocr_resolve_settings(cf_filter_data_t *data,            // I - Job data
-		     const cf_filter_ghostscript_ocr_params_t *p, // I - Params
-		     ocr_settings_t *s)                 // O - Settings
+ocr_resolve_settings(cf_filter_data_t *data, // I - Job data
+		     ocr_settings_t *s)      // O - Settings
 {
   const char *t;
   int num_options = data ? data->num_options : 0;
@@ -174,28 +171,6 @@ ocr_resolve_settings(cf_filter_data_t *data,            // I - Job data
     s->resolution = atoi(t);
   if ((t = cupsGetOption("ocr-tessdata-dir", num_options, options)) != NULL)
     strncpy(s->tessdata_dir, t, sizeof(s->tessdata_dir) - 1);
-
-  // Explicit parameters
-  if (p)
-  {
-    if (p->language && p->language[0])
-      strncpy(s->language, p->language, sizeof(s->language) - 1);
-    if (p->engine >= 0)
-      s->engine = p->engine;
-    if (p->pdfa >= 0)
-      s->pdfa = p->pdfa;
-    if (p->fallback >= 0)
-      s->fallback = p->fallback;
-    if (p->resolution > 0)
-      s->resolution = p->resolution;
-    if (p->tessdata_dir && p->tessdata_dir[0])
-      strncpy(s->tessdata_dir, p->tessdata_dir, sizeof(s->tessdata_dir) - 1);
-    if (p->num_extra_args > 0 && p->extra_args)
-    {
-      s->num_extra_args = p->num_extra_args;
-      s->extra_args = p->extra_args;
-    }
-  }
 
   // The language string goes onto the command line and into file names
   for (q = s->language; *q; q ++)
@@ -1151,9 +1126,8 @@ gs_spawn (const char *filename,
 }
 
 //
-// 'ghostscript_filter()' - Common worker of cfFilterGhostscript() and
-//                          cfFilterGhostscriptOCR(): Use Ghostscript for
-//                          print/scan data conversions
+// 'ghostscript_filter()' - Worker of cfFilterGhostscript(): Use
+//                          Ghostscript for print/scan data conversions
 //
 
 static int                                  // O - Error status
@@ -1162,11 +1136,12 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
 		   int inputseekable,      // I - Is input stream seekable?
 		   cf_filter_data_t *data, // I - Job and printer data
 		   cf_filter_out_format_t outformat, // I - Output format
-		   const cf_filter_ghostscript_ocr_params_t *ocr_params,
-                                           // I - OCR parameters or NULL
-		   int scan_mode)          // I - Input is a scan: Keep pages
+		   int scan_mode,          // I - Input is a scan: Keep pages
                                            //     as they are, no printer
                                            //     margins
+		   int ocr_by_type)        // I - OCR selected via content
+                                           //     type: PostScript input is
+                                           //     only converted to PDF
 {
   cf_filter_out_format_t hdr_outformat;   // Output format as seen by the
                                           // Raster header helpers
@@ -1245,7 +1220,7 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
   // to raster-only PDF or fail
   if (outformat == CF_FILTER_OUT_FORMAT_PDF_OCR)
   {
-    ocr_resolve_settings(data, ocr_params, &ocr);
+    ocr_resolve_settings(data, &ocr);
     if (log) log(ld, CF_LOGLEVEL_DEBUG,
 		 "cfFilterGhostscript: OCR: language=%s engine=%d pdfa=%d "
 		 "fallback=%d resolution=%d",
@@ -1489,6 +1464,33 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
       if (log) log(ld, CF_LOGLEVEL_ERROR,
 		   "cfFilterGhostscript: Can't detect file type");
       goto out;
+    }
+
+    // OCR selected via the content type and PostScript input: This is
+    // the first step of a PostScript -> pdftopdf -> OCR chain, so only
+    // convert to PDF, the OCR is done by the later run on the PDF
+    if (ocr_active && ocr_by_type && doc_type == GS_DOC_TYPE_PS)
+    {
+      if (log) log(ld, CF_LOGLEVEL_DEBUG,
+		   "cfFilterGhostscript: PostScript input, converting to PDF "
+		   "without OCR");
+      outformat = CF_FILTER_OUT_FORMAT_PDF;
+      hdr_outformat = CF_FILTER_OUT_FORMAT_PDF;
+      ocr_active = 0;
+      scan_mode = 0;
+      if (ocr_tempfd >= 0)
+      {
+	close(ocr_tempfd);
+	ocr_tempfd = -1;
+	unlink(ocr_tempfile);
+	ocr_tempfile[0] = '\0';
+      }
+      if (retry_fd >= 0)
+      {
+	close(retry_fd);
+	retry_fd = -1;
+      }
+      gs_outfd = outputfd;
     }
 
     if (doc_type == GS_DOC_TYPE_PDF)
@@ -1902,9 +1904,6 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
 	  snprintf(tmpstr, sizeof(tmpstr), "-dPDFA=%d", ocr.pdfa);
 	  cupsArrayAdd(gs_args, strdup(tmpstr));
 	}
-	for (i = 0; i < ocr.num_extra_args; i ++)
-	  if (ocr.extra_args[i] && ocr.extra_args[i][0])
-	    cupsArrayAdd(gs_args, strdup(ocr.extra_args[i]));
       }
     }
 
@@ -2483,7 +2482,7 @@ ghostscript_filter(int inputfd,            // I - File descriptor input stream
       {
 	// The nested call reads retry_fd and closes it and outputfd
 	status = ghostscript_filter(retry_fd, outputfd, 1, data,
-				    CF_FILTER_OUT_FORMAT_PDF_IMAGE, NULL, 1);
+				    CF_FILTER_OUT_FORMAT_PDF_IMAGE, 1, 0);
 	retry_fd = -1;
 	outputfd_closed = 1;
       }
@@ -2576,29 +2575,10 @@ cfFilterGhostscript(int inputfd,            // I - File descriptor input stream
   }
 
   return (ghostscript_filter(inputfd, outputfd, inputseekable, data,
-			     outformat, NULL,
+			     outformat,
+			     outformat == CF_FILTER_OUT_FORMAT_PDF_OCR,
+			     !parameters &&
 			     outformat == CF_FILTER_OUT_FORMAT_PDF_OCR));
-}
-
-
-//
-// 'cfFilterGhostscriptOCR()' - Filter function to turn scans into
-//                              searchable PDFs using Ghostscript's OCR
-//                              output devices
-//
-
-int                                         // O - Error status
-cfFilterGhostscriptOCR(int inputfd,         // I - File descriptor input stream
-		       int outputfd,        // I - File descriptor output stream
-		       int inputseekable,   // I - Is input stream seekable?
-		       cf_filter_data_t *data, // I - Job and printer data
-		       void *parameters)    // I - cf_filter_ghostscript_ocr_params_t*
-                                            //     or NULL
-{
-  return (ghostscript_filter(inputfd, outputfd, inputseekable, data,
-			     CF_FILTER_OUT_FORMAT_PDF_OCR,
-			     (const cf_filter_ghostscript_ocr_params_t *)
-			     parameters, 1));
 }
 
 
@@ -2611,7 +2591,6 @@ int                                         // O - 1 if available, 0 if not
 cfFilterGhostscriptOCRAvailable(
     cf_filter_data_t *data,                 // I - Job data (options, logging)
                                             //     or NULL
-    const cf_filter_ghostscript_ocr_params_t *params, // I - Parameters or NULL
     char *tessdata_dir,                     // O - Directory of language data
                                             //     or NULL
     size_t tessdata_dir_size)               // I - Size of tessdata_dir buffer
@@ -2621,7 +2600,7 @@ cfFilterGhostscriptOCRAvailable(
   void *ld = data ? data->logdata : NULL;
 
 
-  ocr_resolve_settings(data, params, &ocr);
+  ocr_resolve_settings(data, &ocr);
   if (!ocr_check_available(&ocr, log, ld))
     return (0);
 

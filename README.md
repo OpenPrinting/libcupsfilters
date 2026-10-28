@@ -75,12 +75,12 @@ compatibility.
 
 Scans delivered as PDF by IPP Scan or a Scanner Application are
 raster images in a PDF container, nothing in them can be searched or
-selected. The filter function `cfFilterGhostscriptOCR()` turns such a
-PDF (or PostScript, or anything the other filter functions convert to
-PDF) into a searchable PDF: the pages stay as they are and an
-invisible text layer with the recognized text is added. The work is
-done by the `pdfocr8`/`pdfocr24` output devices of Ghostscript, which
-run the Tesseract OCR engine.
+selected. `cfFilterGhostscript()` with the output format
+`CF_FILTER_OUT_FORMAT_PDF_OCR` turns such a PDF (or PostScript, or
+anything the other filter functions convert to PDF) into a searchable
+PDF: the pages stay as they are and an invisible text layer with the
+recognized text is added. The work is done by the `pdfocr8`/`pdfocr24`
+output devices of Ghostscript, which run the Tesseract OCR engine.
 
 ### Requirements
 
@@ -88,8 +88,8 @@ run the Tesseract OCR engine.
   device). The Ghostscript packages of the usual distributions have it.
 - The Tesseract language data for the languages to recognize (for
   example the `tesseract-ocr-eng`, `tesseract-ocr-deu` packages). The
-  filter function searches the data in the directory given by the
-  caller, in `TESSDATA_PREFIX`, and in the usual directories of the
+  filter function searches the data in the directory given by the job
+  option, in `TESSDATA_PREFIX`, and in the usual directories of the
   distributions, and passes the location to Ghostscript. This is
   needed as Ghostscript's compiled-in default is often not where the
   packages install the data.
@@ -98,57 +98,51 @@ run the Tesseract OCR engine.
 
     #include <cupsfilters/filter.h>
 
-    cf_filter_ghostscript_ocr_params_t params =
-      CF_FILTER_GHOSTSCRIPT_OCR_PARAMS_INITIALIZER;
+    cf_filter_out_format_t outformat = CF_FILTER_OUT_FORMAT_PDF_OCR;
 
-    params.language = "deu";          // Tesseract language code(s)
-    params.fallback = 1;              // Raster-only PDF if OCR fails
-
-    ret = cfFilterGhostscriptOCR(inputfd, outputfd, 1, &data, &params);
+    data.num_options = cupsAddOption("ocr-language", "deu",
+                                     data.num_options, &data.options);
+    ret = cfFilterGhostscript(inputfd, outputfd, 1, &data, &outformat);
 
 `data` is the usual `cf_filter_data_t` with the job options, logging
-function, and (optionally) the job and printer IPP attributes. Every
-field of the parameter struct left at `NULL`/`-1` is taken from the
-job options or from the defaults:
+function, and (optionally) the job and printer IPP attributes. Instead
+of the parameter, a `final_content_type` containing "ocr" (the MIME
+type `application/vnd.cups-pdf-ocr`) also selects this output. All
+settings are job options:
 
-| Field          | Job option         | Default                        |
-|----------------|--------------------|--------------------------------|
-| `language`     | `ocr-language`     | `eng`                          |
-| `engine`       | `ocr-engine`       | Ghostscript's default (LSTM)   |
-| `pdfa`         | `ocr-pdfa`         | 0 (plain PDF), 2 or 3 for PDF/A |
-| `fallback`     | `ocr-fallback`     | 1                              |
-| `resolution`   | `ocr-resolution`   | 300 dpi (or `printer-resolution`) |
-| `tessdata_dir` | `ocr-tessdata-dir` | auto-detected                  |
-
-`extra_args`/`num_extra_args` pass additional Ghostscript command
-line arguments through, for example `"-dJPEGQ=75"`.
+| Job option         | Default                                   |
+|--------------------|-------------------------------------------|
+| `ocr-language`     | `eng`, Tesseract codes, `eng+deu` combines |
+| `ocr-engine`       | Ghostscript's default (LSTM); 0, 1, 2     |
+| `ocr-pdfa`         | 0 (plain PDF), 2 or 3 for PDF/A-2/3        |
+| `ocr-fallback`     | `true`: raster-only PDF if OCR fails       |
+| `ocr-resolution`   | 300 dpi (or `printer-resolution`)          |
+| `ocr-tessdata-dir` | auto-detected                              |
 
 So a Scanner Application which maps its IPP scan attributes to job
-options only has to call `cfFilterGhostscriptOCR()` with `NULL` as
-parameters. With the output type `application/vnd.cups-pdf-ocr`,
-`cfFilterUniversal()` does the same for any input format, including
-JPEG, PNG, TIFF, PWG/Apple Raster, and PostScript.
+options only has to ask for this output format. With the output type
+`application/vnd.cups-pdf-ocr`, `cfFilterUniversal()` does the same for
+any input format, including JPEG, PNG, TIFF, PWG/Apple Raster, and
+PostScript.
 
 ### Checking in advance whether OCR is possible
 
     char tessdata[1024];
 
-    if (cfFilterGhostscriptOCRAvailable(&data, NULL, tessdata,
-                                        sizeof(tessdata)))
+    if (cfFilterGhostscriptOCRAvailable(&data, tessdata, sizeof(tessdata)))
       // offer searchable PDF, language data is in tessdata
     else
       // Ghostscript without Tesseract or language data missing
 
-The check uses the language from the parameters or the job options
-in `data` (default `eng`), so it can be called per language. `data`
-can be `NULL`.
+The check uses the language from the job options in `data` (default
+`eng`), so it can be called per language. `data` can be `NULL`.
 
 ### Fallback and errors
 
 If OCR is not possible (no `pdfocr8` device, language data missing)
 or Ghostscript fails or produces no output, the function produces a
 raster-only PDF without text layer and logs a warning, so that no
-scan is lost. With `fallback` set to 0 it logs an error and returns 1
+scan is lost. With `ocr-fallback=false` it logs an error and returns 1
 instead. Ghostscript writes into a temporary file first, so a failed
 OCR run never leaves partial output on the output file descriptor,
 and non-seekable input is buffered so that it can be read a second
