@@ -66,10 +66,10 @@ _cfImageReadTIFF(
 		scanwidth,		// Width of scanline
 		r, g, b, k,		// Red, green, blue, and black values
 		alpha;			// Image includes alpha?
-  cf_ib_t	*in,			// Input buffer
-		*out,			// Output buffer
+  cf_ib_t	*in = NULL,		// Input buffer
+		*out = NULL,		// Output buffer
 		*p,			// Pointer into buffer
-		*scanline,		// Scanline buffer
+		*scanline = NULL,	// Scanline buffer
 		*scanptr,		// Pointer into scanline buffer
 		bit,			// Current bit
 		pixel,			// Current pixel
@@ -347,7 +347,19 @@ _cfImageReadTIFF(
   //
 
   scanwidth = TIFFScanlineSize(tif);
-  scanline  = _TIFFmalloc(scanwidth);
+  if (scanwidth <= 0)
+  {
+    DEBUG_puts("DEBUG: Bad TIFF scanline size!\n");
+    goto fail;
+  }
+
+  if ((scanline = _TIFFmalloc(scanwidth)) == NULL)
+  {
+    DEBUG_puts("DEBUG: No enough memory for scanline buffer.\n");
+    goto fail;
+  }
+
+  memset(scanline, 0, scanwidth);
 
   //
   // Allocate input and output buffers...
@@ -367,17 +379,12 @@ _cfImageReadTIFF(
     if ((in  = (cf_ib_t*)calloc(img->xsize * 3 + 3, sizeof(cf_ib_t))) == NULL)
     {
       DEBUG_puts("DEBUG: No enough memory.\n");
-      TIFFClose(tif);
-      fclose(fp);
-      return (-1);
+      goto fail;
     }
     if ((out = (cf_ib_t*)calloc(img->xsize * bpp, sizeof(cf_ib_t))) == NULL)
     {
       DEBUG_puts("DEBUG: No enough memory.\n");
-      free(in);
-      TIFFClose(tif);
-      fclose(fp);
-      return (-1);
+      goto fail;
     }
   }
   else
@@ -390,17 +397,12 @@ _cfImageReadTIFF(
     if ((in  = (cf_ib_t*)calloc(img->ysize * 3 + 3, sizeof(cf_ib_t))) == NULL)
     {
       DEBUG_puts("DEBUG: No enough memory.\n");
-      TIFFClose(tif);
-      fclose(fp);
-      return (-1);
+      goto fail;
     }
     if ((out = (cf_ib_t*)calloc(img->ysize * bpp, sizeof(cf_ib_t))) == NULL)
     {
       DEBUG_puts("DEBUG: No enough memory.\n");
-      free(in);
-      TIFFClose(tif);
-      fclose(fp);
-      return (-1);
+      goto fail;
     }
   }
 
@@ -440,7 +442,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart, bit = 128;
                    xcount > 0;
                    xcount --, p += pstep)
@@ -461,7 +464,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart, bit = 0xc0;
                    xcount > 0;
                    xcount --, p += pstep)
@@ -482,7 +486,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart, bit = 0xf0;
                    xcount > 0;
                    xcount --, p += pstep)
@@ -502,7 +507,8 @@ _cfImageReadTIFF(
             }
             else if (xdir < 0 || zero || alpha)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               if (alpha)
 	      {
@@ -542,7 +548,10 @@ _cfImageReadTIFF(
               }
             }
             else
-              TIFFReadScanline(tif, in, row, 0);
+            {
+              if (TIFFReadScanline(tif, in, row, 0) <= 0)
+                goto fail;
+            }
 
             if (img->colorspace == CF_IMAGE_WHITE)
 	    {
@@ -591,7 +600,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart, bit = 128;
                    ycount > 0;
                    ycount --, p += ydir)
@@ -612,7 +622,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart, bit = 0xc0;
                    ycount > 0;
                    ycount --, p += ydir)
@@ -634,7 +645,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart, bit = 0xf0;
                    ycount > 0;
                    ycount --, p += ydir)
@@ -654,7 +666,8 @@ _cfImageReadTIFF(
             }
             else if (ydir < 0 || zero || alpha)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               if (alpha)
 	      {
@@ -694,7 +707,10 @@ _cfImageReadTIFF(
 	      }
             }
             else
-              TIFFReadScanline(tif, in, row, 0);
+            {
+              if (TIFFReadScanline(tif, in, row, 0) <= 0)
+                goto fail;
+            }
 
             if (img->colorspace == CF_IMAGE_WHITE)
 	    {
@@ -736,14 +752,8 @@ _cfImageReadTIFF(
     case PHOTOMETRIC_PALETTE :
 	if (!TIFFGetField(tif, TIFFTAG_COLORMAP, &redcmap, &greencmap, &bluecmap))
 	{
-	  _TIFFfree(scanline);
-	  free(in);
-	  free(out);
-
-	  TIFFClose(tif);
 	  DEBUG_puts("DEBUG: No colormap tag in the file!\n");
-	  fclose(fp);
-	  return (-1);
+	  goto fail;
 	}
 
         num_colors = 1 << bits;
@@ -767,7 +777,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline,
 	               p = in + xstart * 3, bit = 128;
                    xcount > 0;
@@ -797,7 +808,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline,
 	               p = in + xstart * 3, bit = 0xc0;
                    xcount > 0;
@@ -822,7 +834,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline,
 	               p = in + 3 * xstart, bit = 0xf0;
                    xcount > 0;
@@ -848,7 +861,8 @@ _cfImageReadTIFF(
             }
             else
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               for (xcount = img->xsize, p = in + 3 * xstart, scanptr = scanline;
                    xcount > 0;
@@ -900,7 +914,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline,
 	               p = in + 3 * ystart, bit = 128;
                    ycount > 0;
@@ -930,7 +945,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline,
 	               p = in + 3 * ystart, bit = 0xc0;
                    ycount > 0;
@@ -955,7 +971,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline,
 	               p = in + 3 * ystart, bit = 0xf0;
                    ycount > 0;
@@ -981,7 +998,8 @@ _cfImageReadTIFF(
             }
             else
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               for (ycount = img->ysize, p = in + 3 * ystart, scanptr = scanline;
                    ycount > 0;
@@ -1036,7 +1054,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3, bit = 0xf0;
                    xcount > 0;
                    xcount --, p += pstep)
@@ -1067,7 +1086,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
                    xcount > 0;
                    xcount --, p += pstep, scanptr ++)
@@ -1082,7 +1102,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
                    xcount > 0;
                    xcount -= 2, p += 2 * pstep, scanptr += 3)
@@ -1106,7 +1127,8 @@ _cfImageReadTIFF(
             }
             else if (xdir < 0 || alpha)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               if (alpha)
 	      {
@@ -1132,7 +1154,10 @@ _cfImageReadTIFF(
 	      }
             }
             else
-              TIFFReadScanline(tif, in, row, 0);
+            {
+              if (TIFFReadScanline(tif, in, row, 0) <= 0)
+                goto fail;
+            }
 
             if ((saturation != 100 || hue != 0) && bpp > 1)
               cfImageRGBAdjust(in, img->xsize, saturation, hue);
@@ -1177,7 +1202,8 @@ _cfImageReadTIFF(
           {
             if (bits == 1)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart * 3, bit = 0xf0;
                    ycount > 0;
                    ycount --, p += pstep)
@@ -1208,7 +1234,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 2)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart * 3;
                    ycount > 0;
                    ycount --, p += pstep, scanptr ++)
@@ -1223,7 +1250,8 @@ _cfImageReadTIFF(
             }
             else if (bits == 4)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
               for (ycount = img->ysize, scanptr = scanline, p = in + ystart * 3;
                    ycount > 0;
                    ycount -= 2, p += 2 * pstep, scanptr += 3)
@@ -1247,7 +1275,8 @@ _cfImageReadTIFF(
             }
             else if (ydir < 0 || alpha)
             {
-              TIFFReadScanline(tif, scanline, row, 0);
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
 
               if (alpha)
 	      {
@@ -1273,7 +1302,10 @@ _cfImageReadTIFF(
 	      }
             }
             else
-              TIFFReadScanline(tif, in, row, 0);
+            {
+              if (TIFFReadScanline(tif, in, row, 0) <= 0)
+                goto fail;
+            }
 
             if ((saturation != 100 || hue != 0) && bpp > 1)
               cfImageRGBAdjust(in, img->ysize, saturation, hue);
@@ -1336,7 +1368,8 @@ _cfImageReadTIFF(
             {
               if (bits == 1)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3, bit = 0xf0;
                      xcount > 0;
                      xcount --, p += pstep)
@@ -1376,7 +1409,8 @@ _cfImageReadTIFF(
               }
               else if (bits == 2)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
                      xcount > 0;
                      xcount --, p += pstep, scanptr ++)
@@ -1422,7 +1456,8 @@ _cfImageReadTIFF(
               }
               else if (bits == 4)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
                      xcount > 0;
                      xcount --, p += pstep, scanptr += 2)
@@ -1468,12 +1503,14 @@ _cfImageReadTIFF(
               }
               else if (img->colorspace == CF_IMAGE_CMYK)
 	      {
-	        TIFFReadScanline(tif, scanline, row, 0);
+	        if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+	          goto fail;
 		_cfImagePutRow(img, 0, y, img->xsize, scanline);
 	      }
 	      else
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
 
         	for (xcount = img->xsize, p = in + xstart * 3, scanptr = scanline;
                      xcount > 0;
@@ -1558,7 +1595,8 @@ _cfImageReadTIFF(
             {
               if (bits == 1)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (ycount = img->ysize, scanptr = scanline, p = in + xstart * 3, bit = 0xf0;
                      ycount > 0;
                      ycount --, p += pstep)
@@ -1598,7 +1636,8 @@ _cfImageReadTIFF(
               }
               else if (bits == 2)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (ycount = img->ysize, scanptr = scanline, p = in + xstart * 3;
                      ycount > 0;
                      ycount --, p += pstep, scanptr ++)
@@ -1644,7 +1683,8 @@ _cfImageReadTIFF(
               }
               else if (bits == 4)
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
         	for (ycount = img->ysize, scanptr = scanline, p = in + xstart * 3;
                      ycount > 0;
                      ycount --, p += pstep, scanptr += 2)
@@ -1690,12 +1730,14 @@ _cfImageReadTIFF(
               }
               else if (img->colorspace == CF_IMAGE_CMYK)
 	      {
-	        TIFFReadScanline(tif, scanline, row, 0);
+	        if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+	          goto fail;
 		_cfImagePutCol(img, x, 0, img->ysize, scanline);
 	      }
               else
               {
-        	TIFFReadScanline(tif, scanline, row, 0);
+        	if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+        	  goto fail;
 
         	for (ycount = img->ysize, p = in + xstart * 3, scanptr = scanline;
                      ycount > 0;
@@ -1773,13 +1815,8 @@ _cfImageReadTIFF(
 	}
 
     default :
-	_TIFFfree(scanline);
-	free(in);
-	free(out);
-
-	TIFFClose(tif);
 	DEBUG_puts("DEBUG: Unknown TIFF photometric value!\n");
-	return (-1);
+	goto fail;
   }
 
   //
@@ -1792,5 +1829,17 @@ _cfImageReadTIFF(
 
   TIFFClose(tif);
   return (0);
+
+fail:
+  if (scanline)
+    _TIFFfree(scanline);
+  if (in)
+    free(in);
+  if (out)
+    free(out);
+
+  TIFFClose(tif);
+  fclose(fp);
+  return (-1);
 }
 #endif // HAVE_LIBTIFF
