@@ -1831,12 +1831,9 @@ _cfImageReadTIFF(
   return (0);
 
 fail:
-  if (scanline)
-    _TIFFfree(scanline);
-  if (in)
-    free(in);
-  if (out)
-    free(out);
+  _TIFFfree(scanline);
+  free(in);
+  free(out);
 
   TIFFClose(tif);
   fclose(fp);
