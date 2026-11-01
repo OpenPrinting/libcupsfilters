@@ -18,6 +18,9 @@ main(void)
   char	buffer[1024];	// Make/model buffer
   char	*model = NULL;	// Pointer to model name
   char	*res;		// Result pointer
+  int		num_values;	// Number of device ID values
+  cups_option_t	*values;	// Device ID values
+  const char	*value;		// Device ID value
   int	i;		// Looping var
   static const struct
   {
@@ -32,6 +35,28 @@ main(void)
     { "Epson Stylus Photo", "Stylus Photo" },
     { "Brother HL-2270 DW printer", "HL-2270 DW printer" }
   };
+
+  //
+  // The last field of a device ID does not need a trailing ';'...
+  //
+
+  num_values = cfIEEE1284GetValues("MFG:HP;MDL:DeskJet", &values);
+  value = cupsGetOption("MDL", num_values, values);
+  if (num_values != 2 || !value || strcmp(value, "DeskJet"))
+  {
+    printf("FAIL: MFG:HP;MDL:DeskJet expected 2 values with MDL \"DeskJet\", "
+	   "got %d with MDL \"%s\"\n", num_values, value ? value : "NULL");
+    return (1);
+  }
+  cupsFreeOptions(num_values, values);
+
+  cfIEEE1284GetMakeModel("MFG:HP;MDL:DeskJet", buffer, sizeof(buffer));
+  if (strcmp(buffer, "HP DeskJet"))
+  {
+    printf("FAIL: MFG:HP;MDL:DeskJet expected make and model \"HP DeskJet\", "
+	   "got \"%s\"\n", buffer);
+    return (1);
+  }
 
   //
   // Issue #214 regression test: empty MFG and MDL fields in IEEE-1284 device ID

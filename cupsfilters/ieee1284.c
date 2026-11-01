@@ -570,14 +570,17 @@ cfIEEE1284GetValues(
       if (ptr < (value + sizeof(value) - 1))
         *ptr++ = *device_id;
 
-    if (!*device_id)
-      break;
-
     while (ptr > value && isspace(ptr[-1]))
       ptr --;
 
     *ptr = '\0';
-    device_id ++;
+
+    //
+    // The ';' after the last value is optional...
+    //
+
+    if (*device_id)
+      device_id ++;
 
     if (!key[0] || !value[0])
       continue;
