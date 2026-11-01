@@ -33,6 +33,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <pdfio.h>
 #include <pdfio-content.h>
@@ -2296,11 +2297,34 @@ out_page(pdftoraster_doc_t *doc,		// I - conversion attributes
       doc->header.ImagingBoundingBox[i] = 0;
     }
 
-  doc->bytesPerLine =
-    doc->header.cupsBytesPerLine = (doc->header.cupsBitsPerPixel *
-                                    doc->header.cupsWidth + 7) / 8;
-  if (doc->header.cupsColorOrder == CUPS_ORDER_BANDED)
-    doc->header.cupsBytesPerLine *= doc->header.cupsNumColors;
+  {
+    // doc->header.cupsBitsPerPixel and doc->header.cupsWidth are both
+    // unsigned (32-bit); a custom page size requested via job/media
+    // options together with a high printer resolution can drive cupsWidth
+    // into the tens of millions, and their product can then wrap around
+    // in 32-bit unsigned arithmetic before the +7/8 rounds it down to
+    // bytes. That would hand convert_line_chunked()/convert_line_plane()
+    // (via cfWritePixel()) a cupsBytesPerLine, and therefore a lineBuf
+    // allocation, far smaller than the row of copy_width pixels they
+    // actually write. Compute the row size in a wider type and reject the
+    // page instead of silently wrapping.
+    size_t bytes_per_line = ((size_t)doc->header.cupsBitsPerPixel *
+                              (size_t)doc->header.cupsWidth + 7) / 8;
+
+    if (doc->header.cupsColorOrder == CUPS_ORDER_BANDED)
+      bytes_per_line *= doc->header.cupsNumColors;
+
+    if (bytes_per_line > UINT_MAX)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+                   "cfFilterPDFToRaster: Page %d: Unsupported output "
+                   "dimensions (row would need %zu bytes).",
+                   pageNo, bytes_per_line);
+      return (1);
+    }
+
+    doc->bytesPerLine = doc->header.cupsBytesPerLine = (unsigned)bytes_per_line;
+  }
 
   if (log) log(ld,CF_LOGLEVEL_DEBUG,
                "cfFilterPDFToRaster: Page %d: Dimensions: %fx%f; Bounding box: %f %f %f %f",
