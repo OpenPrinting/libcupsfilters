@@ -71,7 +71,8 @@ typedef struct imagetopdf_doc_s         // Document information
 		ypages,			// # y pages
 		xpage,			// Current x page
 		ypage,			// Current y page
-		page;			// Current page number
+		page,			// Current page number
+		total_pages;		// Total number of pages allocated
   int		xc0, yc0,		// Corners of the page in
 		xc1, yc1;		// image coordinates
   float		left, top;		// Left and top of image
@@ -135,7 +136,10 @@ alloc_page_objects(imagetopdf_doc_t *doc,
 {
   int i, n;
 
-  if ((doc->pageObjects = malloc(sizeof(int)*nPages)) == NULL)
+  if (nPages <= 0)
+    return (-1);
+
+  if ((doc->pageObjects = calloc(nPages, sizeof(int))) == NULL)
     return (-1);
   for (i = 0;i < nPages;i++)
   {
@@ -1046,7 +1050,17 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	zoom = 0.0;
       }
       else if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
-	zoom = atoi(val) * 0.01;
+      {
+	int scaling = atoi(val);
+	if (scaling <= 0 || scaling > 1000)
+	{
+	  if (log) log(ld, CF_LOGLEVEL_WARN,
+		       "cfFilterImageToPDF: Invalid scaling value %d (must be 1-1000), ignoring option",
+		       scaling);
+	}
+	else
+	  zoom = scaling * 0.01;
+      }
       else if (((val =
 		 cupsGetOption("fit-to-page", num_options, options)) != NULL) ||
 	       ((val = cupsGetOption("fitplot", num_options, options)) != NULL))
@@ -1060,7 +1074,17 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       else if ((val = cupsGetOption("natural-scaling", num_options, options)) !=
 	       NULL &&
 	       atoi(val) != 0)
-	zoom = 0.0;
+      {
+	int nat_scale = atoi(val);
+	if (nat_scale <= 0 || nat_scale > 1000)
+	{
+	  if (log) log(ld, CF_LOGLEVEL_WARN,
+		       "cfFilterImageToPDF: Invalid natural-scaling value %d (must be 1-1000), ignoring option",
+		       nat_scale);
+	}
+	else
+	  zoom = 0.0;
+      }
       else if ((val = cupsGetOption("fill", num_options, options)) != NULL)
       {
 	if (!strcasecmp(val, "true") || !strcasecmp(val, "yes"))
@@ -1218,8 +1242,12 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL &&
 	atoi(val) != 0)
     {
-      doc.xinches = doc.xinches * atoi(val) / 100;
-      doc.yinches = doc.yinches * atoi(val) / 100;
+      int nat_scale = atoi(val);
+      if (nat_scale > 0 && nat_scale <= 1000)
+      {
+	doc.xinches = doc.xinches * nat_scale / 100;
+	doc.yinches = doc.yinches * nat_scale / 100;
+      }
     }
 
     if (!fillprint && !cropfit &&
@@ -1382,8 +1410,34 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
   }
   else
   {
-    doc.xpages = ceil(doc.xinches / doc.xprint);
-    doc.ypages = ceil(doc.yinches / doc.yprint);
+    if (doc.xprint <= 0.0 || doc.yprint <= 0.0 ||
+	doc.xinches <= 0.0 || doc.yinches <= 0.0)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterImageToPDF: Invalid image or print dimensions "
+		   "(xinches=%.2f, yinches=%.2f, xprint=%.2f, yprint=%.2f)!",
+		   doc.xinches, doc.yinches, doc.xprint, doc.yprint);
+      fclose(doc.outputfp);
+      close(outputfd);
+      return (1);
+    }
+
+    double xp = ceil(doc.xinches / doc.xprint);
+    double yp = ceil(doc.yinches / doc.yprint);
+
+    if (xp <= 0.0 || yp <= 0.0 || xp > 1000.0 || yp > 1000.0 ||
+	isnan(xp) || isnan(yp) || isinf(xp) || isinf(yp))
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterImageToPDF: Page grid dimensions exceed limits (%.0fx%.0f)!",
+		   xp, yp);
+      fclose(doc.outputfp);
+      close(outputfd);
+      return (1);
+    }
+
+    doc.xpages = (int)xp;
+    doc.ypages = (int)yp;
   }
 
   doc.xprint = doc.xinches / doc.xpages;
@@ -1568,18 +1622,33 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
     doc.Collate = 0;
   }
 
-  if (((doc.xpages*doc.ypages) % 2) == 0)
+  if (doc.Copies <= 0)
+    doc.Copies = 1;
+
+  unsigned long long grid_pages = (unsigned long long)doc.xpages * (unsigned long long)doc.ypages;
+  if ((grid_pages % 2) == 0)
   {
     // even pages, disable EvenDuplex
     doc.EvenDuplex = 0;
   }
 
+  if (grid_pages > 65535 || (unsigned long long)doc.Copies > 65535 / grid_pages)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterImageToPDF: Total page count (%llu) exceeds limit (65535)!",
+		 grid_pages * (unsigned long long)doc.Copies);
+    fclose(doc.outputfp);
+    close(outputfd);
+    return (1);
+  }
+
+  doc.total_pages = (int)(grid_pages * doc.Copies + (doc.EvenDuplex ? 1 : 0));
+
   //
   // Start sending the document with any commands needed...
   //
 
-  if (out_prologue(&doc, doc.Copies * doc.xpages * doc.ypages +
-		   (doc.EvenDuplex ? 1 : 0)) < 0)
+  if (out_prologue(&doc, doc.total_pages) < 0)
     goto out_of_memory;
 
   //
@@ -1789,6 +1858,9 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	    goto canceled;
 	  }
 
+	  if (doc.page >= doc.total_pages)
+	    goto out_of_memory;
+
 	  // out Page Object
 	  if (out_page_object(&doc, doc.pageObjects[doc.page],
 			      contentsObjs[doc.ypages * doc.xpage + doc.ypage],
@@ -1800,6 +1872,9 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	}
       if (doc.EvenDuplex)
       {
+	if (doc.page >= doc.total_pages)
+	  goto out_of_memory;
+
 	// out empty page
 	if (out_page_object(&doc, doc.pageObjects[doc.page], -1, -1) < 0)
 	  goto out_of_memory;
@@ -1849,6 +1924,9 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 	    goto canceled;
 	  }
 
+	  if (doc.page >= doc.total_pages)
+	    goto out_of_memory;
+
 	  // out Page Object
 	  if (out_page_object(&doc, doc.pageObjects[doc.page], contentsObj,
 			      imgObj) < 0)
@@ -1871,6 +1949,9 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
 		       "cfFilterImageToPDF: Job canceled");
 	  goto canceled;
 	}
+
+	if (doc.page >= doc.total_pages)
+	  goto out_of_memory;
 
 	if (out_page_object(&doc, doc.pageObjects[doc.page], -1, -1) < 0)
 	  goto out_of_memory;
