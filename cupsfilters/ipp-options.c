@@ -58,39 +58,13 @@ cupsArrayNew1(cups_array_cb_t  f,        // I - Comparison callback function or 
   return (cupsArrayNew3(f, d, hf, (int)hsize, cf, ff));
 #  endif
 #else
-  cups_array_t  *a;                     // Array
-
-
-  // Allocate memory for the array...
-  if ((a = calloc(1, sizeof(cups_array_t))) == NULL)
-    return (NULL);
-
-  a->compare   = f;
-  a->data      = d;
-  a->current   = SIZE_MAX;
-  a->insert    = SIZE_MAX;
-  a->num_saved = 0;
-  a->unique    = true;
-
-  if (hsize > 0 && hf)
-  {
-    a->hashfunc  = hf;
-    a->hashsize  = hsize;
-    a->hash      = malloc((size_t)hsize * sizeof(size_t));
-
-    if (!a->hash)
-    {
-      free(a);
-      return (NULL);
-    }
-
-    memset(a->hash, -1, (size_t)hsize * sizeof(size_t));
-  }
-
-  a->copyfunc = cf;
-  a->freefunc = ff;
-  // cppcheck-suppress memleak
-  return (a);
+  // CUPS 2.4 has the same constructor as cupsArrayNew3(), only with its own
+  // callback types.  Don't build the array here: libcups 2.4 has a different
+  // internal layout, so cupsArrayAdd() and friends would not see the copy
+  // and free callbacks set in our cups_array_t.
+  return (cupsArrayNew3((cups_array_func_t)f, d, (cups_ahash_func_t)hf,
+                        (int)hsize, (cups_acopy_func_t)cf,
+                        (cups_afree_func_t)ff));
 #endif // !CUPSFILTERS_PROVIDE_LEGACY_CUPS_API
 }
 
@@ -288,6 +262,9 @@ cupsCopyString(char       *dst,         // O - Destination string
 //
 
 static int			compare_overrides(cf_filter_override_t *a, cf_filter_override_t *b);
+#if CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
+static const char		*skip_collection(const char *s);
+#endif // CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
 static cf_filter_override_t	*copy_override(cf_filter_override_t *is);
 static const char		*get_option(const char *name, size_t num_options, cups_option_t *options);
 static bool			parse_media(const char *value, cups_media_t *media);
@@ -807,7 +784,22 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
       if (*nextcol == ',')
         nextcol ++;
 
+#if CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
+      // CUPS 2.4's cupsParseOptions() has no "end" argument and can read
+      // past nested braces, so find the end of this collection value
+      // ourselves and only give it that part
+      {
+        const char	*colend = skip_collection(nextcol);
+        char		*colstr = strndup(nextcol, (size_t)(colend - nextcol));
+
+        col     = NULL;
+        num_col = cupsParseOptions(colstr, NULL, 0, &col);
+        free(colstr);
+        nextcol = colend;
+      }
+#else
       num_col = cupsParseOptions(nextcol, &nextcol, 0, &col);
+#endif // CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
 
       memset(&override, 0, sizeof(override));
 
@@ -856,6 +848,7 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
         override.orientation_requested = (cf_filter_orient_t)intvalue;
 
       cupsArrayAdd(ippo->overrides, &override);
+      cupsFreeOptions(num_col, col);
     }
   }
 
@@ -891,6 +884,40 @@ compare_overrides(cf_filter_override_t *a,	// I - First override
   else
     return (0);
 }
+
+
+#if CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
+//
+// 'skip_collection()' - Skip over one "{...}" collection value.
+//
+
+static const char *			// O - Pointer after the collection value
+skip_collection(const char *s)		// I - Start of the collection value
+{
+  int	depth = 0;			// Brace nesting depth
+  char	quote = '\0';			// Current quote character
+
+
+  for (; *s; s ++)
+  {
+    if (*s == '\\' && s[1])
+      s ++;
+    else if (quote)
+    {
+      if (*s == quote)
+        quote = '\0';
+    }
+    else if (*s == '\'' || *s == '\"')
+      quote = *s;
+    else if (*s == '{')
+      depth ++;
+    else if (*s == '}' && --depth <= 0)
+      return (s + 1);
+  }
+
+  return (s);
+}
+#endif // CUPS_VERSION_MAJOR == 2 && CUPS_VERSION_MINOR < 5
 
 
 //
