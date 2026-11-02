@@ -898,11 +898,16 @@ skip_collection(const char *s)		// I - Start of the collection value
   char	quote = '\0';			// Current quote character
 
 
-  for (; *s; s ++)
+  while (*s)
   {
     if (*s == '\\' && s[1])
-      s ++;
-    else if (quote)
+    {
+      // Skip the escaped character
+      s += 2;
+      continue;
+    }
+
+    if (quote)
     {
       if (*s == quote)
         quote = '\0';
@@ -913,6 +918,8 @@ skip_collection(const char *s)		// I - Start of the collection value
       depth ++;
     else if (*s == '}' && --depth <= 0)
       return (s + 1);
+
+    s ++;
   }
 
   return (s);
