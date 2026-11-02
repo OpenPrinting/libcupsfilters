@@ -1477,11 +1477,38 @@ out_page(pwgtoraster_doc_t *doc,
 	(unsigned int)(doc->outheader.cupsImagingBBox[i] + 0.5);
   }
 
-  doc->bytesPerLine = doc->outheader.cupsBytesPerLine =
-    (doc->outheader.cupsBitsPerPixel *
-     doc->outheader.cupsWidth + 7) / 8;
-  if (doc->outheader.cupsColorOrder == CUPS_ORDER_BANDED)
-    doc->outheader.cupsBytesPerLine *= doc->outheader.cupsNumColors;
+  {
+    // doc->outheader.cupsBitsPerPixel and doc->outheader.cupsWidth are both
+    // unsigned (32-bit); cupsWidth is derived from the paper dimensions
+    // (job/driver-settable, see paperdimensions[] above) combined with the
+    // output HWResolution, and neither is capped to anything sane before
+    // reaching here. A large custom page size together with a reasonably
+    // high resolution can push cupsWidth into the tens of millions, and its
+    // product with cupsBitsPerPixel can then wrap around in 32-bit unsigned
+    // arithmetic before the +7/8 rounds it down to bytes. That would hand
+    // the per-pixel write loop in convert_line_chunked()/convert_line_plane()
+    // (via cfWritePixel()) a lineBuf allocated from this wrapped,
+    // far-too-small cupsBytesPerLine while they still write one pixel per
+    // cupsWidth column. Compute the row size in a wider type and reject the
+    // page instead of silently wrapping.
+    size_t bytes_per_line = ((size_t)doc->outheader.cupsBitsPerPixel *
+                              (size_t)doc->outheader.cupsWidth + 7) / 8;
+
+    if (doc->outheader.cupsColorOrder == CUPS_ORDER_BANDED)
+      bytes_per_line *= doc->outheader.cupsNumColors;
+
+    if (bytes_per_line > UINT_MAX)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Page %d: Unsupported output "
+		   "dimensions (row would need %zu bytes).",
+		   pageNo, bytes_per_line);
+      return (false);
+    }
+
+    doc->bytesPerLine = doc->outheader.cupsBytesPerLine =
+      (unsigned int)bytes_per_line;
+  }
 
   if (!cupsRasterWriteHeader(outras, &(doc->outheader)))
   {
