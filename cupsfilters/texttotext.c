@@ -934,13 +934,13 @@ cfFilterTextToText(int inputfd,         // I - File descriptor input stream
 	    if (*procptr > ' ')
 	    {
 	      *destptr = '\0';
-	      for (p = destptr - 1, i = column - 1; *p != ' ' && i >= 0;
+	      for (p = destptr - 1, i = column - 1; i >= 0 && *p != ' ';
 		   p --, i--);
 	      if (i >= 0 && i < column - 1)
 	      {
 		wrapped_word = strdup(p + 1);
-		for (; *p == ' ' && i >= 0; p --, i--);
-		if (*p != ' ' && i >= 0)
+		for (; i >= 0 && *p == ' '; p --, i--);
+		if (i >= 0 && *p != ' ')
 		  destptr = p + 1;
 		else
 		{
