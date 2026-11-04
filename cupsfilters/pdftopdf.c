@@ -1553,12 +1553,18 @@ special_pdfio_annotation_get_content(pdfio_obj_t  *annot,     // I - PDF annotat
   }
 
   pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
-  if(!pdfioDictGetRect(annot_dict, "Rect", rect))
+  if (!rect)
   {
-    fprintf(stderr, "ERROR: Annotation dict doesn't have a rect\n"); 
+    fprintf(stderr, "ERROR: Unable to allocate annotation rect\n");
     return NULL;
   }
-    
+  if(!pdfioDictGetRect(annot_dict, "Rect", rect))
+  {
+    fprintf(stderr, "ERROR: Annotation dict doesn't have a rect\n");
+    free(rect);
+    return NULL;
+  }
+
   int flags = (int)get_flags(annot_dict);
 
   if (flags & forbidden_flags)
@@ -1644,12 +1650,18 @@ pdfio_annotation_get_content(pdfio_obj_t  *annot,       // I - PDF annotation ob
   }
 
   pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
-  if(!pdfioDictGetRect(annot_dict, "Rect", rect))
+  if (!rect)
   {
-    fprintf(stderr, "ERROR: Annotation dict doesn't have a rect\n"); 
+    fprintf(stderr, "ERROR: Unable to allocate annotation rect\n");
     return NULL;
   }
-    
+  if(!pdfioDictGetRect(annot_dict, "Rect", rect))
+  {
+    fprintf(stderr, "ERROR: Annotation dict doesn't have a rect\n");
+    free(rect);
+    return NULL;
+  }
+
   int flags = (int)get_flags(annot_dict);
 
   if (flags & forbidden_flags)
