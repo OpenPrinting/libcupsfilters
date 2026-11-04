@@ -10,6 +10,7 @@
 // Contents:
 //
 //   _cfImageReadTIFF() - Read a TIFF image file.
+//   tiff_get_sample()  - Get a packed sample from a scanline.
 //
 
 //
@@ -22,6 +23,14 @@
 #  include <tiff.h>	// TIFF image definitions
 #  include <tiffio.h>
 #  include <unistd.h>
+
+
+//
+// Local functions...
+//
+
+static int	tiff_get_sample(const cf_ib_t *scanline, size_t sample,
+				int bits);
 
 
 //
@@ -64,8 +73,10 @@ _cfImageReadTIFF(
 		xcount, ycount,		// X & Y counters
 		pstep,			// Pixel step (= bpp or -2 * bpp)
 		scanwidth,		// Width of scanline
-		r, g, b, k,		// Red, green, blue, and black values
+		r, g, b, k, a,		// Red, green, blue, black, and alpha values
+		maxval,			// Largest packed sample value
 		alpha;			// Image includes alpha?
+  size_t	sample;			// Index of packed sample in scanline
   cf_ib_t	*in = NULL,		// Input buffer
 		*out = NULL,		// Output buffer
 		*p,			// Pointer into buffer
@@ -1076,45 +1087,37 @@ _cfImageReadTIFF(
         	}
               }
             }
-            else if (bits == 2)
+            else if (bits == 2 || bits == 4)
             {
-              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
-                goto fail;
-              for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
-                   xcount > 0;
-                   xcount --, p += pstep, scanptr ++)
-              {
-                pixel = *scanptr >> 2;
-                p[0] = 255 * (pixel & 3) / 3;
-                pixel >>= 2;
-                p[1] = 255 * (pixel & 3) / 3;
-                pixel >>= 2;
-                p[2] = 255 * (pixel & 3) / 3;
-              }
-            }
-            else if (bits == 4)
-            {
-              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
-                goto fail;
-              for (xcount = img->xsize, scanptr = scanline, p = in + xstart * 3;
-                   xcount > 0;
-                   xcount -= 2, p += 2 * pstep, scanptr += 3)
-              {
-                pixel = scanptr[0];
-                p[1] = 255 * (pixel & 15) / 15;
-                pixel >>= 4;
-                p[0] = 255 * (pixel & 15) / 15;
-                pixel = scanptr[1];
-                p[2] = 255 * ((pixel >> 4) & 15) / 15;
+	      //
+	      // 3 samples per pixel, or 4 with alpha, packed without regard
+	      // to byte boundaries...
+	      //
 
-                if (xcount > 1)
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
+
+              maxval = (1 << bits) - 1;
+
+              for (xcount = img->xsize, sample = 0, p = in + xstart * 3;
+                   xcount > 0;
+                   xcount --, p += pstep, sample += samples)
+              {
+                r = 255 * tiff_get_sample(scanline, sample, bits) / maxval;
+                g = 255 * tiff_get_sample(scanline, sample + 1, bits) / maxval;
+                b = 255 * tiff_get_sample(scanline, sample + 2, bits) / maxval;
+
+                if (alpha)
                 {
-                  p[pstep + 0] = 255 * (pixel & 15) / 15;
-                  pixel = scanptr[2];
-                  p[pstep + 2] = 255 * (pixel & 15) / 15;
-                  pixel >>= 4;
-                  p[pstep + 1] = 255 * (pixel & 15) / 15;
+                  a = 255 * tiff_get_sample(scanline, sample + 3, bits) / maxval;
+                  r = (r * a + 255 * (255 - a)) / 255;
+                  g = (g * a + 255 * (255 - a)) / 255;
+                  b = (b * a + 255 * (255 - a)) / 255;
                 }
+
+                p[0] = r;
+                p[1] = g;
+                p[2] = b;
               }
             }
             else
@@ -1219,45 +1222,37 @@ _cfImageReadTIFF(
         	}
               }
             }
-            else if (bits == 2)
+            else if (bits == 2 || bits == 4)
             {
-              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
-                goto fail;
-              for (ycount = img->ysize, scanptr = scanline, p = in + ystart * 3;
-                   ycount > 0;
-                   ycount --, p += pstep, scanptr ++)
-              {
-                pixel = *scanptr >> 2;
-                p[0] = 255 * (pixel & 3) / 3;
-                pixel >>= 2;
-                p[1] = 255 * (pixel & 3) / 3;
-                pixel >>= 2;
-                p[2] = 255 * (pixel & 3) / 3;
-              }
-            }
-            else if (bits == 4)
-            {
-              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
-                goto fail;
-              for (ycount = img->ysize, scanptr = scanline, p = in + ystart * 3;
-                   ycount > 0;
-                   ycount -= 2, p += 2 * pstep, scanptr += 3)
-              {
-                pixel = scanptr[0];
-                p[1] = 255 * (pixel & 15) / 15;
-                pixel >>= 4;
-                p[0] = 255 * (pixel & 15) / 15;
-                pixel = scanptr[1];
-                p[2] = 255 * ((pixel >> 4) & 15) / 15;
+	      //
+	      // 3 samples per pixel, or 4 with alpha, packed without regard
+	      // to byte boundaries...
+	      //
 
-                if (ycount > 1)
+              if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
+                goto fail;
+
+              maxval = (1 << bits) - 1;
+
+              for (ycount = img->ysize, sample = 0, p = in + ystart * 3;
+                   ycount > 0;
+                   ycount --, p += pstep, sample += samples)
+              {
+                r = 255 * tiff_get_sample(scanline, sample, bits) / maxval;
+                g = 255 * tiff_get_sample(scanline, sample + 1, bits) / maxval;
+                b = 255 * tiff_get_sample(scanline, sample + 2, bits) / maxval;
+
+                if (alpha)
                 {
-                  p[pstep + 0] = 255 * (pixel & 15) / 15;
-                  pixel = scanptr[2];
-                  p[pstep + 2] = 255 * (pixel & 15) / 15;
-                  pixel >>= 4;
-                  p[pstep + 1] = 255 * (pixel & 15) / 15;
+                  a = 255 * tiff_get_sample(scanline, sample + 3, bits) / maxval;
+                  r = (r * a + 255 * (255 - a)) / 255;
+                  g = (g * a + 255 * (255 - a)) / 255;
+                  b = (b * a + 255 * (255 - a)) / 255;
                 }
+
+                p[0] = r;
+                p[1] = g;
+                p[2] = b;
               }
             }
             else
@@ -1820,5 +1815,25 @@ fail:
   TIFFClose(tif);
   fclose(fp);
   return (-1);
+}
+
+
+//
+// 'tiff_get_sample()' - Get a packed sample from a scanline.
+//
+// Samples of 1, 2, or 4 bits are packed from the most significant bit on and
+// never span two bytes.
+//
+
+static int				// O - Sample value
+tiff_get_sample(
+    const cf_ib_t *scanline,		// I - Scanline buffer
+    size_t        sample,		// I - Index of sample in scanline
+    int           bits)			// I - Bits per sample (1, 2, or 4)
+{
+  size_t	pos = sample * bits;	// Bit position of sample
+
+
+  return ((scanline[pos / 8] >> (8 - bits - pos % 8)) & ((1 << bits) - 1));
 }
 #endif // HAVE_LIBTIFF
