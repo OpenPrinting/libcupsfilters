@@ -343,11 +343,13 @@ _cfImageReadTIFF(
   }
 
   //
-  // Allocate a scanline buffer...
+  // Allocate a scanline buffer...  Every scanline is read into it, never
+  // into the input buffer, and holds the packed samples of one row...
   //
 
   scanwidth = TIFFScanlineSize(tif);
-  if (scanwidth <= 0)
+  if (scanwidth <= 0 ||
+      (size_t)scanwidth < ((size_t)width * samples * bits + 7) / 8)
   {
     DEBUG_puts("DEBUG: Bad TIFF scanline size!\n");
     goto fail;
@@ -505,7 +507,7 @@ _cfImageReadTIFF(
         	}
               }
             }
-            else if (xdir < 0 || zero || alpha)
+            else
             {
               if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
                 goto fail;
@@ -535,22 +537,17 @@ _cfImageReadTIFF(
         	{
                   for (xcount = img->xsize, p = in + xstart, scanptr = scanline;
                        xcount > 0;
-                       xcount --, p += pstep, scanptr ++)
+                       xcount --, p += pstep, scanptr += samples)
                     *p = 255 - *scanptr;
         	}
         	else
         	{
                   for (xcount = img->xsize, p = in + xstart, scanptr = scanline;
                        xcount > 0;
-                       xcount --, p += pstep, scanptr ++)
+                       xcount --, p += pstep, scanptr += samples)
                     *p = *scanptr;
         	}
               }
-            }
-            else
-            {
-              if (TIFFReadScanline(tif, in, row, 0) <= 0)
-                goto fail;
             }
 
             if (img->colorspace == CF_IMAGE_WHITE)
@@ -664,7 +661,7 @@ _cfImageReadTIFF(
         	}
               }
             }
-            else if (ydir < 0 || zero || alpha)
+            else
             {
               if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
                 goto fail;
@@ -694,22 +691,17 @@ _cfImageReadTIFF(
         	{
                   for (ycount = img->ysize, p = in + ystart, scanptr = scanline;
                        ycount > 0;
-                       ycount --, p += ydir, scanptr ++)
+                       ycount --, p += ydir, scanptr += samples)
                     *p = 255 - *scanptr;
         	}
         	else
         	{
                   for (ycount = img->ysize, p = in + ystart, scanptr = scanline;
                        ycount > 0;
-                       ycount --, p += ydir, scanptr ++)
+                       ycount --, p += ydir, scanptr += samples)
                     *p = *scanptr;
         	}
 	      }
-            }
-            else
-            {
-              if (TIFFReadScanline(tif, in, row, 0) <= 0)
-                goto fail;
             }
 
             if (img->colorspace == CF_IMAGE_WHITE)
@@ -1125,7 +1117,7 @@ _cfImageReadTIFF(
                 }
               }
             }
-            else if (xdir < 0 || alpha)
+            else
             {
               if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
                 goto fail;
@@ -1152,11 +1144,6 @@ _cfImageReadTIFF(
                   p[2] = scanptr[2];
         	}
 	      }
-            }
-            else
-            {
-              if (TIFFReadScanline(tif, in, row, 0) <= 0)
-                goto fail;
             }
 
             if ((saturation != 100 || hue != 0) && bpp > 1)
@@ -1273,7 +1260,7 @@ _cfImageReadTIFF(
                 }
               }
             }
-            else if (ydir < 0 || alpha)
+            else
             {
               if (TIFFReadScanline(tif, scanline, row, 0) <= 0)
                 goto fail;
@@ -1300,11 +1287,6 @@ _cfImageReadTIFF(
                   p[2] = scanptr[2];
         	}
 	      }
-            }
-            else
-            {
-              if (TIFFReadScanline(tif, in, row, 0) <= 0)
-                goto fail;
             }
 
             if ((saturation != 100 || hue != 0) && bpp > 1)
