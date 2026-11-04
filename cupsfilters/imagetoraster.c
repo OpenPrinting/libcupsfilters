@@ -35,6 +35,7 @@
 #include <cupsfilters/image-private.h>
 #include <cupsfilters/libcups2-private.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <math.h>
 #include <signal.h>
 #include <string.h>
@@ -1649,7 +1650,20 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
 	"cfFilterImageToRaster: img->colorspace = %d", img->colorspace);
   }
 
-  row = malloc(2 * header.cupsBytesPerLine);
+  // cupsBytesPerLine is a 32-bit field. The row holds two of them, and
+  // "2 * header.cupsBytesPerLine" is evaluated in that 32-bit type, so a
+  // line of 2^31 bytes asks malloc() for 0 bytes. blank_line() also keeps
+  // the count in an int, so anything above INT_MAX cannot be formatted.
+  if (header.cupsBytesPerLine > INT_MAX)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterImageToRaster: Row of %u bytes does not fit.",
+		 header.cupsBytesPerLine);
+    cfImageClose(img);
+    return (1);
+  }
+
+  row = malloc(2 * (size_t)header.cupsBytesPerLine);
   ras = cupsRasterOpen(outputfd, CUPS_RASTER_WRITE);
 
   for (i = 0, page = 1; i < doc.Copies; i ++)
