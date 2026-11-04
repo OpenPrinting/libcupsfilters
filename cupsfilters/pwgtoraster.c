@@ -1772,7 +1772,16 @@ out_page(pwgtoraster_doc_t *doc,
 
   // Conversion line buffer (if needed by the conversion function
   if (doc->allocLineBuf)
+  {
     lineBuf = (unsigned char *)calloc(doc->bytesPerLine, sizeof(unsigned char));
+    if (!lineBuf)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPWGToRaster: Unable to allocate conversion line buffer.");
+      ret = false;
+      goto out;
+    }
+  }
 
   // Switch conversion functions for even and odd pages
   if ((pageNo & 1) == 0)
@@ -2173,6 +2182,14 @@ out_page(pwgtoraster_doc_t *doc,
 	      // pixels
 	      unsigned char *buf =
 		(unsigned char *)calloc(inlinesize, sizeof(unsigned char));
+	      if (!buf)
+	      {
+		if (log) log(ld, CF_LOGLEVEL_ERROR,
+			     "cfFilterPWGToRaster: Unable to allocate overspray "
+			     "stretch buffer.");
+		ret = false;
+		goto out;
+	      }
 	      unsigned char *src = line + inlineoffset,
 		            *dst = buf;
 	      if (input_color_mode == 0)
@@ -2273,6 +2290,14 @@ out_page(pwgtoraster_doc_t *doc,
 	{
 	  preBuf1 = (unsigned char *)calloc(doc->outheader.cupsWidth,
 					    sizeof(unsigned char));
+	  if (!preBuf1)
+	  {
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterPWGToRaster: Unable to allocate pre-conversion "
+			 "buffer.");
+	    ret = false;
+	    goto out;
+	  }
 	  cfImageRGBToWhite(bp, preBuf1, doc->outheader.cupsWidth);
 	  bp = preBuf1;
 	}
@@ -2280,6 +2305,14 @@ out_page(pwgtoraster_doc_t *doc,
 	{
 	  preBuf1 = (unsigned char *)calloc(doc->outheader.cupsWidth,
 					    sizeof(unsigned char));
+	  if (!preBuf1)
+	  {
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterPWGToRaster: Unable to allocate pre-conversion "
+			 "buffer.");
+	    ret = false;
+	    goto out;
+	  }
 	  cfOneBitToGrayLine(bp, preBuf1, doc->outheader.cupsWidth);
 	  bp = preBuf1;
 	}
@@ -2288,6 +2321,15 @@ out_page(pwgtoraster_doc_t *doc,
 	{
 	  preBuf2 = (unsigned char *)calloc(doc->outheader.cupsWidth * 3,
 					    sizeof(unsigned char));
+	  if (!preBuf2)
+	  {
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterPWGToRaster: Unable to allocate pre-conversion "
+			 "buffer.");
+	    free(preBuf1);
+	    ret = false;
+	    goto out;
+	  }
 	  cfImageWhiteToRGB(bp, preBuf2, doc->outheader.cupsWidth);
 	  bp = preBuf2;
 	}
@@ -2295,6 +2337,15 @@ out_page(pwgtoraster_doc_t *doc,
 	{
 	  preBuf2 = (unsigned char *)calloc((doc->outheader.cupsWidth + 7) / 8,
 					    sizeof(unsigned char));
+	  if (!preBuf2)
+	  {
+	    if (log) log(ld, CF_LOGLEVEL_ERROR,
+			 "cfFilterPWGToRaster: Unable to allocate pre-conversion "
+			 "buffer.");
+	    free(preBuf1);
+	    ret = false;
+	    goto out;
+	  }
 	  cfOneBitLine(bp, preBuf2, doc->outheader.cupsWidth,
 		     y - doc->bitmapoffset[1], doc->bi_level);
 	  bp = preBuf2;
