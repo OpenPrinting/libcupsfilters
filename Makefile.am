@@ -25,6 +25,7 @@ EXTRA_DIST = \
 
 EXTRA_DIST += \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-imagetoraster-row-size.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
 	data/makePDFfromPS.sh \
 	data/classified.ps \
@@ -94,6 +95,7 @@ lib_LTLIBRARIES = libcupsfilters.la
 check_SCRIPTS = \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-imagetoraster-row-size.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
@@ -129,6 +131,7 @@ TESTS = \
 	test-ieee1284-normalize \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
+	cupsfilters/test-imagetoraster-row-size.sh \
 	cupsfilters/test-pwgtopdf-bit-row.sh \
 	cupsfilters/test-pdftoraster-copy-height.sh \
 	cupsfilters/test-pdftopdf-inherited-mediabox.sh \
