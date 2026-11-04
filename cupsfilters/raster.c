@@ -30,6 +30,7 @@
 #include <cupsfilters/libcups2-private.h>
 #include <cups/pwg.h>
 #include <stdbool.h>
+#include <limits.h>
 
 //
 // Local functions
@@ -547,9 +548,39 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
       h->cupsImagingBBox[i] = 0.0;
       h->ImagingBoundingBox[i] = 0;
     }
-  h->cupsBytesPerLine = (h->cupsBitsPerPixel * h->cupsWidth + 7) / 8;
-  if (h->cupsColorOrder == CUPS_ORDER_BANDED)
-    h->cupsBytesPerLine *= h->cupsNumColors;
+  {
+    // h->cupsBitsPerPixel and h->cupsWidth are both unsigned 32-bit
+    // fields. cupsWidth was just derived above from the job's page
+    // dimensions/margins combined with HWResolution, neither of which is
+    // capped to anything sane before reaching here, so a large custom
+    // page size together with a reasonably high resolution can push
+    // cupsWidth into the tens of millions. Its product with
+    // cupsBitsPerPixel can then wrap around in 32-bit unsigned arithmetic
+    // before the +7/8 rounds it down to bytes, hand this far-too-small
+    // cupsBytesPerLine to every caller's row buffer allocation while the
+    // actual per-pixel write loops still walk the real, unwrapped
+    // cupsWidth. Compute the row size in a wider type and reject the
+    // page instead of silently wrapping, the same fix already applied to
+    // this identical formula in imagetoraster.c/pdftoraster.c/
+    // pwgtoraster.c.
+    size_t bytes_per_line = ((size_t)h->cupsBitsPerPixel *
+                              (size_t)h->cupsWidth + 7) / 8;
+
+    if (h->cupsColorOrder == CUPS_ORDER_BANDED)
+      bytes_per_line *= h->cupsNumColors;
+
+    if (bytes_per_line > UINT_MAX)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfRasterPrepareHeader: Unsupported output dimensions "
+		   "(row would need %zu bytes).",
+		   bytes_per_line);
+      cupsFreeOptions(num_options, options);
+      return (-1);
+    }
+
+    h->cupsBytesPerLine = (unsigned int)bytes_per_line;
+  }
 
   // Mark header as PWG Raster if it is not CUPS Raster
   if (!cupsrasterheader)
@@ -801,7 +832,22 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
   h->cupsBitsPerPixel = best_depth * num_colors;
   h->cupsColorSpace = *cspace;
   h->cupsNumColors = num_colors;
-  h->cupsBytesPerLine = (h->cupsWidth * h->cupsBitsPerPixel + 7) / 8;
+
+  // Same unguarded cupsWidth * cupsBitsPerPixel overflow as in
+  // cfRasterPrepareHeader() below -- this public entry point computes
+  // cupsBytesPerLine itself and is reachable with whatever cupsWidth the
+  // caller's header already carries, so guard it here too instead of
+  // relying only on the recomputation cfRasterPrepareHeader() does
+  // afterwards.
+  {
+    size_t bytes_per_line = ((size_t)h->cupsWidth *
+                              (size_t)h->cupsBitsPerPixel + 7) / 8;
+
+    if (bytes_per_line > UINT_MAX)
+      return (-1);
+
+    h->cupsBytesPerLine = (unsigned int)bytes_per_line;
+  }
 
   return (0);
 }
