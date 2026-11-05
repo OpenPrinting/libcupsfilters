@@ -9,6 +9,22 @@ BUILD_ROOT="$(cd "${ROOT}/.." && pwd)"
 LIBTOOL="${BUILD_ROOT}/libtool"
 CC="${CC:-cc}"
 SAN_FLAGS="${SAN_FLAGS:--fsanitize=address,undefined -fno-omit-frame-pointer}"
+# Source-built CUPS installs headers under /usr/include/libcups3 (or cupsN),
+# not on the default include path. The distro package is the one case where
+# a bare -lcups compile works.
+if pkg-config --exists cups 2>/dev/null; then
+  PKG_CFLAGS="$(pkg-config --cflags cups)"
+  PKG_LIBS="$(pkg-config --libs cups)"
+elif pkg-config --exists cups3 2>/dev/null; then
+  PKG_CFLAGS="$(pkg-config --cflags cups3)"
+  PKG_LIBS="$(pkg-config --libs cups3)"
+elif command -v cups-config >/dev/null 2>&1; then
+  PKG_CFLAGS="$(cups-config --cflags)"
+  PKG_LIBS="$(cups-config --libs)"
+else
+  PKG_CFLAGS=""
+  PKG_LIBS="-lcups"
+fi
 
 if ! printf 'int main(void){return 0;}\n' | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
   echo "AddressSanitizer/UBSan not available; skipping." >&2
@@ -74,8 +90,14 @@ int main(int argc, char **argv) {
 }
 EOF
 
-"${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" \
-  "${WORKDIR}/harness.c" "${BUILD_ROOT}/libcupsfilters.la" -lcups -o "${WORKDIR}/harness" >/dev/null
+if ! "${LIBTOOL}" --mode=link --tag=CC "${CC}" ${SAN_FLAGS} ${PKG_CFLAGS} \
+  -I"${BUILD_ROOT}" -I"${BUILD_ROOT}/cupsfilters" \
+  "${WORKDIR}/harness.c" "${BUILD_ROOT}/libcupsfilters.la" ${PKG_LIBS} \
+  -o "${WORKDIR}/harness" >"${WORKDIR}/link.log" 2>&1; then
+  cat "${WORKDIR}/link.log" >&2
+  echo "could not link the imagetoraster harness; skipping." >&2
+  exit 77
+fi
 
 run() {
   local name="$1" media="$2"
