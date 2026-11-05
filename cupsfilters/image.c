@@ -69,6 +69,13 @@ cfImageClose(cf_image_t *img)		// I - Image to close
 
 
   //
+  // See if we have an image to close...
+  //
+
+  if (img == NULL)
+    return;
+
+  //
   // Wipe the tile cache file (if any)...
   //
 

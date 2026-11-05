@@ -83,5 +83,11 @@ main(int  argc,				// I - Number of command-line arguments
   cfImageClose(img);
   fclose(out);
 
+  //
+  // Closing a NULL image should be a safe no-op, not a crash...
+  //
+
+  cfImageClose(NULL);
+
   return (0);
 }
