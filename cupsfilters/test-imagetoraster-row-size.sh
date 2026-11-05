@@ -26,10 +26,17 @@ else
   PKG_LIBS="-lcups"
 fi
 
-if ! printf 'int main(void){return 0;}\n' | "${CC}" ${SAN_FLAGS} -x c - -o /dev/null >/dev/null 2>&1; then
-  echo "AddressSanitizer/UBSan not available; skipping." >&2
-  exit 77
+# qemu-user can link the sanitizers and then crash inside them. The other
+# tests skip that case. This one still checks the return code, so drop the
+# sanitizers and keep going.
+asan_probe="$(mktemp "${TMPDIR:-/tmp}/asan-probe.XXXXXX")"
+if ! printf 'int main(void){return 0;}\n' \
+     | "${CC}" ${SAN_FLAGS} -x c - -o "${asan_probe}" >/dev/null 2>&1 \
+   || ! "${asan_probe}" >/dev/null 2>&1; then
+  echo "AddressSanitizer/UBSan not usable here; running without it." >&2
+  SAN_FLAGS=""
 fi
+rm -f "${asan_probe}"
 [[ -x "${LIBTOOL}" ]] || { echo "libtool helper not found" >&2; exit 99; }
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/imagetoraster-row.XXXXXX")"

@@ -1354,14 +1354,11 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       header.HWResolution[1];
   }
   {
-    // header.cupsBitsPerPixel and header.cupsWidth are both unsigned (32-bit);
-    // an extreme HWResolution/page-size combination from the PPD can make
-    // their product wrap before the +7/8 rounds it down to bytes, handing
-    // the formatter a cupsBytesPerLine far smaller than the row it actually
-    // writes. Compute in a wider type and reject the page instead of
-    // silently wrapping.
-    size_t bytes_per_line = ((size_t)header.cupsBitsPerPixel *
-			      (size_t)header.cupsWidth + 7) / 8;
+    // header.cupsBitsPerPixel and header.cupsWidth are both unsigned (32-bit).
+    // size_t is 32 bits on the armv7 CI hosts, so the product wraps there
+    // and the page is accepted with a short row. Count the bytes in 64 bits.
+    uint64_t bytes_per_line = ((uint64_t)header.cupsBitsPerPixel *
+			       (uint64_t)header.cupsWidth + 7) / 8;
 
     if (header.cupsColorOrder == CUPS_ORDER_BANDED)
       bytes_per_line *= header.cupsNumColors;
@@ -1371,7 +1368,7 @@ cfFilterImageToRaster(int inputfd,         // I - File descriptor input stream
       if (log)
 	log(ld, CF_LOGLEVEL_ERROR,
 	    "cfFilterImageToRaster: Unsupported output dimensions (row would "
-	    "need %zu bytes).", bytes_per_line);
+	    "need %llu bytes).", (unsigned long long)bytes_per_line);
       cfImageClose(img);
       return (1);
     }
