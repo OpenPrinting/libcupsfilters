@@ -395,10 +395,13 @@ cfFilterOptionsCreate(size_t num_options,   // I - Number of command-line option
     ippo->orientation_requested = CF_FILTER_ORIENT_LANDSCAPE;
   }
 
-  if ((value = get_option("Duplex", num_options, options)) != NULL &&
-    (!strcasecmp(value, "true") || !strcasecmp(value, "on") || !strcasecmp(value, "yes")))
+  if ((value = get_option("Duplex", num_options, options)) != NULL)
   {
-    cupsCopyString(ippo->sides, "two-sided-long-edge", sizeof(ippo->sides));
+    if (!strcasecmp(value, "true") || !strcasecmp(value, "on") || !strcasecmp(value, "yes") ||
+        !strcasecmp(value, "DuplexNoTumble"))
+      cupsCopyString(ippo->sides, "two-sided-long-edge", sizeof(ippo->sides));
+    else if (!strcasecmp(value, "DuplexTumble"))
+      cupsCopyString(ippo->sides, "two-sided-short-edge", sizeof(ippo->sides));
   }
 
   if ((value = get_option("Collate", num_options, options)) != NULL &&
