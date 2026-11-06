@@ -98,8 +98,6 @@ typedef struct xform_prepare_s          // Preparation data
   xform_page_t  outpages[XFORM_MAX_PAGES];  // Output pages
   size_t        num_layout;             // Number of layout rectangles
   pdfio_rect_t  layout[XFORM_MAX_LAYOUT]; // Layout rectangles
-  bool          use_duplex_xform;       // Use the back side transform matrix?
-  pdfio_matrix_t duplex_xform;          // Back side transform matrix
   bool 		has_form;    		// does PDF have Acroform(is flattening required?)
   bool 		has_annotations;   	// does PDF have annotations in Acroform(is flattenning required?)
   bool 		needAppearances;	// does PDF need appearances?
