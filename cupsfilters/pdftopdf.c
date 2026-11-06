@@ -38,57 +38,6 @@ static int              Verbosity = 0;
 
 
 //
-// 'pdfio_start_page()' - Start a page.
-//
-// This function applies a transform on the back side pages.
-//
-
-static pdfio_stream_t * 		// O - Page content stream
-pdfio_start_page(xform_prepare_t *p,    // I - Preparation data
-                 pdfio_dict_t    *dict, // I - Page dictionary
-                 const pdfio_rect_t *media) // I - Page media box
-{
-  pdfio_stream_t        *st;            // Page content stream
-
-  if ((st = pdfioFileCreatePage(p->pdf, dict)) != NULL)
-  {
-    if (p->use_duplex_xform && !(pdfioFileGetNumPages(p->pdf) & 1))
-    {
-      pdfio_matrix_t duplex_xform =
-      {
-        { p->duplex_xform[0][0], p->duplex_xform[0][1] },
-        { p->duplex_xform[1][0], p->duplex_xform[1][1] },
-        { p->duplex_xform[2][0], p->duplex_xform[2][1] }
-      };
-      if (duplex_xform[0][0] < 0.0)
-        duplex_xform[2][0] = media->x2;
-      if (duplex_xform[1][1] < 0.0)
-        duplex_xform[2][1] = media->y2;
-      pdfioContentSave(st);
-      pdfioContentMatrixConcat(st, duplex_xform);
-    }
-  }
-
-  return (st);
-}
-
-//
-// 'pdfio_end_page()' - End a page.
-//
-// This function restores graphics state when ending a back side page.
-//
-
-static void
-pdfio_end_page(xform_prepare_t *p,      // I - Preparation data
-               pdfio_stream_t  *st)     // I - Page content stream
-{
-  if (p->use_duplex_xform && !(pdfioFileGetNumPages(p->pdf) & 1))
-    pdfioContentRestore(st);
-
-  pdfioStreamClose(st);
-}
-
-//
 // 'generate_job_error_sheet()' - Generate a job error sheet.
 //
 
@@ -121,7 +70,7 @@ generate_job_error_sheet(
   for (i = 0; i < count; i ++)
   {
     // Create the error sheet...
-    st = pdfio_start_page(p, dict, &p->media);
+    st = pdfioFileCreatePage(p->pdf, dict);
 
     // The job error sheet is a banner with the following information:
     //
@@ -174,7 +123,7 @@ generate_job_error_sheet(
       pdfioContentTextShow(st, false, "  No Warnings\n");
 
     pdfioContentTextEnd(st);
-    pdfio_end_page(p, st);
+    pdfioStreamClose(st);
   }
 
   return (true);
@@ -210,7 +159,7 @@ generate_job_sheets(
   // Create pages...
   for (i = 0; i < count; i ++)
   {
-    st = pdfio_start_page(p, dict, &p->media);
+    st = pdfioFileCreatePage(p->pdf, dict);
 
     // The job sheet is a banner with the following information:
     //
@@ -232,7 +181,7 @@ generate_job_sheets(
       pdfioContentTextShowf(st, false, "Message: %s\n", p->options->job_sheet_message);
 
     pdfioContentTextEnd(st);
-    pdfio_end_page(p, st);
+    pdfioStreamClose(st);
   }
 
   return (true);
@@ -2273,16 +2222,9 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
   } 
   p->num_annotations = count-noAppearanceobjectCount;
  
-  // Start output page content
-  if ((outpage->output = pdfioFileCreatePage(outpage->pdf, outpage->pagedict)) != NULL)
-  {
-    if (p->use_duplex_xform && !(pdfioFileGetNumPages(outpage->pdf) & 1))
-    {
-      pdfioContentSave(outpage->output);
-      pdfioContentMatrixConcat(outpage->output, p->duplex_xform);
-    }
-  }
-  else 
+  // Start output page content.  No back side transform here: this is an
+  // intermediate document of input pages, not of output sheet sides.
+  if ((outpage->output = pdfioFileCreatePage(outpage->pdf, outpage->pagedict)) == NULL)
   {
     fprintf(stderr, "ERROR: not able to create output page stream\n");
     return;
@@ -2705,7 +2647,6 @@ prepare_documents(
     size_t           num_documents,	// I - Number of input documents
     xform_document_t *documents,	// I - Input documents
     cf_filter_options_t  *options,	// I - IPP options
-    const char       *sheet_back,	// I - Back side transform
     char             *outfile,		// I - Output filename buffer
     size_t           outsize,		// I - Output filename buffer size
     const char       *outformat,	// I - Output format
@@ -2750,43 +2691,11 @@ prepare_documents(
   }
   prepare_number_up(&p);
 
-  if (!strncmp(options->sides, "two-sided-", 10) && sheet_back && strcmp(sheet_back, "normal"))
-  {
-    // Need to do a transform on the back side of pages...
-    if (!strcmp(sheet_back, "flipped"))
-    {
-      if (!strcmp(options->sides, "two-sided-short-edge"))
-      {
-	p.use_duplex_xform   = true;
-        p.duplex_xform[0][0] = -1.0;
-        p.duplex_xform[0][1] = 0.0;
-        p.duplex_xform[1][0] = 0.0;
-        p.duplex_xform[1][1] = 1.0;
-        p.duplex_xform[2][0] = p.media.x2;
-        p.duplex_xform[2][1] = 0.0;
-      }
-      else
-      {
-	p.use_duplex_xform   = true;
-        p.duplex_xform[0][0] = 1.0;
-        p.duplex_xform[0][1] = 0.0;
-        p.duplex_xform[1][0] = 0.0;
-        p.duplex_xform[1][1] = -1.0;
-        p.duplex_xform[2][0] = 0.0;
-        p.duplex_xform[2][1] = p.media.y2;
-      }
-    }
-    else if ((!strcmp(sheet_back, "manual-tumble") && !strcmp(options->sides, "two-sided-short-edge")) || (!strcmp(sheet_back, "rotated") && !strcmp(options->sides, "two-sided-long-edge")))
-    {
-      p.use_duplex_xform   = true;
-      p.duplex_xform[0][0] = -1.0;
-      p.duplex_xform[0][1] = 0.0;
-      p.duplex_xform[1][0] = 0.0;
-      p.duplex_xform[1][1] = -1.0;
-      p.duplex_xform[2][0] = p.media.x2;
-      p.duplex_xform[2][1] = p.media.y2;
-    }
-  }
+  // No back side transform here: as in the former QPDF-based implementation
+  // (2.1.x), the back side orientation of duplex sheets
+  // (cfGetBackSideOrientation()) is applied by the rasterizing filters
+  // (Ghostscript, pdftoraster, pwgtoraster, ...), and only for raster PDLs.
+  // Applying it here as well would transform the back sides twice.
 
   if ((p.pdf = pdfioFileCreateTemporary(outfile, outsize, "1.7", &p.media, &p.media, pdfio_error_cb, &p)) == NULL)
     return (false);
@@ -2902,9 +2811,11 @@ prepare_documents(
         else if (Verbosity)
           fprintf(stderr, "DEBUG: No Resources for page %u.\n", (unsigned)pg);
 
+	flattened_page->output = NULL;
 	flatten_pdf(&p, flattened_page, pg, an_print, 0);
 
-	pdfio_end_page(&p, flattened_page->output);
+	if (flattened_page->output)
+	  pdfioStreamClose(flattened_page->output);
       }
 
       pdfioFileClose(d->pdf);
@@ -3069,15 +2980,14 @@ prepare_documents(
 
 	// Now copy the content streams to build the composite page, using the
 	// resource map for any named resources...
-	outpage->output = pdfio_start_page(&p, outpage->pagedict,
-					   &outpage->media);
+	outpage->output = pdfioFileCreatePage(p.pdf, outpage->pagedict);
 
 	for (layout = 0; layout < p.num_layout; layout ++)
 	{
 	  copy_page(&p, outpage, layout);
 	}
 
-	pdfio_end_page(&p, outpage->output);
+	pdfioStreamClose(outpage->output);
 	outpage->output = NULL;
       }
     }
@@ -3180,8 +3090,6 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   cf_filter_options_t *filter_options;
   xform_document_t file;
 
-  //not confirmed
-  const char         *sheet_back = "normal";
   unsigned           pdf_pages;
 
   memset(&file, 0, sizeof(file));
@@ -3280,7 +3188,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   file.format = "application/pdf";
   file.pdf_filename = temp_filename;
 
-  if (!prepare_documents(1, &file, filter_options, sheet_back, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf"), data))
+  if (!prepare_documents(1, &file, filter_options, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf"), data))
   {
     // Unable to prepare documents, exit...
     cfFilterOptionsDelete(filter_options);
