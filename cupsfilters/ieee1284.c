@@ -1378,17 +1378,19 @@ cfIEEE1284NormalizeMakeModel(
     }
     // Correct component start pointers
     if (modelptr && modelptr >= bufptr)
-      modelptr += rightsidemoved;
+    {
+        if (rightsidemoved < 0 &&
+            modelptr - buffer < -rightsidemoved)
+            modelptr = buffer;
+        else
+            modelptr += rightsidemoved;
+    }
     if (extraptr && extraptr >= bufptr)
       extraptr += rightsidemoved;
     // Advance to next character
     bufptr += (rightsidemoved > 0 ? rightsidemoved :
 	       (rightsidemoved < 0 ? 0 : 1));
   }
-  // The model of a blank MFG starts at the buffer. Removing a leading
-  // character must not move its pointer in front of the buffer.
-  if (modelptr && modelptr < buffer)
-    modelptr = buffer;
 
   // Remove separator at the end of the string
   if (bufptr > buffer && *(bufptr - 1) == sepchr)
