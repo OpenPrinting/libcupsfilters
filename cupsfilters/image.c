@@ -994,6 +994,7 @@ _cfImageReadEXIF(cf_image_t *img,
   {
     if (buf)
       free(buf);
+    exif_data_unref(ed);
     DEBUG_printf(("DEBUG: No EXIF data found"));
     return (2);
   }
@@ -1015,6 +1016,7 @@ _cfImageReadEXIF(cf_image_t *img,
     else
     {
       free(buf);
+      exif_data_unref(ed);
       return (2);
     }
   }
@@ -1032,6 +1034,7 @@ _cfImageReadEXIF(cf_image_t *img,
     }
     else{
       free(buf);
+      exif_data_unref(ed);
       return (2);
     }
   }
@@ -1041,6 +1044,7 @@ _cfImageReadEXIF(cf_image_t *img,
     DEBUG_printf(("DEBUG: Ignoring invalid EXIF resolution %dx%d PPI.\n",
 		  xRes, yRes));
     free(buf);
+    exif_data_unref(ed);
     return (2);
   }
 
@@ -1048,6 +1052,7 @@ _cfImageReadEXIF(cf_image_t *img,
   img->yppi = yRes;
 
   free(buf);
+  exif_data_unref(ed);
   return (1);
 }
 #endif // HAVE_EXIF
