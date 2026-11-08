@@ -1,5 +1,6 @@
 //
-// IEEE-1284 normalization regression test for libcupsfilters (Issue #214).
+// IEEE-1284 normalization regression test for libcupsfilters (Issues #214
+// and #244).
 //
 // Copyright © 2026 by OpenPrinting.
 //
@@ -34,6 +35,29 @@ main(void)
     { "Lexmark International MS310", "MS310" },
     { "Epson Stylus Photo", "Stylus Photo" },
     { "Brother HL-2270 DW printer", "HL-2270 DW printer" }
+  };
+  static const struct
+  {
+    const char	*input;	// Device ID with a blank MFG
+    cf_ieee1284_normalize_modes_t mode;	// Normalization mode
+    const char	*result;	// Expected make and model
+    const char	*model;	// Expected model name, NULL for none
+  } blank_mfg[] =
+  {
+    { "MFG:;MDL:DeskJet;", CF_IEEE1284_NORMALIZE_HUMAN, "DeskJet", "DeskJet" },
+    { "MFG: ;CMD:XPP,XL;MDL:PM-241-BT;CLS:PRINTER;DES:PM-241-BT;",
+      CF_IEEE1284_NORMALIZE_HUMAN, "PM-241-BT", "PM-241-BT" },
+    { "MFG:\t;MDL:DeskJet;", CF_IEEE1284_NORMALIZE_HUMAN, "DeskJet",
+      "DeskJet" },
+    { "MFG:;MDL:HP DeskJet;", CF_IEEE1284_NORMALIZE_HUMAN, "HP DeskJet",
+      "HP DeskJet" },
+    { "MFG:;MDL:DeskJet;", CF_IEEE1284_NORMALIZE_COMPARE, "deskjet",
+      "deskjet" },
+    { "MFG:;MDL:-x;", CF_IEEE1284_NORMALIZE_COMPARE, "x", "x" },
+    { "MFG:;MDL:DeskJet;", CF_IEEE1284_NORMALIZE_LOWERCASE, "deskjet",
+      "deskjet" },
+    { "MFG:;MDL:DeskJet;", CF_IEEE1284_NORMALIZE_HUMAN |
+      CF_IEEE1284_NORMALIZE_NO_MAKE_MODEL, "DeskJet", NULL }
   };
 
   //
@@ -82,16 +106,6 @@ main(void)
     return (1);
   }
 
-  res = cfIEEE1284NormalizeMakeModel("MFG:;MDL:DeskJet;", NULL,
-				     CF_IEEE1284_NORMALIZE_HUMAN, NULL,
-				     buffer, sizeof(buffer), &model, NULL,
-				     NULL);
-  if (res != NULL)
-  {
-    printf("FAIL: MFG:;MDL:DeskJet; expected NULL, got \"%s\"\n", res);
-    return (1);
-  }
-
   res = cfIEEE1284NormalizeMakeModel("MFG:;MDL:;CMD:PostScript;", NULL,
 				     CF_IEEE1284_NORMALIZE_HUMAN, NULL,
 				     buffer, sizeof(buffer), &model, NULL,
@@ -128,6 +142,45 @@ main(void)
   }
 
   //
+  // Issue #244: some label printers report a blank MFG. Expect the model
+  // alone, with no leading separator. Keep the model pointer inside the
+  // buffer.
+  //
+
+  for (i = 0; i < (int)(sizeof(blank_mfg) / sizeof(blank_mfg[0])); i ++)
+  {
+    model = NULL;
+    res = cfIEEE1284NormalizeMakeModel(blank_mfg[i].input, NULL,
+				       blank_mfg[i].mode, NULL,
+				       buffer, sizeof(buffer), &model, NULL,
+				       NULL);
+    if (!res || strcmp(res, blank_mfg[i].result) ||
+	(blank_mfg[i].model ? (!model || strcmp(model, blank_mfg[i].model))
+			    : model != NULL))
+    {
+      printf("FAIL: \"%s\" (mode %#x) expected \"%s\" with model \"%s\", "
+	     "got \"%s\" with model \"%s\"\n", blank_mfg[i].input,
+	     blank_mfg[i].mode, blank_mfg[i].result,
+	     blank_mfg[i].model ? blank_mfg[i].model : "NULL",
+	     res ? res : "NULL", model ? model : "NULL");
+      return (1);
+    }
+  }
+
+  //
+  // The device ID of a Phomemo PM-241-BT, which has a blank MFG
+  //
+
+  cfIEEE1284GetMakeModel("MFG: ;CMD:XPP,XL;MDL:PM-241-BT;CLS:PRINTER;"
+			 "DES:PM-241-BT;", buffer, sizeof(buffer));
+  if (strcmp(buffer, "PM-241-BT"))
+  {
+    printf("FAIL: Phomemo device ID expected make and model \"PM-241-BT\", "
+	   "got \"%s\"\n", buffer);
+    return (1);
+  }
+
+  //
   // Known makes with a space in their name, and ordinary names which only
   // happen to have a space where those names would have one.
   //
@@ -147,6 +200,6 @@ main(void)
     }
   }
 
-  puts("PASS: cfIEEE1284NormalizeMakeModel issue #214 tests passed.");
+  puts("PASS: cfIEEE1284NormalizeMakeModel issue #214 and #244 tests passed.");
   return (0);
 }
