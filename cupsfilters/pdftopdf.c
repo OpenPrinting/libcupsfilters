@@ -2539,19 +2539,23 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
 
 	      pdfioStreamPuts(outpage->output, resname);
 	    }
-	    else if (buffer[0] == '(')
+	    else if (*bufptr == '(')
 	    {
 	      // Skip string...
 	      bool	done = false;		// Are we done yet?
 	      int	parens = 0;		// Number of parenthesis
 
+	      // Skip the opening parenthesis; each branch below advances past
+	      // the character it looked at...
+	      bufptr ++;
+
 	      do
 	      {
-		bufptr ++;
 		if (bufptr >= bufend)
 		{
 		  // Save what has been skipped so far...
 		  pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+		  bufstart = bufptr;
 
                   // Read another buffer's worth...
 		  if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
@@ -2585,6 +2589,7 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
 		  {
 		    // Save what has been skipped so far...
 		    pdfioStreamWrite(outpage->output, bufstart, (size_t)(bufptr - bufstart));
+		    bufstart = bufptr;
 
 		    // Read another buffer's worth...
 		    if ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) <= 0)
