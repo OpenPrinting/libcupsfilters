@@ -2789,12 +2789,26 @@ prepare_documents(
 	pdfio_dict_t	*pagedict,	// Page dictionary
 			*resdict;	// Resources dictionary
 	pdfio_obj_t	*resobj;	// Resources object
+	pdfio_rect_t	mediabox,	// Input page MediaBox
+			cropbox;	// Input page CropBox
+	int		rotate;		// Input page Rotate
 
 	flattened_page->pagedict = pdfioDictCreate(flattened_pdf);
 	flattened_page->resdict  = pdfioDictCreate(flattened_pdf);
 
-	pdfioDictSetRect(flattened_page->pagedict, "CropBox", &p.media);
-	pdfioDictSetRect(flattened_page->pagedict, "MediaBox", &p.media);
+	// The flattened page is an intermediate copy of the input page, so it
+	// keeps the input page's geometry; the output media size is applied
+	// later when the page is laid out on the sheet...
+	if (!page_get_rect(flattened_page->input[pg], "MediaBox", &mediabox))
+	  mediabox = p.media;
+	if (!page_get_rect(flattened_page->input[pg], "CropBox", &cropbox))
+	  cropbox = mediabox;
+	rotate = page_get_rotate(flattened_page->input[pg]);
+
+	pdfioDictSetRect(flattened_page->pagedict, "CropBox", &cropbox);
+	pdfioDictSetRect(flattened_page->pagedict, "MediaBox", &mediabox);
+	if (rotate)
+	  pdfioDictSetNumber(flattened_page->pagedict, "Rotate", rotate);
 	pdfioDictSetDict(flattened_page->pagedict, "Resources", flattened_page->resdict);
 	pdfioDictSetName(flattened_page->pagedict, "Type", "Page");
 
