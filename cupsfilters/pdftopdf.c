@@ -2875,6 +2875,16 @@ prepare_documents(
   // Prepare output pages...
   prepare_pages(&p, num_documents, documents);
 
+  // With two-sided printing every copy (and the end job sheet) has to start
+  // on a new sheet, so the job needs an even number of sides.  Padding the
+  // input pages above does not guarantee that once page ranges or number-up
+  // are applied, so pad the output pages with a blank page as needed...
+  if (duplex && (p.num_outpages & 1) && p.num_outpages < XFORM_MAX_PAGES)
+  {
+    p.outpages[p.num_outpages].pdf = p.pdf;
+    p.num_outpages ++;
+  }
+
   // Add job-sheets content...
   if (job_sheet_wanted(options->job_sheets, false))
     generate_job_sheets(&p);
@@ -2917,7 +2927,21 @@ prepare_documents(
       for (i = p.num_outpages; i > 0; i --, outpage += outdir)
       {
 	if (outpage->input[0])
+	{
 	  pdfioPageCopy(p.pdf, outpage->input[0]);
+	}
+	else if (outpage->pdf)
+	{
+	  // Scheduled blank page (two-sided padding), keep it like the
+	  // layout path below does...
+	  pdfio_dict_t *pagedict = pdfioDictCreate(p.pdf);
+					// Page dictionary
+
+	  pdfioDictSetRect(pagedict, "CropBox", &p.media);
+	  pdfioDictSetRect(pagedict, "MediaBox", &p.media);
+	  pdfioDictSetName(pagedict, "Type", "Page");
+	  pdfioStreamClose(pdfioFileCreatePage(p.pdf, pagedict));
+	}
       }
     }
     else
