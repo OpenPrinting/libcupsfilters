@@ -169,11 +169,18 @@ _cfPDFOutAddXRef(_cf_pdf_out_t *pdf) // {{{
   if (pdf->xrefsize == pdf->xrefalloc)
   {
     long *tmp;
+    int oldalloc = pdf->xrefalloc;
     pdf->xrefalloc += 50;
     tmp = realloc(pdf->xref, sizeof(long) * pdf->xrefalloc);
     if (!tmp)
     {
-      pdf->xrefalloc=-1;
+      // Restore the old allocation count instead of leaving it at some
+      // value that can never again equal xrefsize: once that happens this
+      // "buffer is full, time to grow" check above stops firing, so every
+      // later call falls straight through to the unconditional write
+      // below and keeps writing further and further past the end of the
+      // last successfully allocated buffer.
+      pdf->xrefalloc = oldalloc;
       return -1;
     }
     pdf->xref = tmp;
@@ -199,11 +206,16 @@ _cfPDFOutAddPage(_cf_pdf_out_t *pdf,
   if (pdf->pagessize == pdf->pagesalloc)
   {
     int *tmp;
+    int oldalloc = pdf->pagesalloc;
     pdf->pagesalloc += 10;
     tmp = realloc(pdf->pages, sizeof(int) * pdf->pagesalloc);
     if (!tmp)
     {
-      pdf->pagesalloc = -1;
+      // Same reasoning as _cfPDFOutAddXRef(): keep the old allocation
+      // count so this check can still correctly detect "full" on the
+      // next call, instead of permanently disabling it and letting every
+      // later call write past the end of the buffer.
+      pdf->pagesalloc = oldalloc;
       return (0);
     }
     pdf->pages = tmp;
@@ -230,11 +242,16 @@ _cfPDFOutAddKeyValue(_cf_pdf_out_t *pdf,
   if (pdf->kvsize == pdf->kvalloc)
   {
     struct _cf_keyval_t *tmp;
+    int oldalloc = pdf->kvalloc;
     pdf->kvalloc += 10;
     tmp = realloc(pdf->kv, sizeof(struct _cf_keyval_t) * pdf->kvalloc);
     if (!tmp)
     {
-      pdf->kvalloc = -1;
+      // Same reasoning as _cfPDFOutAddXRef(): keep the old allocation
+      // count so this check can still correctly detect "full" on the
+      // next call, instead of permanently disabling it and letting every
+      // later call write past the end of the buffer.
+      pdf->kvalloc = oldalloc;
       return (0);
     }
     pdf->kv = tmp;
