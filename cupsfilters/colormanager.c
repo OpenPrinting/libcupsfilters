@@ -117,8 +117,8 @@ cfCmGetPrinterIccProfile(cf_filter_data_t *data,            // I - Filter data
 				data->num_options, data->options)) != NULL &&
 	   val[0] != '\0')
   {
-    is_profile_set = 1;
     icc_profile = strdup(val);
+    is_profile_set = (icc_profile != NULL);
   }
   else
     icc_profile = NULL;
