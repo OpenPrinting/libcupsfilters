@@ -266,9 +266,48 @@ _cfImageReadJPEGXL( cf_image_t      *img,
     return 1;
   }
 
+  //
+  // cfImageRGBAdjust() and the cfImage*To*() colorspace helpers below
+  // all assume tightly packed 3-bytes-per-pixel (RGB) or 1-byte-per-pixel
+  // (gray) rows. When the image has an alpha channel, "pixels" instead
+  // has format.num_channels bytes per pixel (color samples interleaved
+  // with an alpha byte), so strip the alpha byte into a scratch row
+  // buffer before handing the row to them -- otherwise every helper call
+  // desyncs its stride against the source and corrupts the decoded
+  // image from the second pixel onward.
+  //
+
+  int color_channels = (info.num_color_channels == 1) ? 1 : 3;
+  cf_ib_t *packed_row = NULL;
+
+  if (info.alpha_bits > 0)
+  {
+    packed_row = (cf_ib_t *)malloc((size_t)img->xsize * color_channels);
+    if (!packed_row)
+    {
+      free(out);
+      free(pixels);
+      JxlDecoderDestroy(dec);
+      free(jxl_data);
+      fclose(fp);
+      return 1;
+    }
+  }
+
   for (int y = 0; y < img->ysize; y++)
   {
-    uint8_t *row = pixels + y * img->xsize * format.num_channels;
+    uint8_t *src_row = pixels + y * img->xsize * format.num_channels;
+    cf_ib_t *row;
+
+    if (packed_row)
+    {
+      for (int x = 0; x < img->xsize; x++)
+        memcpy(packed_row + x * color_channels,
+               src_row + x * format.num_channels, color_channels);
+      row = packed_row;
+    }
+    else
+      row = src_row;
 
     if (info.num_color_channels == 3)
     {                  // RGB(A) Image
@@ -331,7 +370,8 @@ _cfImageReadJPEGXL( cf_image_t      *img,
   //
   // Cleanup
   //
-  
+
+  free(packed_row);
   free(out);
   free(pixels);
   JxlDecoderDestroy(dec);
