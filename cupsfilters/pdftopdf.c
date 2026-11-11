@@ -997,6 +997,16 @@ prepare_pages(
     if (p->num_outpages & 1)
       p->num_outpages ++;
 
+    if (p->num_outpages > XFORM_MAX_PAGES)
+    {
+      // p->outpages is a fixed XFORM_MAX_PAGES-entry array and the folding
+      // below writes up to p->outpages[p->num_outpages - 1]; make the booklet
+      // from the first 2 * XFORM_MAX_PAGES selected pages only.
+      fprintf(stderr, "ERROR: Output page count exceeds the supported "
+              "maximum of %d; later pages are dropped\n", XFORM_MAX_PAGES);
+      p->num_outpages = XFORM_MAX_PAGES;
+    }
+
     for (current = 0, layout = 0, page = 1, i = num_documents, d = documents; i > 0; i --, d ++)
     {
       while (page <= d->last_page)
@@ -1005,6 +1015,9 @@ prepare_pages(
 	  use_page = cfFilterOptionsIsPageInRange(p->options, page - d->first_page + 1);
 	else
 	  use_page = cfFilterOptionsIsPageInRange(p->options, page);
+
+	if (current >= 2 * p->num_outpages)
+	  use_page = false;
 
   if (use_page)
         {
