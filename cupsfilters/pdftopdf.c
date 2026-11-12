@@ -2412,7 +2412,7 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
     cm[1][0] = scaling;
     cm[1][1] = 0.0;
     cm[2][0] = cell->x1 + 0.5 * (cwidth - iwidth * scaling);
-    cm[2][1] = cell->y2 + 0.5 * (cheight - iheight * scaling);
+    cm[2][1] = cell->y2 - 0.5 * (cheight - iheight * scaling);
   }
   else
   {
