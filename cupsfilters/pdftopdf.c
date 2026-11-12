@@ -1089,6 +1089,12 @@ prepare_pages(
       }
       else if (p->options->multiple_document_handling == CF_FILTER_HANDLING_SINGLE_NEW_SHEET && (current & 1))
       {
+	// This slot is counted in num_outpages below but was never reached by
+	// the use_page loop above, so outpage->pdf is still unset; mark it as
+	// a scheduled blank page the same way the duplex-copies padding and
+	// the fast-copy path already recognize, or it is silently skipped
+	// there while still occupying a slot in the page count.
+	outpage->pdf = p->pdf;
 	current ++;
 	outpage ++;
 	layout = 0;
