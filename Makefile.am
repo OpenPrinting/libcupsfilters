@@ -106,6 +106,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
+	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
@@ -147,6 +148,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
+	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
@@ -401,6 +403,7 @@ EXTRA_DIST += cupsfilters/test-pdftopdf-job-sheets.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-copies.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-duplex-backside.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-single-document-new-sheet.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-landscape-centered.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 EXTRA_DIST += cupsfilters/test-ghostscript-ocr.c
 EXTRA_DIST += cupsfilters/test-image-tiff-scanline.c
