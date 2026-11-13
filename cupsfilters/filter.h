@@ -363,6 +363,9 @@ extern int cfFilterPDFToPDF(int inputfd,
 // Alternatively, the options "pdf-filter-page-logging",
 // "hardware-copies", and "hardware-collate" can be used to manually
 // do these selections.
+//
+// Known raster output formats currently keep software copies, since
+// pdftopdf does not yet emit the PDFTOPDF copy comments used by rasterizers.
 
 
 extern int cfFilterPDFToRaster(int inputfd,

@@ -3092,6 +3092,8 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // confirmed required
   char          pdf_file[1024];
   const char	*output_type = "application/pdf";
+  const char	*val;
+  bool		generate_copies = true;
   cf_filter_options_t *filter_options;
   xform_document_t file;
 
@@ -3110,6 +3112,27 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // "universal" filter.
   if (data->copies > 1 && filter_options->copies <= 1)
     filter_options->copies = data->copies;
+
+  // PPD callers specify hardware copies; otherwise use the same PDF-printer
+  // default as imagetopdf.
+  if ((val = cupsGetOption("hardware-copies",
+			   data->num_options, data->options)) != NULL)
+    generate_copies = !(strcasecmp(val, "true") == 0 ||
+			strcasecmp(val, "on") == 0 ||
+			strcasecmp(val, "yes") == 0);
+  else if (data->final_content_type)
+    generate_copies =
+      !(strcasestr(data->final_content_type, "/pdf") ||
+	strcasestr(data->final_content_type, "/vnd.cups-pdf"));
+
+  // Rasterizers need PDFTOPDF copy comments to receive a device copy count.
+  // Until those are emitted, preserve software copies for raster output.
+  if (data->final_content_type &&
+      (strcasestr(data->final_content_type, "/vnd.cups-raster") ||
+       strcasestr(data->final_content_type, "/pwg-raster") ||
+       strcasestr(data->final_content_type, "/urf") ||
+       strcasestr(data->final_content_type, "/PCLm")))
+    generate_copies = true;
 
   // CUPS passes the job title and user as argv[3] and argv[2], not as
   // "job-name" and "job-originating-user-name" options, so use them for the
@@ -3193,7 +3216,8 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   file.format = "application/pdf";
   file.pdf_filename = temp_filename;
 
-  if (!prepare_documents(1, &file, filter_options, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, !strcasecmp(output_type, "application/pdf"), data))
+  if (!prepare_documents(1, &file, filter_options, pdf_file, sizeof(pdf_file),
+			 output_type, &pdf_pages, generate_copies, data))
   {
     // Unable to prepare documents, exit...
     cfFilterOptionsDelete(filter_options);
