@@ -103,6 +103,7 @@ check_SCRIPTS = \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
+	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
@@ -140,6 +141,7 @@ TESTS = \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
+	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
@@ -383,6 +385,7 @@ EXTRA_DIST += cupsfilters/test-pdftopdf-inherited-mediabox.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-no-appearance.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-print-scaling-none.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-job-sheets.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-copies.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-duplex-backside.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 EXTRA_DIST += cupsfilters/test-ghostscript-ocr.c
