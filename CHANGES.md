@@ -16,6 +16,14 @@
 - `cfFilterUniversal()`: New output type `application/vnd.cups-pdf-ocr`
   (searchable PDF) for all its input formats.
 - CI test `test-ghostscript-ocr.sh` for the above.
+- `cfFilterPDFToPDF()`: Generate the copies in software only if the
+  printer does not make them itself (`hardware-copies`/`hardware-collate`
+  options from libppd, otherwise decided by the output format), and mark
+  the output with the `%%PDFTOPDFNumCopies` and `%%PDFTOPDFCollate`
+  comments again, so that the copies are not made twice and the
+  following filters know that the page options are already applied
+  (Issues #271, #231, #233).
+- CI test `test-pdftopdf-copies.sh` for the above.
 
 ## CHANGES IN V2.2.1 (11th August 2026)
 
