@@ -481,20 +481,32 @@ cfGetPrinterAttributes5(http_t *http_printer,         // I - HTTP connection to 
 //
 
 char*                                             // O - Resolved URI
-cfResolveURI2(const char *raw_uri,      // I - Raw URI 
+cfResolveURI2(const char *raw_uri,      // I - Raw URI
                       int is_fax)       // I - 1: Fax printer; 0: Not a fax printer
 {
   int options = HTTP_RESOLVE_DEFAULT;
   const char* auth_info_required = getenv("AUTH_INFO_REQUIRED");
   char buf[1024];
+  const char *resolved_uri;
 
   if ((auth_info_required) != NULL && !strcmp(auth_info_required, "negotiate"))
     {options |= HTTP_RESOLVE_FQDN;}
   if (is_fax)
     {options |= HTTP_RESOLVE_FAXOUT;}
 
-  return (strdup(httpResolveURI(raw_uri, buf, sizeof(buf), options, NULL,
-				NULL)));
+  // httpResolveURI() returns NULL when the URI (e.g. a DNS-SD
+  // "..._ipp._tcp..." service name) cannot be resolved, which happens
+  // under perfectly normal conditions such as the printer being
+  // temporarily off or an mDNS lookup timing out. Callers of this
+  // function, such as cfGetPrinterAttributes5(), already check for and
+  // handle a NULL return. Passing that NULL straight into strdup()
+  // instead crashes before we ever get back to the caller.
+  resolved_uri = httpResolveURI(raw_uri, buf, sizeof(buf), options, NULL,
+				NULL);
+  if (resolved_uri == NULL)
+    return (NULL);
+
+  return (strdup(resolved_uri));
 }
 #endif // !HAVE_LIBCUPS2
 
