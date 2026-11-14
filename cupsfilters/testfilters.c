@@ -1240,7 +1240,12 @@ run_test(
      }
      clargs = tmp_clargs;
 
-     char* tmp_token = (char*)malloc(100*sizeof(char));
+     char* tmp_token = (char*)malloc(strlen(token) + 1);
+     if (!tmp_token)
+     {
+         fprintf(stderr, "Memory allocation failed for tmp_token\n");
+         break;
+     }
      strcpy(tmp_token, token);
       
      clargs[token_index] = tmp_token;
