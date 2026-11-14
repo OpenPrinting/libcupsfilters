@@ -2437,6 +2437,20 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
 
   pdfioContentMatrixConcat(outpage->output, cm);
 
+  // The matrix above expects the input box to start at (0,0); a CropBox or
+  // MediaBox can start anywhere, so move its lower-left corner to the
+  // origin and clip to it, like a viewer does...
+  if (irect.x1 != 0.0 || irect.y1 != 0.0)
+  {
+    pdfio_matrix_t offset = { { 1.0, 0.0 }, { 0.0, 1.0 }, { -irect.x1, -irect.y1 } };
+
+    pdfioContentMatrixConcat(outpage->output, offset);
+  }
+
+  pdfioContentPathRect(outpage->output, irect.x1, irect.y1, irect.x2 - irect.x1, irect.y2 - irect.y1);
+  pdfioContentClip(outpage->output, false);
+  pdfioContentPathEnd(outpage->output);
+
   // Copy content streams...
   for (i = 0, count = pdfioPageGetNumStreams(outpage->input[layout]); i < count; i ++)
   {
