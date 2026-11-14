@@ -404,13 +404,16 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
   {
     ippAttributeString(attr, valuebuffer, sizeof(valuebuffer));
     cspaces_available = valuebuffer;
+    // A ColorModel option chosen for the job goes before the printer's
+    // default print-color-mode, otherwise for example FastGray (bi-level)
+    // gets replaced by the printer's default monochrome
     if ((color_mode = cupsGetOption("print-color-mode", num_options,
+				    options)) == NULL &&
+	(color_mode = cupsGetOption("ColorModel", num_options,
 				    options)) == NULL)
       color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
 					      "print-color-mode");
     if (!color_mode)
-      if ((color_mode = cupsGetOption("ColorModel", num_options,
-				    options)) == NULL)
       color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
 					      "output-mode");
     if (!color_mode)
@@ -614,11 +617,15 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
   // List of properties in pwg-raster-document-type-supported IPP attribute
   // is lower-case-only whereas urf-supported for Apple Raster is upper-case-
   // only
+  // FastGray and ProcessFastGray are the ColorModel choices which the PPD
+  // generator creates for bi-level and process-bi-level
   if (islower(available[0]) &&
       (p = strstr(available, "black_1")) != NULL &&
       !isdigit(*(p + 7)) &&
       (!strcmp(color_mode, "bi-level") ||
-       !strcmp(color_mode, "process-bi-level")))
+       !strcmp(color_mode, "process-bi-level") ||
+       !strcmp(color_mode, "FastGray") ||
+       !strcmp(color_mode, "ProcessFastGray")))
   {
     // Set parameters for bi-level, there is only one color space and color
     // depth
@@ -1488,7 +1495,9 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
       numcolors = 1;
     }
     else if (!strcasecmp(val, "bi-level") ||
-	     !strcasecmp(val, "process-bi-level"))
+	     !strcasecmp(val, "process-bi-level") ||
+	     !strcasecmp(val, "FastGray") ||
+	     !strcasecmp(val, "ProcessFastGray"))
     {
       bitspercolor = 1;
       colorspace = 3;
