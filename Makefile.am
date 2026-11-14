@@ -120,6 +120,7 @@ check_PROGRAMS = \
 	test-pdf \
 	test-ps \
 	test-ieee1284-normalize \
+	test-raster-color-mode \
 	testfilters
 
 TESTS = \
@@ -130,6 +131,7 @@ TESTS = \
 	test-pdf \
 	test-ps \
 	test-ieee1284-normalize \
+	test-raster-color-mode \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-imagetoraster-row-size.sh \
@@ -321,6 +323,15 @@ test_ieee1284_normalize_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 test_ieee1284_normalize_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
+
+test_raster_color_mode_SOURCES = \
+	cupsfilters/test-raster-color-mode.c
+test_raster_color_mode_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_raster_color_mode_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS)
 
