@@ -389,7 +389,7 @@ testfilters_LDFLAGS = \
 	-D_GNU_SOURCE \
 	-L/usr/lib
 
-noinst_PROGRAMS = gen-lorem-text
+check_PROGRAMS += gen-lorem-text
 gen_lorem_text_SOURCES = cupsfilters/gen-lorem-text.c
 EXTRA_DIST += cupsfilters/gen-lorem-text.c
 # Built by cupsfilters/test-pdftoraster-copy-height.sh under AddressSanitizer
@@ -407,8 +407,10 @@ EXTRA_DIST += cupsfilters/test-pdftopdf-landscape-centered.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 EXTRA_DIST += cupsfilters/test-ghostscript-ocr.c
 EXTRA_DIST += cupsfilters/test-image-tiff-scanline.c
-# Generated deterministic lorem text for texttopdf tests
-BUILT_SOURCES = cupsfilters/test_files/test_text_lorem.txt
+# Generated deterministic lorem text for texttopdf tests.  Only needed by
+# "make check"; gen-lorem-text cannot be run on the build host when cross
+# compiling.
+check_DATA = cupsfilters/test_files/test_text_lorem.txt
 CLEANFILES   = cupsfilters/test_files/test_text_lorem.txt
 
 cupsfilters/test_files/test_text_lorem.txt: gen-lorem-text
