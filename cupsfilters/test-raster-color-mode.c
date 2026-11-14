@@ -43,7 +43,6 @@ prepare_header(
 
   memset(&data, 0, sizeof(data));
   memset(&h, 0, sizeof(h));
-  data.content_type = "application/pdf";
 
   if (one_bit_type)
   {
