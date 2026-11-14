@@ -811,15 +811,13 @@ cfIEEE1284NormalizeMakeModel(
       bufptr ++;
     }
     while (bufptr > buffer && isspace(*(bufptr - 1))) bufptr --;
-    if (bufptr == buffer)
-    {
-      if (buffer)
-	*buffer = '\0';
 
-      return (NULL);
-    }
+    //
+    // Some label printers report a blank MFG. Start the model at the
+    // beginning of the buffer then. Add no separator.
+    //
 
-    if (bufptr < buffer + bufsize - 1)
+    if (bufptr > buffer && bufptr < buffer + bufsize - 1)
     {
       *bufptr = ' ';
       makeptr ++;
@@ -1380,13 +1378,20 @@ cfIEEE1284NormalizeMakeModel(
     }
     // Correct component start pointers
     if (modelptr && modelptr >= bufptr)
-      modelptr += rightsidemoved;
+    {
+        if (rightsidemoved < 0 &&
+            modelptr - buffer < -rightsidemoved)
+            modelptr = buffer;
+        else
+            modelptr += rightsidemoved;
+    }
     if (extraptr && extraptr >= bufptr)
       extraptr += rightsidemoved;
     // Advance to next character
     bufptr += (rightsidemoved > 0 ? rightsidemoved :
 	       (rightsidemoved < 0 ? 0 : 1));
   }
+
   // Remove separator at the end of the string
   if (bufptr > buffer && *(bufptr - 1) == sepchr)
     *(bufptr - 1) = '\0'; 
