@@ -2437,6 +2437,20 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
 
   pdfioContentMatrixConcat(outpage->output, cm);
 
+  // The matrix above expects the input box to start at (0,0); a CropBox or
+  // MediaBox can start anywhere, so move its lower-left corner to the
+  // origin and clip to it, like a viewer does...
+  if (irect.x1 != 0.0 || irect.y1 != 0.0)
+  {
+    pdfio_matrix_t offset = { { 1.0, 0.0 }, { 0.0, 1.0 }, { -irect.x1, -irect.y1 } };
+
+    pdfioContentMatrixConcat(outpage->output, offset);
+  }
+
+  pdfioContentPathRect(outpage->output, irect.x1, irect.y1, irect.x2 - irect.x1, irect.y2 - irect.y1);
+  pdfioContentClip(outpage->output, false);
+  pdfioContentPathEnd(outpage->output);
+
   // Copy content streams...
   for (i = 0, count = pdfioPageGetNumStreams(outpage->input[layout]); i < count; i ++)
   {
@@ -2794,12 +2808,26 @@ prepare_documents(
 	pdfio_dict_t	*pagedict,	// Page dictionary
 			*resdict;	// Resources dictionary
 	pdfio_obj_t	*resobj;	// Resources object
+	pdfio_rect_t	mediabox,	// Input page MediaBox
+			cropbox;	// Input page CropBox
+	int		rotate;		// Input page Rotate
 
 	flattened_page->pagedict = pdfioDictCreate(flattened_pdf);
 	flattened_page->resdict  = pdfioDictCreate(flattened_pdf);
 
-	pdfioDictSetRect(flattened_page->pagedict, "CropBox", &p.media);
-	pdfioDictSetRect(flattened_page->pagedict, "MediaBox", &p.media);
+	// The flattened page is an intermediate copy of the input page, so it
+	// keeps the input page's geometry; the output media size is applied
+	// later when the page is laid out on the sheet...
+	if (!page_get_rect(flattened_page->input[pg], "MediaBox", &mediabox))
+	  mediabox = p.media;
+	if (!page_get_rect(flattened_page->input[pg], "CropBox", &cropbox))
+	  cropbox = mediabox;
+	rotate = page_get_rotate(flattened_page->input[pg]);
+
+	pdfioDictSetRect(flattened_page->pagedict, "CropBox", &cropbox);
+	pdfioDictSetRect(flattened_page->pagedict, "MediaBox", &mediabox);
+	if (rotate)
+	  pdfioDictSetNumber(flattened_page->pagedict, "Rotate", rotate);
 	pdfioDictSetDict(flattened_page->pagedict, "Resources", flattened_page->resdict);
 	pdfioDictSetName(flattened_page->pagedict, "Type", "Page");
 
