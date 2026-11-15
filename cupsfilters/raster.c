@@ -447,8 +447,33 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
       log(ld, CF_LOGLEVEL_DEBUG,
 	  "Determining best color space/depth ...");
     }
+    cups_cspace_t cspace_requested = *cspace;
+    int hi_depth_requested = hi_depth;
     res = cfRasterSetColorSpace(h, cspaces_available, color_mode,
 				cspace, &hi_depth);
+    if (res < 0 &&
+	color_mode == cupsGetOption("ColorModel", num_options, options))
+    {
+      // The printer cannot do the ColorModel chosen for the job (for
+      // example RGB or DeviceGray on a printer which only has sgray_8),
+      // so use the printer's default color mode instead of failing
+      if ((color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
+						   "print-color-mode")) ==
+	  NULL)
+	color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
+						"output-mode");
+      if (color_mode)
+      {
+	if (log)
+	  log(ld, CF_LOGLEVEL_DEBUG,
+	      "ColorModel not available on the printer, using color mode: %s",
+	      color_mode);
+	*cspace = cspace_requested;
+	hi_depth = hi_depth_requested;
+	res = cfRasterSetColorSpace(h, cspaces_available, color_mode,
+				    cspace, &hi_depth);
+      }
+    }
   }
   else if (pclm)
   {
