@@ -484,6 +484,7 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 	      "Requested color space #%d not a valid PWG/Apple Raster color space!",
 	      *cspace);
       }
+      cupsFreeOptions(num_options, options);
       return (-1);
     }
     else
@@ -1496,6 +1497,16 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
 			      IPP_TAG_BOOLEAN)) != NULL &&
      ippGetBoolean(attr, 0));
 
+  // Does the printer take 1-bit PWG Raster? If it tells us its PWG Raster
+  // types and black_1 is not among them, bi-level modes must not give a
+  // 1-bit header
+  bool no_bi_level =
+    (pwg_raster &&
+     (attr = ippFindAttribute(data->printer_attrs,
+			      "pwg-raster-document-type-supported",
+			      IPP_TAG_ZERO)) != NULL &&
+     !ippContainsString(attr, "black_1"));
+
   // Color modes
   int numcolors = 0;		// Number of colorants
   if ((val = cupsGetOption("pwg-raster-document-type", num_options,
@@ -1545,8 +1556,13 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
 	     !strcasecmp(val, "FastGray") ||
 	     !strcasecmp(val, "ProcessFastGray"))
     {
-      bitspercolor = 1;
-      colorspace = 3;
+      if (no_bi_level)
+	colorspace = 18;
+      else
+      {
+	bitspercolor = 1;
+	colorspace = 3;
+      }
       numcolors = 1;
     }
     else if (!strncasecmp(val, "Black", 5))

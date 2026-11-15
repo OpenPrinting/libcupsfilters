@@ -19,11 +19,12 @@
 //                      and return the bits per color of the header.
 //
 
-static int				// O - Bits per color, -1 on error
+static int				// O - Bits per color
 prepare_header(
-    const char *one_bit_type,		// I - 1-bit raster type of the printer
-					//     ("black_1", "sgray_1") or NULL
-					//     for no printer attributes
+    const char *raster_type,		// I - Raster type of the printer
+					//     ("black_1", "sgray_1", ...) or
+					//     NULL for no printer attributes
+    int        with_sgray_8,		// I - Printer also takes sgray_8?
     int        with_default,		// I - Supply print-color-mode-default?
     const char *color_model,		// I - ColorModel option or NULL
     const char *print_color_mode,	// I - print-color-mode option or NULL
@@ -44,15 +45,16 @@ prepare_header(
   memset(&data, 0, sizeof(data));
   memset(&h, 0, sizeof(h));
 
-  if (one_bit_type)
+  if (raster_type)
   {
-    types[0] = one_bit_type;
+    types[0] = raster_type;
     types[1] = "sgray_8";
 
     printer_attrs = ippNew();
     ippAddStrings(printer_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		  "pwg-raster-document-type-supported",
-		  (int)(sizeof(types) / sizeof(types[0])), NULL, types);
+		  with_sgray_8 ? (int)(sizeof(types) / sizeof(types[0])) : 1,
+		  NULL, types);
     ippAddStrings(printer_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		  "print-color-mode-supported",
 		  (int)(sizeof(modes) / sizeof(modes[0])), NULL, modes);
@@ -72,9 +74,11 @@ prepare_header(
     data.num_options = cupsAddOption("print-color-mode", print_color_mode,
 				     data.num_options, &data.options);
 
-  if (cfRasterPrepareHeader(&h, &data, CF_FILTER_OUT_FORMAT_PWG_RASTER,
-			    CF_FILTER_OUT_FORMAT_PWG_RASTER, 0, &cspace) < 0)
-    h.cupsBitsPerColor = (unsigned)-1;
+  // The return value is not checked: the filter functions use the header
+  // also when no color space of the printer could be selected, as it
+  // happens for a printer which only has black_8.
+  cfRasterPrepareHeader(&h, &data, CF_FILTER_OUT_FORMAT_PWG_RASTER,
+			CF_FILTER_OUT_FORMAT_PWG_RASTER, 0, &cspace);
 
   cupsFreeOptions(data.num_options, data.options);
   ippDelete(printer_attrs);
@@ -94,7 +98,8 @@ main(void)
   static const struct
   {
     const char	*name;			// Test name
-    const char	*one_bit_type;		// 1-bit raster type or NULL
+    const char	*raster_type;		// Raster type of the printer or NULL
+    int		with_sgray_8;		// Printer also takes sgray_8?
     int		with_default;		// print-color-mode-default?
     const char	*color_model,		// ColorModel option
 		*print_color_mode;	// print-color-mode option
@@ -103,29 +108,38 @@ main(void)
   } tests[] =
   {
     { "ColorModel=FastGray, printer default monochrome",
-      "black_1", 1, "FastGray", NULL, 1, CUPS_CSPACE_K },
+      "black_1", 1, 1, "FastGray", NULL, 1, CUPS_CSPACE_K },
     { "ColorModel=FastGray, no printer default",
-      "black_1", 0, "FastGray", NULL, 1, CUPS_CSPACE_K },
+      "black_1", 1, 0, "FastGray", NULL, 1, CUPS_CSPACE_K },
     { "ColorModel=ProcessFastGray, printer default monochrome",
-      "black_1", 1, "ProcessFastGray", NULL, 1, CUPS_CSPACE_K },
+      "black_1", 1, 1, "ProcessFastGray", NULL, 1, CUPS_CSPACE_K },
     { "ColorModel=FastGray, no printer attributes",
-      NULL, 0, "FastGray", NULL, 1, CUPS_CSPACE_K },
+      NULL, 0, 0, "FastGray", NULL, 1, CUPS_CSPACE_K },
     { "ColorModel=FastGray, printer with sgray_1 instead of black_1",
-      "sgray_1", 1, "FastGray", NULL, 1, CUPS_CSPACE_SW },
+      "sgray_1", 1, 1, "FastGray", NULL, 1, CUPS_CSPACE_SW },
+    { "ColorModel=FastGray, printer with only black_8",
+      "black_8", 0, 1, "FastGray", NULL, 8, CUPS_CSPACE_SW },
+    { "ColorModel=FastGray, printer with only black_16",
+      "black_16", 0, 1, "FastGray", NULL, 8, CUPS_CSPACE_SW },
+    { "print-color-mode=bi-level, printer with only black_8",
+      "black_8", 0, 1, NULL, "bi-level", 8, CUPS_CSPACE_SW },
+    { "ColorModel=FastGray, printer with black_8 and sgray_8",
+      "black_8", 1, 1, "FastGray", NULL, 8, CUPS_CSPACE_SW },
     { "ColorModel=Gray, printer default monochrome",
-      "black_1", 1, "Gray", NULL, 8, CUPS_CSPACE_SW },
+      "black_1", 1, 1, "Gray", NULL, 8, CUPS_CSPACE_SW },
     { "print-color-mode=bi-level",
-      "black_1", 1, NULL, "bi-level", 1, CUPS_CSPACE_K },
+      "black_1", 1, 1, NULL, "bi-level", 1, CUPS_CSPACE_K },
     { "print-color-mode=monochrome wins over ColorModel=FastGray",
-      "black_1", 1, "FastGray", "monochrome", 8, CUPS_CSPACE_SW },
+      "black_1", 1, 1, "FastGray", "monochrome", 8, CUPS_CSPACE_SW },
     { "no options, printer default monochrome",
-      "black_1", 1, NULL, NULL, 8, CUPS_CSPACE_SW }
+      "black_1", 1, 1, NULL, NULL, 8, CUPS_CSPACE_SW }
   };
 
 
   for (i = 0; i < (int)(sizeof(tests) / sizeof(tests[0])); i ++)
   {
-    bits = prepare_header(tests[i].one_bit_type, tests[i].with_default,
+    bits = prepare_header(tests[i].raster_type, tests[i].with_sgray_8,
+			  tests[i].with_default,
 			  tests[i].color_model, tests[i].print_color_mode,
 			  &color_space);
     if (bits != tests[i].bits || color_space != tests[i].color_space)
