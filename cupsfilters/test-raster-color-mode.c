@@ -21,6 +21,8 @@
 
 typedef struct
 {
+  int		ppd_header;		// Start from the sample header of a
+					// driverless PPD?
   const char	*raster_types;		// pwg-raster-document-type-supported,
 					// comma-separated, NULL for no
 					// printer attributes
@@ -40,7 +42,8 @@ static int				// O - 1 if passed, 0 if failed
 run_test(const test_case_t *test)	// I - Test case
 {
   cf_filter_data_t	data;		// Filter data
-  cups_page_header_t	h;		// Raster header
+  cups_page_header_t	h,		// Raster header
+			sample;		// Sample header
   cups_cspace_t		cspace = -1;	// Color space, auto
   ipp_t			*printer_attrs = NULL;
 					// Printer attributes
@@ -57,6 +60,30 @@ run_test(const test_case_t *test)	// I - Test case
 
   memset(&data, 0, sizeof(data));
   memset(&h, 0, sizeof(h));
+
+  if (test->ppd_header)
+  {
+    //
+    // With a PPD, libppd's ppdFilterLoadPPD() supplies a sample header
+    // made from the PPD's option settings.  The ColorModel choices of a
+    // driverless PPD have no code, so this header always is 1-bit black,
+    // whatever the printer supports, and cfRasterPrepareHeader() has to
+    // replace color space and depth...
+    //
+
+    memset(&sample, 0, sizeof(sample));
+    sample.HWResolution[0]  = 300;
+    sample.HWResolution[1]  = 300;
+    sample.PageSize[0]      = 595;
+    sample.PageSize[1]      = 842;
+    sample.cupsPageSize[0]  = 595.0f;
+    sample.cupsPageSize[1]  = 842.0f;
+    sample.cupsBitsPerColor = 1;
+    sample.cupsBitsPerPixel = 1;
+    sample.cupsColorSpace   = CUPS_CSPACE_K;
+    sample.cupsNumColors    = 1;
+    data.header = &sample;
+  }
 
   if (test->raster_types)
   {
@@ -97,9 +124,10 @@ run_test(const test_case_t *test)	// I - Test case
       h.cupsColorSpace == test->color_space)
     return (1);
 
-  printf("FAIL: printer %s (default %s), ColorModel=%s, print-color-mode=%s: "
-	 "expected %d bit in color space %d, got %d bit in color space %d, "
-	 "return value %d\n",
+  printf("FAIL: %sprinter %s (default %s), ColorModel=%s, "
+	 "print-color-mode=%s: expected %d bit in color space %d, got %d bit "
+	 "in color space %d, return value %d\n",
+	 test->ppd_header ? "PPD header, " : "",
 	 test->raster_types ? test->raster_types : "without attributes",
 	 test->default_mode ? test->default_mode : "none",
 	 test->color_model ? test->color_model : "(not set)",
@@ -123,17 +151,19 @@ main(void)
     // and process-bi-level, they get 1-bit black if the printer has
     // black_1 (Issue #298)...
     //
-    // raster types       default       ColorModel         print-color-mode
+    // PPD  raster types       default       ColorModel         print-color-mode
 
-    { "black_1,sgray_8",  "monochrome", "FastGray",        NULL,
+    { 0, "black_1,sgray_8",  "monochrome", "FastGray",        NULL,
       1, CUPS_CSPACE_K },
-    { "black_1,sgray_8",  NULL,         "FastGray",        NULL,
+    { 0, "black_1,sgray_8",  NULL,         "FastGray",        NULL,
       1, CUPS_CSPACE_K },
-    { "black_1,sgray_8",  "monochrome", "ProcessFastGray", NULL,
+    { 0, "black_1,sgray_8",  "monochrome", "ProcessFastGray", NULL,
       1, CUPS_CSPACE_K },
-    { NULL,               NULL,         "FastGray",        NULL,
+    { 0, NULL,               NULL,         "FastGray",        NULL,
       1, CUPS_CSPACE_K },
-    { "black_1,sgray_8",  "monochrome", NULL,              "bi-level",
+    { 0, "black_1,sgray_8",  "monochrome", NULL,              "bi-level",
+      1, CUPS_CSPACE_K },
+    { 1, "black_1,sgray_8",  "monochrome", "FastGray",        NULL,
       1, CUPS_CSPACE_K },
 
     //
@@ -141,35 +171,44 @@ main(void)
     // print-color-mode is set explicitly next to ColorModel=FastGray...
     //
 
-    { "black_1,sgray_8",  "monochrome", "Gray",            NULL,
+    { 0, "black_1,sgray_8",  "monochrome", "Gray",            NULL,
       8, CUPS_CSPACE_SW },
-    { "black_1,sgray_8",  "monochrome", NULL,              NULL,
+    { 0, "black_1,sgray_8",  "monochrome", NULL,              NULL,
       8, CUPS_CSPACE_SW },
-    { "black_1,sgray_8",  "monochrome", "FastGray",        "monochrome",
+    { 0, "black_1,sgray_8",  "monochrome", "FastGray",        "monochrome",
+      8, CUPS_CSPACE_SW },
+    { 1, "black_1,sgray_8",  "monochrome", NULL,              NULL,
       8, CUPS_CSPACE_SW },
 
     //
     // ...and with sgray_1 instead of black_1 it is 1-bit sGray.
     //
 
-    { "sgray_1,sgray_8",  "monochrome", "FastGray",        NULL,
+    { 0, "sgray_1,sgray_8",  "monochrome", "FastGray",        NULL,
       1, CUPS_CSPACE_SW },
 
     //
     // A printer which only has black_N types gets black in a depth it
-    // supports. Without black_1 the bi-level modes must not give 1 bit
-    // (Issue #350)...
+    // supports, for every job.  With a PPD the 1-bit sample header must
+    // not get through, and without black_1 the bi-level modes must not
+    // give 1 bit either (Issue #350)...
     //
 
-    { "black_8",          "monochrome", "FastGray",        NULL,
+    { 1, "black_8",          "monochrome", NULL,              NULL,
       8, CUPS_CSPACE_K },
-    { "black_8",          "monochrome", NULL,              "bi-level",
+    { 1, "black_8",          "monochrome", "Gray",            NULL,
       8, CUPS_CSPACE_K },
-    { "black_8",          "monochrome", "Gray",            NULL,
+    { 1, "black_8",          "monochrome", "FastGray",        NULL,
       8, CUPS_CSPACE_K },
-    { "black_16",         "monochrome", "FastGray",        NULL,
+    { 1, "black_8",          "monochrome", NULL,              "bi-level",
+      8, CUPS_CSPACE_K },
+    { 1, "black_16",         "monochrome", NULL,              NULL,
       16, CUPS_CSPACE_K },
-    { "black_16",         "monochrome", "Gray",            NULL,
+    { 0, "black_8",          "monochrome", "Gray",            NULL,
+      8, CUPS_CSPACE_K },
+    { 0, "black_8",          "monochrome", "FastGray",        NULL,
+      8, CUPS_CSPACE_K },
+    { 0, "black_16",         "monochrome", "Gray",            NULL,
       16, CUPS_CSPACE_K },
 
     //
@@ -177,19 +216,23 @@ main(void)
     // 1 bit.
     //
 
-    { "black_1,black_8",  "monochrome", "Gray",            NULL,
+    { 1, "black_1,black_8",  "monochrome", NULL,              NULL,
       8, CUPS_CSPACE_K },
-    { "black_1,black_8",  "monochrome", "FastGray",        NULL,
+    { 1, "black_1,black_8",  "monochrome", "FastGray",        NULL,
       1, CUPS_CSPACE_K },
+    { 0, "black_1,black_8",  "monochrome", "Gray",            NULL,
+      8, CUPS_CSPACE_K },
 
     //
     // A ColorModel which the printer has no raster type for falls back to
     // the printer's default color mode.
     //
 
-    { "sgray_8",          "monochrome", "RGB",             NULL,
+    { 0, "sgray_8",          "monochrome", "RGB",             NULL,
       8, CUPS_CSPACE_SW },
-    { "sgray_8",          "monochrome", "DeviceGray",      NULL,
+    { 1, "sgray_8",          "monochrome", "RGB",             NULL,
+      8, CUPS_CSPACE_SW },
+    { 0, "sgray_8",          "monochrome", "DeviceGray",      NULL,
       8, CUPS_CSPACE_SW }
   };
 

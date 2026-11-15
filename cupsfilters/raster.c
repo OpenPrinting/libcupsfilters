@@ -708,7 +708,6 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
 			   // 2: sRGB for mono
   const char *p, *q = NULL;
   int black_depth, num_black_depths;
-  int mono_mode;
 
   // Range-check
   if (!h || !available || !cspace)
@@ -719,12 +718,6 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
       *cspace != CUPS_CSPACE_W && *cspace != CUPS_CSPACE_K &&
       *cspace != CUPS_CSPACE_RGB && *cspace != CUPS_CSPACE_CMYK)
     return (-1);
-
-  // Grayscale or bi-level requested?
-  mono_mode = (strcasecmp(color_mode, "auto") &&
-	       !strcasestr(color_mode, "color") &&
-	       !strcasestr(color_mode, "rgb") &&
-	       !strcasestr(color_mode, "cmy"));
 
   // Depth for the black_N types, if the printer has any
   black_depth = raster_black_depth(available, high_depth && *high_depth,
@@ -754,17 +747,15 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
       *high_depth = 0;
   }
   else if (islower(available[0]) &&
-	   (*cspace == -1 || *cspace == CUPS_CSPACE_SW ||
-	    *cspace == CUPS_CSPACE_W || *cspace == CUPS_CSPACE_K) &&
 	   !strstr(available, "sgray_") &&
-	   (mono_mode ||
-	    (!strstr(available, "rgb_") && !strstr(available, "cmyk_"))) &&
+	   !strstr(available, "rgb_") && !strstr(available, "cmyk_") &&
 	   black_depth > 0)
   {
-    // The printer has no sGray but black_N types (PWG Raster only), so
-    // grayscale goes out as black (DeviceK) in the depth the printer
-    // takes. This is also where bi-level modes end up if the printer has
-    // no black_1.
+    // The printer only has black_N types (PWG Raster only): no sGray and
+    // no color type which the fallbacks below could use, so they would
+    // find nothing. Use black (DeviceK) in a depth the printer takes.
+    // This is also where bi-level modes end up if there is no black_1.
+    // Printers which also have a color type are left to the fallbacks.
     *cspace = CUPS_CSPACE_K;
     best_depth = black_depth;
     num_colors = 1;
@@ -1600,16 +1591,6 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
 			      IPP_TAG_BOOLEAN)) != NULL &&
      ippGetBoolean(attr, 0));
 
-  // Does the printer take 1-bit PWG Raster? If it tells us its PWG Raster
-  // types and black_1 is not among them, bi-level modes must not give a
-  // 1-bit header
-  bool no_bi_level =
-    (pwg_raster &&
-     (attr = ippFindAttribute(data->printer_attrs,
-			      "pwg-raster-document-type-supported",
-			      IPP_TAG_ZERO)) != NULL &&
-     !ippContainsString(attr, "black_1"));
-
   // Color modes
   int numcolors = 0;		// Number of colorants
   if ((val = cupsGetOption("pwg-raster-document-type", num_options,
@@ -1659,13 +1640,8 @@ raster_base_header(cups_page_header_t *h,  // O - Raster header
 	     !strcasecmp(val, "FastGray") ||
 	     !strcasecmp(val, "ProcessFastGray"))
     {
-      if (no_bi_level)
-	colorspace = 18;
-      else
-      {
-	bitspercolor = 1;
-	colorspace = 3;
-      }
+      bitspercolor = 1;
+      colorspace = 3;
       numcolors = 1;
     }
     else if (!strncasecmp(val, "Black", 5))
