@@ -2367,11 +2367,19 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   pdfio_rect_t	irect;			// Input page rectangle
   double	cwidth,			// Cell width
 		cheight,		// Cell height
-		iwidth,			// Input page width
-		iheight,		// Input page height
 		scaling;		// Scaling factor
-  bool		rotate;			// Rotate 90 degrees?
-  pdfio_matrix_t cm;			// Cell transform matrix
+  int		page_rotate,		// Input page's own /Rotate (0/90/180/270)
+		effective_rotate;	// page_rotate plus any auto-fit 90 degree turn
+  pdfio_rect_t	raw_box,		// Input page rect, moved to the origin
+		visual_box,		// raw_box after page_rotate only (fit decision)
+		final_box;		// raw_box after effective_rotate (layout)
+  double	final_iwidth,		// Input page width after effective_rotate
+		final_iheight;		// Input page height after effective_rotate
+  bool		fit_swap;		// Does an extra 90 degree turn fit the cell better?
+  pdfio_matrix_t cm,			// Cell transform matrix
+		rotate_m,		// effective_rotate as a rotation matrix
+		scale_m,		// Uniform scale by "scaling"
+		translate_m;		// A translation step of the composition below
   size_t	i,			// Looping var
 		count;			// Number of input page streams
   pdfio_stream_t *st;			// Input page stream
@@ -2452,25 +2460,39 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   cwidth  = cell->x2 - cell->x1;
   cheight = cell->y2 - cell->y1;
 
-  iwidth  = irect.x2 - irect.x1;
-  iheight = irect.y2 - irect.y1;
+  // The input page's own /Rotate (inherited from its Pages node) says how a
+  // viewer displays it; since this content stream is copied into a fresh
+  // output page that doesn't carry that /Rotate along, bake the equivalent
+  // rotation into the transform instead, same as the already-established
+  // rotation handling for annotations (matrix_rotatex90() et al).
+  page_rotate = ((page_get_rotate(outpage->input[layout]) % 360) + 360) % 360;
 
-  if ((iwidth > iheight && cwidth < cheight) || (iwidth < iheight && cwidth > cheight))
-  {
-    // Need to rotate...
-    rotate  = true;
-    iwidth  = irect.y2 - irect.y1;
-    iheight = irect.x2 - irect.x1;
-  }
+  raw_box.x1 = 0.0;
+  raw_box.y1 = 0.0;
+  raw_box.x2 = irect.x2 - irect.x1;
+  raw_box.y2 = irect.y2 - irect.y1;
+
+  // Decide whether an additional 90 degree turn fits the cell better, using
+  // the page's real (post-/Rotate) visual dimensions -- a landscape page
+  // saved with a portrait MediaBox and /Rotate 90 is still landscape for
+  // this decision, not portrait.
+  matrix_rotatex90(rotate_m, page_rotate);
+  visual_box = matrix_transform_rect(rotate_m, raw_box);
+
+  if (((visual_box.x2 - visual_box.x1) > (visual_box.y2 - visual_box.y1) && cwidth < cheight) ||
+      ((visual_box.x2 - visual_box.x1) < (visual_box.y2 - visual_box.y1) && cwidth > cheight))
+    fit_swap = true;
   else
-  {
-    // No rotation...
-    rotate = false;
-  }
+    fit_swap = false;
 
-  fprintf(stderr, "DEBUG: iwidth=%g, iheight=%g, cwidth=%g, cheight=%g, rotate=%s\n", iwidth, iheight, cwidth, cheight, rotate ? "true" : "false");
+  effective_rotate = ((page_rotate + (fit_swap ? 90 : 0)) % 360 + 360) % 360;
 
-  scaling = cwidth / iwidth;
+  matrix_rotatex90(rotate_m, effective_rotate);
+  final_box     = matrix_transform_rect(rotate_m, raw_box);
+  final_iwidth  = final_box.x2 - final_box.x1;
+  final_iheight = final_box.y2 - final_box.y1;
+
+  scaling = cwidth / final_iwidth;
   if (p->options->print_scaling == CF_FILTER_SCALING_NONE)
   {
     // No scaling, keep the input page at its original size...
@@ -2479,35 +2501,35 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   else if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
   {
     // Scale to fill...
-    if ((iheight * scaling) < cheight)
-      scaling = cheight / iheight;
+    if ((final_iheight * scaling) < cheight)
+      scaling = cheight / final_iheight;
   }
   else
   {
     // Scale to fit...
-    if ((iheight * scaling) > cheight)
-      scaling = cheight / iheight;
+    if ((final_iheight * scaling) > cheight)
+      scaling = cheight / final_iheight;
   }
 
- if (rotate)
-  {
-    cm[0][0] = 0.0;
-    cm[0][1] = -scaling;
-    cm[1][0] = scaling;
-    cm[1][1] = 0.0;
-    cm[2][0] = cell->x1 + 0.5 * (cwidth - iwidth * scaling);
-    cm[2][1] = cell->y2 - 0.5 * (cheight - iheight * scaling);
-  }
-  else
-  {
-    cm[0][0] = scaling;
-    cm[0][1] = 0.0;
-    cm[1][0] = 0.0;
-    cm[1][1] = scaling;
-    cm[2][0] = cell->x1 + 0.5 * (cwidth - iwidth * scaling);
-    cm[2][1] = cell->y1 + 0.5 * (cheight - iheight * scaling);
-  }
- 
+  // Compose the full transform: move the input page's own box to the
+  // origin, apply the rotation, slide the rotated box back so its own
+  // lower-left corner is at the origin again (matrix_transform_rect()
+  // already told us where that ended up), scale, then center in the
+  // cell. Each step is applied in that order (matrix_concat(out, A, B)
+  // means "apply B, then A").
+  matrix_translate(translate_m, -irect.x1, -irect.y1);
+  matrix_concat(cm, rotate_m, translate_m);
+
+  matrix_translate(translate_m, -final_box.x1, -final_box.y1);
+  matrix_concat(cm, translate_m, cm);
+
+  matrix_scale(scale_m, scaling, scaling);
+  matrix_concat(cm, scale_m, cm);
+
+  matrix_translate(translate_m,
+		    cell->x1 + 0.5 * (cwidth - final_iwidth * scaling),
+		    cell->y1 + 0.5 * (cheight - final_iheight * scaling));
+  matrix_concat(cm, translate_m, cm);
 
   if (Verbosity)
     fprintf(stderr, "DEBUG: Page %u, cell %u/%u, cm=[%g %g %g %g %g %g], input=%p\n", (unsigned)(outpage - p->outpages + 1), (unsigned)layout + 1, (unsigned)p->num_layout, cm[0][0], cm[0][1], cm[1][0], cm[1][1], cm[2][0], cm[2][1], (void *)outpage->input[layout]);
