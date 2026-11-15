@@ -200,6 +200,7 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
   int hi_depth;
   char valuebuffer[2048];
   int res = 1;
+  int from_color_model = 0;
   int xres = -1; int yres = -1;
   float margins[4];
   float dimensions[2];
@@ -411,11 +412,15 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
     // default print-color-mode, otherwise for example FastGray (bi-level)
     // gets replaced by the printer's default monochrome
     if ((color_mode = cupsGetOption("print-color-mode", num_options,
-				    options)) == NULL &&
-	(color_mode = cupsGetOption("ColorModel", num_options,
 				    options)) == NULL)
-      color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
-					      "print-color-mode");
+    {
+      if ((color_mode = cupsGetOption("ColorModel", num_options,
+				      options)) != NULL)
+	from_color_model = 1;
+      else
+	color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
+						"print-color-mode");
+    }
     if (!color_mode)
       color_mode = cfIPPAttrEnumValForPrinter(printer_attrs, job_attrs,
 					      "output-mode");
@@ -453,8 +458,7 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
     int hi_depth_requested = hi_depth;
     res = cfRasterSetColorSpace(h, cspaces_available, color_mode,
 				cspace, &hi_depth);
-    if (res < 0 &&
-	color_mode == cupsGetOption("ColorModel", num_options, options))
+    if (res < 0 && from_color_model)
     {
       // The printer cannot do the ColorModel chosen for the job (for
       // example RGB or DeviceGray on a printer which only has sgray_8),
