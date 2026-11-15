@@ -36,6 +36,8 @@
 // Local functions
 //
 
+static int raster_black_depth(const char *available, int high_depth,
+			      int *num_depths);
 static int raster_base_header(cups_page_header_t *h, cf_filter_data_t *data,
 			      int pwg_raster);
 
@@ -622,6 +624,52 @@ cfRasterPrepareHeader(cups_page_header_t *h,   // I  - Raster header
 
 
 //
+// 'raster_black_depth()' - Find the color depth to use with the black_N
+//                          types of pwg-raster-document-type-supported.
+//                          black_1 is bi-level, so it is only taken if
+//                          there is no other depth.
+//
+
+static int				// O - Bits per color, 0 if no black_N
+raster_black_depth(
+    const char *available,		// I - Available raster types
+    int        high_depth,		// I - Prefer the highest depth?
+    int        *num_depths)		// O - Number of depths other than 1
+{
+  const char	*p;			// Pointer into list
+  int		depth,			// Depth of current entry
+		lowest = 0,		// Lowest depth other than 1
+		highest = 0,		// Highest depth
+		bi_level = 0;		// black_1 present?
+
+
+  *num_depths = 0;
+
+  for (p = available; (p = strstr(p, "black_")) != NULL; p += 6)
+  {
+    if (p != available && *(p - 1) != ',')
+      continue;
+
+    if ((depth = atoi(p + 6)) == 1)
+      bi_level = 1;
+    else if (depth > 1)
+    {
+      (*num_depths) ++;
+      if (!lowest || depth < lowest)
+	lowest = depth;
+      if (depth > highest)
+	highest = depth;
+    }
+  }
+
+  if (lowest)
+    return (high_depth ? highest : lowest);
+  else
+    return (bi_level);
+}
+
+
+//
 // 'cfRasterSetColorSpace()' - Update a given CUPS/PWG Raster header to
 //                            the desired color mode, color space, and
 //                            color depth. We supply one of the
@@ -659,6 +707,8 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
 			   // 1: sRGB for color, sGray for mono
 			   // 2: sRGB for mono
   const char *p, *q = NULL;
+  int black_depth, num_black_depths;
+  int mono_mode;
 
   // Range-check
   if (!h || !available || !cspace)
@@ -669,6 +719,16 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
       *cspace != CUPS_CSPACE_W && *cspace != CUPS_CSPACE_K &&
       *cspace != CUPS_CSPACE_RGB && *cspace != CUPS_CSPACE_CMYK)
     return (-1);
+
+  // Grayscale or bi-level requested?
+  mono_mode = (strcasecmp(color_mode, "auto") &&
+	       !strcasestr(color_mode, "color") &&
+	       !strcasestr(color_mode, "rgb") &&
+	       !strcasestr(color_mode, "cmy"));
+
+  // Depth for the black_N types, if the printer has any
+  black_depth = raster_black_depth(available, high_depth && *high_depth,
+				   &num_black_depths);
 
   // True Bi-Level only available in PWG Raster.
   // List of properties in pwg-raster-document-type-supported IPP attribute
@@ -691,6 +751,24 @@ cfRasterSetColorSpace(cups_page_header_t *h,   // I  - Raster header
     num_colors = 1;
     // No high color depth in bi-level
     if (high_depth)
+      *high_depth = 0;
+  }
+  else if (islower(available[0]) &&
+	   (*cspace == -1 || *cspace == CUPS_CSPACE_SW ||
+	    *cspace == CUPS_CSPACE_W || *cspace == CUPS_CSPACE_K) &&
+	   !strstr(available, "sgray_") &&
+	   (mono_mode ||
+	    (!strstr(available, "rgb_") && !strstr(available, "cmyk_"))) &&
+	   black_depth > 0)
+  {
+    // The printer has no sGray but black_N types (PWG Raster only), so
+    // grayscale goes out as black (DeviceK) in the depth the printer
+    // takes. This is also where bi-level modes end up if the printer has
+    // no black_1.
+    *cspace = CUPS_CSPACE_K;
+    best_depth = black_depth;
+    num_colors = 1;
+    if (high_depth && *high_depth && num_black_depths < 2)
       *high_depth = 0;
   }
   else
