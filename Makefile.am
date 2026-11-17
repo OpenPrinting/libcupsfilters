@@ -122,6 +122,7 @@ check_PROGRAMS = \
 	testpdf2 \
 	test-analyze \
 	test-pdf \
+	test-pdf-widths \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
@@ -133,6 +134,7 @@ TESTS = \
 	testpdf2 \
 	test-analyze \
 	test-pdf \
+	test-pdf-widths \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
@@ -372,6 +374,10 @@ test_analyze_CFLAGS = $(CUPS_CFLAGS)
 test_pdf_SOURCES = cupsfilters/fontembed/test-pdf.c
 test_pdf_LDADD = libcupsfilters.la $(CUPS_LIBS)
 test_pdf_CFLAGS = $(CUPS_CFLAGS)
+
+test_pdf_widths_SOURCES = cupsfilters/fontembed/test-pdf-widths.c
+test_pdf_widths_LDADD = libcupsfilters.la $(CUPS_LIBS)
+test_pdf_widths_CFLAGS = $(CUPS_CFLAGS)
 
 test_ps_SOURCES = cupsfilters/fontembed/test-ps.c
 test_ps_LDADD = libcupsfilters.la $(CUPS_LIBS)
