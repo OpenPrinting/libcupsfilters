@@ -530,6 +530,7 @@ typedef struct texttopdf_doc_s          // *** Document data for texttopdf filte
 //
 
 static _cf_fontembed_emb_params_t *font_load(const char *font, int fontwidth,
+					     int start, int end,
 					     cf_logfunc_t log, void *ld);
 static _cf_fontembed_emb_params_t *font_std(const char *name);
 static int	compare_keywords(const void *k1, const void *k2);
@@ -1564,6 +1565,8 @@ cfFilterTextToPDF(int inputfd,  	// I - File descriptor input stream
 static _cf_fontembed_emb_params_t *
 font_load(const char *font,
 	  int fontwidth,
+	  int start,		// I - First code point the font is used for
+	  int end,		// I - Last code point the font is used for
 	  cf_logfunc_t log,
 	  void *ld)
 {
@@ -1593,35 +1596,95 @@ font_load(const char *font,
 
     if (candidates)
     {
-      // In the list of fonts returned by FcFontSort()
-      // find the first one that is both in TrueType format and monospaced
+      FcCharSet  *wanted;		// Code points this font is used for
+      const char *fallback = NULL,	// Format of first usable candidate
+		 *chosen = NULL;	// Format of first covering candidate
+      int	 fallback_i = -1,	// Index of first usable candidate
+		 chosen_i = -1;		// Index of first covering candidate
+      int	 c;
+
+      //
+      // Build the set of code points this font is supposed to render, so
+      // that we can skip candidates which have no glyph for any of them.
+      // A symbol-only font (e.g. PowerlineSymbols, which some packages
+      // alias to "monospace") would otherwise get embedded and every
+      // character would print as .notdef (Issue #224).
+      //
+
+      if (start < 0)
+	start = 0;
+      if (end > 0x10FFFF)
+	end = 0x10FFFF;
+
+      wanted = FcCharSetCreate();
+      for (c = start; wanted && c <= end; c ++)
+	FcCharSetAddChar(wanted, (FcChar32)c);
+
+      // In the list of fonts returned by FcFontSort() find the first one
+      // that is in TrueType or CFF format and has glyphs for the range
       for (i = 0; i < candidates->nfont; i ++)
       {
-	FcChar8 *fontformat = NULL; // TODO? or just try?
-	int spacing = 0; // sane default, as FC_MONO == 100
-	FcPatternGetString(candidates->fonts[i], FC_FONTFORMAT, 0, &fontformat);
-	FcPatternGetInteger(candidates->fonts[i], FC_SPACING, 0, &spacing);
+	FcChar8   *fontformat = NULL;
+	FcCharSet *fontcs = NULL;
+	const char *fmt;
 
-	if (fontformat) 
+	FcPatternGetString(candidates->fonts[i], FC_FONTFORMAT, 0, &fontformat);
+	if (!fontformat)
+	  continue;
+
+	if (strcmp((const char *)fontformat, "TrueType") == 0)
+	  fmt = "%{file|cescape}/%{index}";
+	else if (strcmp((const char *)fontformat, "CFF") == 0)
+	  fmt = "%{file|cescape}"; // TTC only possible with non-cff glyphs!
+	else
+	  continue;
+
+	if (fallback_i < 0)
 	{
-	  // check for monospace or double width fonts
-	  if (strcmp((const char *)fontformat, "TrueType") == 0)
-	  {
-	    fontname =
-	      FcPatternFormat(candidates->fonts[i],
-			      (const FcChar8 *)"%{file|cescape}/%{index}");
-	    break;
-	  }
-	  else if (strcmp((const char *)fontformat, "CFF") == 0)
-	  {
-	    fontname =
-	      FcPatternFormat (candidates->fonts[i],
-			       (const FcChar8 *)"%{file|cescape}");
-	                          // TTC only possible with non-cff glyphs!
-	    break;
-	  }
+	  fallback_i = i;
+	  fallback = fmt;
+	}
+
+	if (!wanted ||
+	    (FcPatternGetCharSet(candidates->fonts[i], FC_CHARSET, 0,
+				 &fontcs) == FcResultMatch &&
+	     FcCharSetIntersectCount(fontcs, wanted) > 0))
+	{
+	  chosen_i = i;
+	  chosen = fmt;
+	  break;
 	}
       }
+
+      if (chosen_i >= 0)
+      {
+	if (chosen_i != fallback_i && log)
+	{
+	  FcChar8 *skipped =
+	    FcPatternFormat(candidates->fonts[fallback_i],
+			    (const FcChar8 *)"%{family[0]}");
+	  log(ld, CF_LOGLEVEL_DEBUG,
+	      "cfFilterTextToPDF: Font \"%s\" has no glyphs for U+%04X-U+%04X, "
+	      "skipping it for \"%s\"", skipped ? (char *)skipped : "?",
+	      start, end, font);
+	  free(skipped);
+	}
+	fontname = FcPatternFormat(candidates->fonts[chosen_i],
+				   (const FcChar8 *)chosen);
+      }
+      else if (fallback_i >= 0)
+      {
+	// No candidate covers the range, keep the previous behaviour
+	if (log)
+	  log(ld, CF_LOGLEVEL_WARN,
+	      "cfFilterTextToPDF: No font for \"%s\" has glyphs for "
+	      "U+%04X-U+%04X, using the best match anyway", font, start, end);
+	fontname = FcPatternFormat(candidates->fonts[fallback_i],
+				   (const FcChar8 *)fallback);
+      }
+
+      if (wanted)
+	FcCharSetDestroy(wanted);
       FcFontSetDestroy (candidates);
     }
   }
@@ -2203,7 +2266,8 @@ write_prolog(const char *title,		// I - Title of job
             if (k == num_fonts) // not found
 	    {
 	      fonts[num_fonts] = doc->Fonts[doc->NumFonts][i] =
-		font_load(valptr, doc->Widths[doc->NumFonts], log, ld);
+		font_load(valptr, doc->Widths[doc->NumFonts], start, end,
+			  log, ld);
               if (!fonts[num_fonts]) // font missing/corrupt, replace by first
 	      {
                 if(log) log(ld, CF_LOGLEVEL_WARN,

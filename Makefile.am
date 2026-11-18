@@ -108,6 +108,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
+	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
 
@@ -150,6 +151,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
+	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
 
@@ -425,12 +427,14 @@ EXTRA_DIST += \
 	cupsfilters/fontembed/README \
 	cupsfilters/test-filter-cases.txt \
 	cupsfilters/test_files/filled-2.pdf \
+	cupsfilters/test_files/gen-symbol-only-font.py \
 	cupsfilters/test_files/form_english.pdf \
 	cupsfilters/test_files/inherited_mediabox.pdf \
 	cupsfilters/test_files/jpeg-no-app-marker.jpg \
 	cupsfilters/test_files/link-annots-no-appearance.pdf \
 	cupsfilters/test_files/malformed.pdf \
 	cupsfilters/test_files/onepage-a4-adobe-rgb-8-150dpi.pwg \
+	cupsfilters/test_files/symbol-only.ttf \
 	cupsfilters/test_files/test_file_1pg.pdf \
 	cupsfilters/test_files/test_file_4pg.pdf \
 	cupsfilters/test_files/test_file_8pg.pdf \
