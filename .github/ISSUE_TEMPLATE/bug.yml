@@ -1,0 +1,61 @@
+name: Bug report
+description: Report an issue in libcupsfilters
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You're reporting an issue in libcupsfilters, a library which processes and
+        converts PDF, PostScript, and image files to the output appropriate for the printer.
+
+        To better understand the core issue and fix it, we'd appreciate if you include the following:
+
+        1. The file you're printing (source document)
+        2. The application you're printing from
+        3. The PPD of your printer `/etc/cups/ppd/*.ppd`
+        4. The printing job data, `c` file from `/var/spool/cups` directory, usually the latest one
+        5. `cups`, `cups-filters`, `libcupsfilters` package versions
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system / distribution
+      description: Enter the version of your distribution
+      placeholder: ex. Ubuntu 26.04
+    validations:
+      required: true
+
+  - type: dropdown
+    id: distro-bundled
+    attributes:
+      label: Do you use libcupsfilters from your distribution repositories?
+      options:
+        - Yes, from distribution repositories
+        - No, external or self-compiled
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: CUPS, cups-filters, libcupsfilters package versions
+      description: Enter the versions of the software you're having issue with
+      placeholder: ex. cups-2.4.19-3.fc43.x86_64, cups-filters-2.0.1-17.fc43.x86_64, libcupsfilters-2.1.1-9.fc43.x86_64
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: Attach the screenshots for clarity. Include package versions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: If you have a hints on why this bug happens, you can express it here.
