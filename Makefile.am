@@ -109,6 +109,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
+	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
 
@@ -154,6 +155,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
+	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
 	cupsfilters/test-ghostscript-ocr.sh \
 	cupsfilters/test-image-tiff-scanline.sh
 

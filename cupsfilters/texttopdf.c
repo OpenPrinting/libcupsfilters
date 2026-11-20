@@ -2515,7 +2515,7 @@ static lchar_t
 
     if (*utf8 < 0xc0 || !(doc->UTF8))
       out->ch = *utf8 ++;
-    else if ((*utf8 & 0xe0) == 0xc0)
+    else if ((*utf8 & 0xe0) == 0xc0 && (utf8[1] & 0xc0) == 0x80)
     {
       //
       // Two byte character...
@@ -2524,7 +2524,8 @@ static lchar_t
       out->ch = ((utf8[0] & 0x1f) << 6) | (utf8[1] & 0x3f);
       utf8 += 2;
     }
-    else
+    else if ((*utf8 & 0xe0) != 0xc0 && (utf8[1] & 0xc0) == 0x80 &&
+             (utf8[2] & 0xc0) == 0x80)
     {
       //
       // Three byte character...
@@ -2533,6 +2534,16 @@ static lchar_t
       out->ch = ((((utf8[0] & 0x1f) << 6) | (utf8[1] & 0x3f)) << 6) |
                 (utf8[2] & 0x3f);
       utf8 += 3;
+    }
+    else
+    {
+      //
+      // Invalid or truncated character, don't read past the end of the
+      // string...
+      //
+
+      out->ch = '?';
+      utf8 ++;
     }
 
     out++;
