@@ -32,8 +32,9 @@ CASES="${WORKDIR}/cases.txt"
 
 printf 'Hello\n' > "${INPUT}"
 
-# A lone lead byte and a truncated 3-byte character
-for title in '\300' '\342\202'; do
+# A lone 2-byte lead, a lone 3-byte lead and a truncated 3-byte character,
+# each right before the terminating nul
+for title in '\300' '\340' '\342\202'; do
   OUTPUT="${WORKDIR}/output.pdf"
   rm -f "${OUTPUT}"
 
