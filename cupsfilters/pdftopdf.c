@@ -2329,7 +2329,7 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
 
     if ((st = pdfioPageOpenStream(outpage->input[pg], i, true)) != NULL)
     {
-      fprintf(stderr, "DEBUG: Opened stream %u, resmap[%u]=%p\n", (unsigned)i + 1, (unsigned)pg, (void *)outpage->resmap[pg]);
+      fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
       while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
       {
         pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
