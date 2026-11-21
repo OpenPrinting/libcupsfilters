@@ -21,6 +21,7 @@
 #include <cups/raster.h>
 #include <cups/cups.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <pdfio.h>
 #include <pdfio-content.h>
@@ -47,6 +48,7 @@ typedef struct pclmtoraster_data_s
   unsigned int bytesPerLine;	// bytes per line in output
   char colorspace[32]; 		// Colourspace string(Use fixed-size string)
   int pixel_count;		// Accumulated pixel byte count for bitmap
+  int image_error;		// Image stream failed to open or read
   unsigned char *bitmap;	// Accumulated image bitmap data
 } pclmtoraster_data_t;
 
@@ -71,6 +73,7 @@ init_pclmtoraster_data_t(pclmtoraster_data_t *data)	// I - pclm data to initiali
   //   cupsBytesPerLine = bytesPerLine * cupsNumColors
   strncpy(data->colorspace, "\0", sizeof(data->colorspace));
   data->pixel_count = 0;
+  data->image_error = 0;
   data->bitmap = NULL;
 }
 
@@ -842,7 +845,6 @@ select_convert_func(int			pgno,	 // I - Page number
 
 //
 // 'process_image()' - Callback for processing images found in PDF dictionaries
-// 		       NOTE: no error code, be sure to upload image object only.
 //
 
 static bool					  // O - 1 if success, 0 if fail
@@ -878,11 +880,17 @@ process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
 
   // Read the complete decoded image stream
   if ((img_str = pdfioObjOpenStream(image, true)) == NULL)
-    return (true);
+    goto fail;
 
   while ((bytes = pdfioStreamRead(img_str, buffer, sizeof(buffer))) > 0)
   {
     unsigned char *tmp;
+
+    if (bytes > INT_MAX - data->pixel_count)
+    {
+      pdfioStreamClose(img_str);
+      goto fail;
+    }
 
     if (data->pixel_count == 0)
       tmp = (unsigned char *)malloc(bytes);
@@ -893,15 +901,16 @@ process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
     if (!tmp)
     {
       pdfioStreamClose(img_str);
-      return (false);
+      goto fail;
     }
 
     data->bitmap = tmp;
     memcpy(data->bitmap + data->pixel_count, buffer, bytes);
-    data->pixel_count += bytes;
+    data->pixel_count += (int)bytes;
   }
 
-  pdfioStreamClose(img_str);
+  if (!pdfioStreamClose(img_str) || bytes < 0)
+    goto fail;
 
   data->header.cupsHeight += height;
 
@@ -910,6 +919,10 @@ process_image(pdfio_dict_t *dict, 		// I - dictionary where images are there
     data->header.cupsWidth = width;
 
   return (true);
+
+  fail:
+  data->image_error = 1;
+  return (false);
 }
 
 //
@@ -1086,7 +1099,18 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   // Iterate over the XObject dictionary to find images
   data->pixel_count = 0;
   data->bitmap = NULL;
+  data->image_error = 0;
   pdfioDictIterateKeys(xobjects, process_image, data);
+  if (data->image_error)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPCLmToRaster: Unable to read image streams on page %d",
+		 pgno + 1);
+    free(data->bitmap);
+    data->bitmap = NULL;
+    data->pixel_count = 0;
+    return (1);
+  }
 
   // Swap width and height in landscape images
   if(rotate == 270 || rotate == 90)
@@ -1241,6 +1265,7 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
   char			buffer[8192];		// Copy buffer
   int			bytes;			// Bytes copied
   int			npages = 0;
+  int			status = 0;
   pdfio_file_t		*pdf = NULL;
   cups_raster_t		*raster;
   pclmtoraster_data_t	pclmtoraster_data;
@@ -1364,13 +1389,14 @@ cfFilterPCLmToRaster(int inputfd,         // I - File descriptor input stream
 
     if (log) log(ld, CF_LOGLEVEL_INFO,
 		 "cfFilterPCLmToRaster: Starting page %d.", i + 1);
-    if (out_page(raster, pages, i, log, ld, &pclmtoraster_data, data,
-		 &convert) != 0)
+    if ((status = out_page(raster, pages, i, log, ld, &pclmtoraster_data,
+			   data, &convert)) != 0)
       break;
   }
 
+  free(pclmtoraster_data.bitmap);
   cupsRasterClose(raster);
   pdfioFileClose(pdf);
   unlink(tempfile);
-  return (0);
+  return (status);
 }
