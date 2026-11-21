@@ -1905,6 +1905,51 @@ dimensions_for_name(char *size_name,
 }
 
 //
+// 'pwg_size_in_collections()' - Check for per-size media information.
+//
+
+static int                              // O - 1 if a collection describes the size
+pwg_size_in_collections(ipp_t *response, // I - Printer attributes
+                       const pwg_media_t *media) // I - Media size
+{
+  static const char * const col_attrs[] =
+  {
+    "media-col-database", "media-col-ready"
+  };
+  ipp_attribute_t *attr, *name, *dimensions;
+  ipp_t *col, *size;
+  pwg_media_t *pwg;
+  const char *entry_name;
+  int i, j;
+
+  for (j = 0; j < 2; j ++)
+  {
+    attr = ippFindAttribute(response, col_attrs[j], IPP_TAG_BEGIN_COLLECTION);
+    for (i = 0; i < ippGetCount(attr); i ++)
+    {
+      col = ippGetCollection(attr, i);
+      dimensions = ippFindAttribute(col, "media-size", IPP_TAG_BEGIN_COLLECTION);
+      size = ippGetCollection(dimensions, 0);
+      pwg = pwgMediaForSize(ippGetInteger(ippFindAttribute(size, "x-dimension",
+                                                        IPP_TAG_INTEGER), 0),
+                            ippGetInteger(ippFindAttribute(size, "y-dimension",
+                                                        IPP_TAG_INTEGER), 0));
+      if (pwg && pwg->width == media->width && pwg->length == media->length)
+        return (1);
+
+      name = ippFindAttribute(col, "media-size-name", IPP_TAG_ZERO);
+      entry_name = ippGetString(name, 0, NULL);
+      pwg = entry_name ? pwgMediaForPWG(entry_name) : NULL;
+      if (pwg && pwg->width == media->width && pwg->length == media->length)
+        return (1);
+    }
+  }
+
+  return (0);
+}
+
+
+//
 // 'cfGenerateSizes()' - Generate a list of sizes from the printer attributes.
 //
 
@@ -2497,6 +2542,10 @@ cfGenerateSizes(ipp_t *response,        // I - Printer attributes
 	if (!sizes && mode == CF_GEN_SIZES_DEFAULT)
 	  continue;
 
+	// Collections already describe the variants and margins of this size.
+	if (pwg_size_in_collections(response, pwg))
+	  continue;
+
 	temp.width  = pwg->width;
 	temp.length = pwg->length;
 	temp.left   = *custom_left;
@@ -2611,6 +2660,34 @@ cfGenerateSizes(ipp_t *response,        // I - Printer attributes
 	{
 	  if (!sizes && mode == CF_GEN_SIZES_DEFAULT)
 	    continue;
+
+	  if (pwg_size_in_collections(response, pwg))
+	  {
+	    // Keep the original IPP keyword on every existing size variant.
+	    if (sizes)
+	    {
+	      psname = (pwg->ppd != NULL ? pwg->ppd : pwg->pwg);
+	      cupsArraySave(*sizes);
+	      for (temp2 = cupsArrayGetFirst(*sizes); temp2;
+		   temp2 = cupsArrayGetNext(*sizes))
+	      {
+		size_t len = strlen(psname);
+		size_t name_len = strcspn(temp2->media, " ");
+		const char *suffix = temp2->media + len;
+
+		if ((name_len != len && name_len != len + 11) ||
+		    strncmp(temp2->media, psname, len) ||
+		    (name_len != len && strncmp(suffix, ".Borderless", 11)))
+		  continue;
+
+		snprintf(temp2->media + strlen(temp2->media),
+			 sizeof(temp2->media) - strlen(temp2->media),
+			 " %s", pwg_size);
+	      }
+	      cupsArrayRestore(*sizes);
+	    }
+	    continue;
+	  }
 
 	  temp.width  = pwg->width;
 	  temp.length = pwg->length;
