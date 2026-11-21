@@ -224,6 +224,66 @@ job_sheet_wanted(const char *job_sheets,// I - "job-sheets" value
 }
 
 
+//
+// 'job_option_requested()' - Check whether the job sets an option.
+//
+// Like cfFilterOptionsCreate(), this looks at the job's options and at the
+// "IPP_NAME" and "IPP_NAME_DEFAULT" environment variables.
+//
+
+static bool				// O - `true` if set, `false` otherwise
+job_option_requested(
+    const char       *name,		// I - Option name
+    cf_filter_data_t *data)		// I - Filter data
+{
+  char		env[256],		// Environment variable name
+		*ptr;			// Pointer into name
+  size_t	len;			// Length of name
+
+
+  if (cupsGetOption(name, data->num_options, data->options))
+    return (true);
+
+  snprintf(env, sizeof(env), "IPP_%s", name);
+  for (ptr = env + 4; *ptr; ptr ++)
+  {
+    if (*ptr == '-')
+      *ptr = '_';
+    else
+      *ptr = (char)toupper(*ptr & 255);
+  }
+
+  if (getenv(env))
+    return (true);
+
+  len = strlen(env);
+  snprintf(env + len, sizeof(env) - len, "_DEFAULT");
+
+  return (getenv(env) != NULL);
+}
+
+
+//
+// 'output_order_requested()' - Check whether the job asks for an output
+//                              order, page delivery, or output bin.
+//
+// This checks the same options and environment variables from which
+// cfFilterOptionsCreate() sets the "reverse_order", "page_delivery", and
+// "output_bin" members of the filter options.
+//
+
+static bool				// O - `true` if requested, `false` otherwise
+output_order_requested(
+    cf_filter_options_t *options,	// I - IPP options
+    cf_filter_data_t    *data)		// I - Filter data
+{
+  return (options->output_bin[0] ||
+          job_option_requested("outputorder", data) ||
+          cupsGetOption("output-order", data->num_options, data->options) ||
+          job_option_requested("page-delivery", data));
+}
+
+
 
 //
 // 'media_to_rect()' - Convert `cups_media_t` to `pdfio_rect_t` for media and crop boxes.
@@ -3060,8 +3120,12 @@ prepare_documents(
   if (job_sheet_wanted(options->job_sheets, false))
     generate_job_sheets(&p);
 
-  // Copy pages to the output file...
-  for (copies = generate_copies ? options->copies : 1; copies > 0; copies --)
+  // Do the pages need to come out in reverse order?  If the job asks for an
+  // output order, page delivery, or output bin, this decides.  Otherwise use
+  // the printer's default output bin and how it stacks the pages, as the
+  // QPDF-based pdftopdf did, so that printers with only a face-up output bin
+  // get the pages in reverse order by default.
+  if (output_order_requested(options, data))
   {
     reverse_order = !strcmp(options->output_bin, "face-up");
     if (options->page_delivery >= CF_FILTER_DELIVERY_REVERSE_ORDER_FACE_DOWN)
@@ -3069,7 +3133,19 @@ prepare_documents(
 
     if (options->reverse_order)
       reverse_order = true;
+  }
+  else
+    reverse_order = cfIPPReverseOutput(data->printer_attrs,
+				       data->job_attrs) != 0;
 
+  if (p.logfunc)
+    p.logfunc(p.logdata, CF_LOGLEVEL_DEBUG,
+	      "cfFilterPDFToPDF: Output order: %s",
+	      reverse_order ? "reverse" : "normal");
+
+  // Copy pages to the output file...
+  for (copies = generate_copies ? options->copies : 1; copies > 0; copies --)
+  {
     if (reverse_order)
     {
       outpage = p.outpages + p.num_outpages - 1;
@@ -3428,6 +3504,17 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // "universal" filter.
   if (data->copies > 1 && filter_options->copies <= 1)
     filter_options->copies = data->copies;
+
+  // Without "sides" or "Duplex" in the job, use the printer's default for
+  // "sides", as the QPDF-based pdftopdf did.  With a PPD, libppd provides it
+  // from *DefaultDuplex.  Documents and copies are only padded to whole
+  // sheets, and reversed pages are only paired correctly on the sheets, if
+  // pdftopdf knows that the job is printed duplex.
+  if (!job_option_requested("sides", data) &&
+      !job_option_requested("Duplex", data) &&
+      (val = cfIPPAttrEnumValForPrinter(data->printer_attrs, data->job_attrs,
+					"sides")) != NULL)
+    snprintf(filter_options->sides, sizeof(filter_options->sides), "%s", val);
 
   // Hardware or software copies?  libppd tells us with the "hardware-copies"
   // and "hardware-collate" options, otherwise PDF printers are assumed to

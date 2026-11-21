@@ -24,6 +24,15 @@
   following filters know that the page options are already applied
   (Issues #271, #231, #233).
 - CI test `test-pdftopdf-copies.sh` for the above.
+- `cfFilterPDFToPDF()`: Take the output order and the duplex mode from the
+  printer's defaults again if the job does not ask for them, as the
+  QPDF-based `pdftopdf` did: the output order from the default output bin
+  (`cfIPPReverseOutput()`), so that printers with a face-up output bin
+  print the pages in reverse order and the stack comes out in the right
+  order, and `sides` from `sides-default` (with a PPD, `*DefaultDuplex`),
+  so that documents and copies on queues defaulting to duplex are padded
+  to whole sheets.
+- CI test `test-pdftopdf-printer-defaults` for the above.
 
 ## CHANGES IN V2.2.1 (11th August 2026)
 
