@@ -775,6 +775,13 @@ prepare_number_up(xform_prepare_t *p)	// I - Preparation data
 
     return;
   }
+  else if (p->options->number_up > XFORM_MAX_LAYOUT)
+  {
+    // More cells than the layout array holds, print 1-up...
+    p->num_layout = 1;
+
+    prepare_log(p, false, "Ignoring \"number-up\" = '%d'.", p->options->number_up);
+  }
   else
   {
     p->num_layout = (size_t)p->options->number_up;
