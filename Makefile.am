@@ -128,6 +128,7 @@ check_PROGRAMS = \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
+	test-pclmtoraster-stream-errors \
 	testfilters
 
 TESTS = \
@@ -140,6 +141,7 @@ TESTS = \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
+	test-pclmtoraster-stream-errors \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-imagetoraster-row-size.sh \
@@ -346,6 +348,15 @@ test_raster_color_mode_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 test_raster_color_mode_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
+
+test_pclmtoraster_stream_errors_SOURCES = \
+	cupsfilters/test-pclmtoraster-stream-errors.c
+test_pclmtoraster_stream_errors_CFLAGS = \
+	-D_GNU_SOURCE -I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_pclmtoraster_stream_errors_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS)
 
