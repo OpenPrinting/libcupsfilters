@@ -287,6 +287,8 @@ cfFilterAddEnvVar(char *name,      // I - Name of environment variable to set
       return (-1);
     name_len = p - name;
     p = strdup(name);
+    if (!p)
+      return (-1);
   }
   else
   {
@@ -294,6 +296,8 @@ cfFilterAddEnvVar(char *name,      // I - Name of environment variable to set
     name_len = strlen(name);
     p = (char *)calloc(strlen(name) + (value ? strlen(value) : 0) + 2,
 		       sizeof(char));
+    if (!p)
+      return (-1);
     sprintf(p, "%s=%s", name, (value ? value : ""));
   }
 
@@ -309,7 +313,16 @@ cfFilterAddEnvVar(char *name,      // I - Name of environment variable to set
       }
 
   // Add the variable as new item to the list
-  *env = (char **)realloc(*env, (i + 2) * sizeof(char *));
+  {
+    char **tmp_env = (char **)realloc(*env, (i + 2) * sizeof(char *));
+
+    if (!tmp_env)
+    {
+      free(p);
+      return (-1);
+    }
+    *env = tmp_env;
+  }
   (*env)[i] = p;
   (*env)[i + 1] = NULL;
   return (i);

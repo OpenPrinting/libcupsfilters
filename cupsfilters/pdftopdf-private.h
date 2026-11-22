@@ -75,7 +75,6 @@ typedef struct xform_page_ext_s             // Output page
   pdfio_obj_t   **input;  // Input page objects
   pdfio_dict_t  *pagedict;              // Page dictionary
   pdfio_dict_t  *resdict;               // Resource dictionary
-  pdfio_dict_t  *resmap[XFORM_MAX_LAYOUT];  // Resource name map
   pdfio_dict_t  *restype;               // Current resource type dictionary
   pdfio_stream_t *output;               // Output page stream
 } xform_page_ext_t;

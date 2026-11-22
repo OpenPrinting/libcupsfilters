@@ -108,6 +108,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
+	cupsfilters/test-pdftopdf-form-many-pages.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
@@ -128,6 +129,7 @@ check_PROGRAMS = \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
+	test-ipp-media-sizes \
 	test-pclmtoraster-stream-errors \
 	testfilters
 
@@ -141,6 +143,7 @@ TESTS = \
 	test-ps \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
+	test-ipp-media-sizes \
 	test-pclmtoraster-stream-errors \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
@@ -157,6 +160,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
+	cupsfilters/test-pdftopdf-form-many-pages.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
@@ -351,6 +355,15 @@ test_raster_color_mode_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS)
 
+test_ipp_media_sizes_SOURCES = \
+	cupsfilters/test-ipp-media-sizes.c
+test_ipp_media_sizes_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_ipp_media_sizes_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
+
 test_pclmtoraster_stream_errors_SOURCES = \
 	cupsfilters/test-pclmtoraster-stream-errors.c
 test_pclmtoraster_stream_errors_CFLAGS = \
@@ -428,6 +441,7 @@ EXTRA_DIST += cupsfilters/test-pdftopdf-number-up.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-duplex-backside.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-single-document-new-sheet.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-landscape-centered.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-form-many-pages.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 EXTRA_DIST += cupsfilters/test-ghostscript-ocr.c
 EXTRA_DIST += cupsfilters/test-image-tiff-scanline.c
