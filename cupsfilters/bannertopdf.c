@@ -691,6 +691,8 @@ human_time(const char *timestamp)
   time_t time;
   int size = sizeof(char) * 40;
   char *buf = malloc(size);
+  if (!buf)
+    return (NULL);
   strcpy(buf, "unknown");
 
   if (timestamp)

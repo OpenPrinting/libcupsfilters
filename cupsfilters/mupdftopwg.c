@@ -199,6 +199,12 @@ mutool_spawn(const char *filename,
   // call
   numargs = cupsArrayGetCount(mutool_args);
   mutoolargv = calloc(numargs + 1, sizeof(char *));
+  if (!mutoolargv)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterMuPDFToPWG: Unable to allocate argument array");
+    return (1);
+  }
   for (argument = (char *)cupsArrayGetFirst(mutool_args), i = 0; argument;
        argument = (char *)cupsArrayGetNext(mutool_args), i++)
     mutoolargv[i] = argument;

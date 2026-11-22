@@ -814,6 +814,12 @@ gs_spawn (const char *filename,
   // call
   numargs = cupsArrayGetCount(gs_args);
   gsargv = calloc(numargs + 1, sizeof(char *));
+  if (!gsargv)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterGhostscript: Unable to allocate argument array");
+    return (1);
+  }
   for (argument = (char *)cupsArrayGetFirst(gs_args), i = 0; argument;
        argument = (char *)cupsArrayGetNext(gs_args), i++)
     gsargv[i] = argument;

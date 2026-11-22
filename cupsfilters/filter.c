@@ -718,6 +718,12 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 
   pids            = cupsArrayNew((cups_array_cb_t)compare_filter_pids, NULL,
 				 NULL, 0, NULL, NULL);
+  if (!pids)
+  {
+    close(inputfd);
+    close(outputfd);
+    return (1);
+  }
   current         = 0;
   filterfds[0][0] = inputfd;
   filterfds[0][1] = -1;
@@ -749,7 +755,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		     "cfFilterChain: Could not create pipe for output of %s: %s",
 		     filter->name ? filter->name : "Unspecified filter",
 		     strerror(errno));
-	return (1);
+        retval = 1;
+        break;
       }
       fcntl_add_cloexec(filterfds[1 - current][0]);
       fcntl_add_cloexec(filterfds[1 - current][1]);
@@ -757,8 +764,18 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
     else
       filterfds[1 - current][1] = outputfd;
 
+    pid_entry = malloc(sizeof(filter_function_pid_t));
+    if (!pid_entry)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterChain: Unable to allocate filter PID entry");
+      retval = 1;
+      break;
+    }
+
     if ((pid = fork()) == 0)
     {
+      free(pid_entry);
       //
       // Child process goes here...
       //
@@ -799,10 +816,16 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		   "cfFilterChain: %s (PID %d) started.",
 		   filter->name ? filter->name : "Unspecified filter", pid);
 
-      pid_entry = malloc(sizeof(filter_function_pid_t));
       pid_entry->pid = pid;
       pid_entry->name = filter->name ? filter->name : "Unspecified filter";
-      cupsArrayAdd(pids, pid_entry);
+      if (!cupsArrayAdd(pids, pid_entry))
+      {
+        kill(pid, SIGKILL);
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
+        free(pid_entry);
+        retval = 1;
+        break;
+      }
     }
     else
     {
@@ -810,6 +833,8 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
 		   "cfFilterChain: Could not fork to start %s: %s",
 		   filter->name ? filter->name : "Unspecified filter",
 		   strerror(errno));
+      free(pid_entry);
+      retval = 1;
       break;
     }
 
@@ -828,6 +853,9 @@ cfFilterChain(int inputfd,         // I - File descriptor input stream
     close(filterfds[1][0]);
   if (filterfds[1][1] > 1)
     close(filterfds[1][1]);
+  if (outputfd > 1 && outputfd != filterfds[0][1] &&
+      outputfd != filterfds[1][1])
+    close(outputfd);
 
   //
   // Start dynamic timeout clock on first filter exit.  When a filter
@@ -1261,7 +1289,17 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
     //
 
     argv = (char **)calloc(2, sizeof(char *));
+    if (!argv)
+    {
+      status = 1;
+      goto out;
+    }
     argv[0] = strdup((char *)params->filter);
+    if (!argv[0])
+    {
+      status = 1;
+      goto out;
+    }
     argv[1] = NULL;
   }
 
@@ -1609,7 +1647,8 @@ cfFilterExternal(int inputfd,              // I - File descriptor input stream
   cupsFreeOptions(num_all_options, all_options);
   if (options_str)
     free(options_str);
-  free(argv[0]);
+  if (argv)
+    free(argv[0]);
   free(argv);
   for (i = 0; envp[i]; i ++)
     free(envp[i]);

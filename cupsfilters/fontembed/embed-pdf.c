@@ -497,7 +497,7 @@ _cfFontEmbedEmbPDFSimpleFontDescr(_cf_fontembed_emb_params_t *emb,
   len = snprintf(pos, size,
 		 "<</Type /FontDescriptor\n"
 		 "  /FontName /%s\n" // TODO? handle quoting in struct?
-		 "  /Flags %d\n"
+		 "  /Flags %u\n"
 		 "  /ItalicAngle %d\n",
 		 emb_pdf_escape_name(fdes->fontname, -1),
 		 fdes->flags,

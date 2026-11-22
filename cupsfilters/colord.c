@@ -196,10 +196,14 @@ get_profile_for_device_path(cf_filter_data_t *data,
                                          object_path,
                                          "org.freedesktop.ColorManager.Device",
                                          "GetProfileForQualifiers");
+  if (!message)
+    goto out;
   dbus_message_iter_init_append(message, &args);
 
   // create the fallbacks
   key = calloc(max_keys + 1, sizeof(char*));
+  if (!key)
+    goto out;
 
   // exact match
   i = 0;

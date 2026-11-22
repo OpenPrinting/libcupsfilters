@@ -1965,8 +1965,8 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
         fprintf(stderr, "DEBUG: Non-widget Annotation\n");
       } 
       
-      char *name = (char *)malloc(sizeof(char) * 32);
-      snprintf(name, 32, "Fxo%d", next_fx);
+      char name[32];
+      snprintf(name, sizeof(name), "Fxo%d", next_fx);
       content = pdfio_annotation_get_content(Annot_obj, name, rotate_val, 
 		      			     forbidden_flags, required_flags);
       if (content)
@@ -2916,10 +2916,23 @@ prepare_documents(
 	return (false);
 
       xform_page_ext_t *flattened_page = (xform_page_ext_t*)malloc(sizeof(xform_page_ext_t));
+      if (!flattened_page)
+      {
+        pdfioFileClose(flattened_pdf);
+        unlink(flattened_pdf_file);
+        goto done;
+      }
       flattened_page->pdf = flattened_pdf;
       size_t npages = pdfioFileGetNumPages(d->pdf);
 
       flattened_page->input = (pdfio_obj_t**)malloc(npages * sizeof(pdfio_obj_t*));
+      if (npages && !flattened_page->input)
+      {
+        free(flattened_page);
+        pdfioFileClose(flattened_pdf);
+        unlink(flattened_pdf_file);
+        goto done;
+      }
 
       for (size_t pg = 0; pg < npages; pg++)
       {
@@ -2976,6 +2989,8 @@ prepare_documents(
 
       pdfioFileClose(d->pdf);
       pdfioFileClose(flattened_pdf);
+      free(flattened_page->input);
+      free(flattened_page);
 
       if ((d->pdf = pdfioFileOpen(flattened_pdf_file, NULL, &documents, pdfio_error_cb, &p)) == NULL)
       goto done;
