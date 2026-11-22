@@ -10,10 +10,6 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-    env:
-      PDFIO_PREFIX: ${{ runner.temp }}/pdfio
-      PKG_CONFIG_PATH: ${{ runner.temp }}/pdfio/lib/pkgconfig
-      LD_LIBRARY_PATH: ${{ runner.temp }}/pdfio/lib
     permissions:
       actions: read
       contents: read
@@ -70,6 +66,8 @@ jobs:
             cppcheck
 
       - name: Install pdfio >= 1.6.4
+        env:
+          PDFIO_PREFIX: ${{ runner.temp }}/pdfio
         run: |
           cd ..
           wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
@@ -80,7 +78,8 @@ jobs:
           make test
           make install
           cd "$GITHUB_WORKSPACE"
-          pkg-config --atleast-version=1.6.4 pdfio
+          echo "PKG_CONFIG_PATH=$PDFIO_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$PDFIO_PREFIX/lib" >> "$GITHUB_ENV"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -91,6 +90,7 @@ jobs:
 
       - name: Build for CodeQL
         run: |
+          pkg-config --atleast-version=1.6.4 pdfio
           ./autogen.sh
           ./configure
           make -j"$(nproc)"
