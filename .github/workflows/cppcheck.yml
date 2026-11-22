@@ -21,6 +21,11 @@ jobs:
           sudo apt-get update --fix-missing -y
           sudo apt-get install -y cppcheck
 
+      - name: Fetch PDFio headers
+        run: |
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz -O "$RUNNER_TEMP/pdfio.tar.gz"
+          tar -xzf "$RUNNER_TEMP/pdfio.tar.gz" -C "$RUNNER_TEMP"
+
       # Set up GitHub caching to store cppcheck's analysis state
       - name: Cache cppcheck build state
         uses: actions/cache@v4
@@ -38,6 +43,7 @@ jobs:
           
           # Run cppcheck with parallel jobs and caching enabled
           cppcheck \
+            -I. -I"$RUNNER_TEMP/pdfio-1.6.4" \
             -j $(nproc) \
             --cppcheck-build-dir=cppcheck-build-dir \
             --enable=warning,performance,portability \
