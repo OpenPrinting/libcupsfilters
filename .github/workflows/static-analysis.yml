@@ -66,25 +66,34 @@ jobs:
             cppcheck
 
       - name: Install pdfio >= 1.6.4
+        env:
+          PDFIO_PREFIX: ${{ runner.temp }}/pdfio
         run: |
           cd ..
           wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
           tar -xzf pdfio-1.6.4.tar.gz
           cd pdfio-1.6.4
-          ./configure --prefix=/usr --enable-shared
+          ./configure --prefix="$PDFIO_PREFIX" --enable-shared
           make all
           make test
-          sudo make install
+          make install
           cd "$GITHUB_WORKSPACE"
+          echo "PKG_CONFIG_PATH=$PDFIO_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$PDFIO_PREFIX/lib" >> "$GITHUB_ENV"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
+          build-mode: manual
           queries: +security-and-quality
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+      - name: Build for CodeQL
+        run: |
+          pkg-config --atleast-version=1.6.4 pdfio
+          ./autogen.sh
+          ./configure
+          make -j"$(nproc)"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
