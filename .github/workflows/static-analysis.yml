@@ -10,6 +10,10 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    env:
+      PDFIO_PREFIX: ${{ runner.temp }}/pdfio
+      PKG_CONFIG_PATH: ${{ runner.temp }}/pdfio/lib/pkgconfig
+      LD_LIBRARY_PATH: ${{ runner.temp }}/pdfio/lib
     permissions:
       actions: read
       contents: read
@@ -71,20 +75,25 @@ jobs:
           wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
           tar -xzf pdfio-1.6.4.tar.gz
           cd pdfio-1.6.4
-          ./configure --prefix=/usr --enable-shared
+          ./configure --prefix="$PDFIO_PREFIX" --enable-shared
           make all
           make test
-          sudo make install
+          make install
           cd "$GITHUB_WORKSPACE"
+          pkg-config --atleast-version=1.6.4 pdfio
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
+          build-mode: manual
           queries: +security-and-quality
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+      - name: Build for CodeQL
+        run: |
+          ./autogen.sh
+          ./configure
+          make -j"$(nproc)"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
