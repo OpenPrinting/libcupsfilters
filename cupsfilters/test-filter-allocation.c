@@ -1,3 +1,12 @@
+//
+// Regression tests for filter setup allocation failures.
+//
+// Copyright 2026 by Ronit Mehta.
+//
+// Licensed under Apache License v2.0. See the file "LICENSE" for more
+// information.
+//
+
 #ifndef _GNU_SOURCE
 #  define _GNU_SOURCE
 #endif
@@ -195,7 +204,8 @@ main(void)
   if (test_entry() || test_universal() || test_pids(1, 0) ||
       test_pids(2, 0) || test_pids(0, 1))
   {
-    fputs("Filter allocation failure test failed\n", stderr);
+    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
+                  "Filter allocation failure test failed");
     return (1);
   }
   return (0);

@@ -6,10 +6,13 @@
 //
 
 #include <cupsfilters/fontembed-private.h>
+#include <cupsfilters/filter.h>
 #include <cupsfilters/debug-internal.h>
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 
 const char *__cfFontEmbedEmbOTFGetFontName(_cf_fontembed_otf_file_t *otf);
                                                                     // TODO
@@ -88,7 +91,8 @@ main(int argc,
   FILE *f = fopen("test.ps", "w");
   if (!f)
   {
-    perror("fopen");
+    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
+                  "test-ps: Unable to open test.ps: %s", strerror(errno));
     _cfFontEmbedEmbClose(emb);
     return (1);
   }

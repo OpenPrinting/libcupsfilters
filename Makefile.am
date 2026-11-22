@@ -194,7 +194,6 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/cmyk.c \
 	cupsfilters/colord.c \
 	cupsfilters/colormanager.c \
-	cupsfilters/testfilters.c \
 	cupsfilters/debug.c \
 	cupsfilters/debug-internal.h \
 	cupsfilters/dither.c \

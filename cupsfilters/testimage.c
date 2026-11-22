@@ -17,6 +17,9 @@
 //
 
 #include "image.h"
+#include <cupsfilters/filter.h>
+#include <errno.h>
+#include <string.h>
 
 
 //
@@ -71,7 +74,8 @@ main(int  argc,				// I - Number of command-line arguments
   line   = calloc(width, depth);
   if (!line)
   {
-    perror("calloc");
+    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
+                  "testimage: Unable to allocate image row: %s", strerror(errno));
     cfImageClose(img);
     fclose(out);
     return (1);
