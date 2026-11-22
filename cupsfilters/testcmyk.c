@@ -19,7 +19,6 @@
 //
 
 #include <config.h>
-#include <errno.h>
 #include <string.h>
 #include <ctype.h>
 #include "driver.h"
@@ -103,8 +102,7 @@ test_gray(int        num_comps,		// I - Number of components
   in = fopen("image.pgm", "rb");
   if (!in)
   {
-    if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                         "testcmyk: Unable to open image.pgm: %s", strerror(errno));
+    perror("image.pgm");
     exit(EXIT_FAILURE);
   }
   while (fgets(line, sizeof(line), in) != NULL)
@@ -157,8 +155,7 @@ test_gray(int        num_comps,		// I - Number of components
     out[i] = fopen(filename, "wb");
     if (!out[i])
     {
-      if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                           "testcmyk: Unable to open %s: %s", filename, strerror(errno));
+      perror(filename);
       while (i > 0)
         fclose(out[--i]);
       fclose(in);
@@ -173,8 +170,7 @@ test_gray(int        num_comps,		// I - Number of components
   comp = fopen(filename, "wb");
   if (!comp)
   {
-    if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                         "testcmyk: Unable to open %s: %s", filename, strerror(errno));
+    perror(filename);
     for (i = 0; i < num_comps; i ++)
       fclose(out[i]);
     fclose(in);
@@ -311,8 +307,7 @@ test_rgb(int        num_comps,		// I - Number of components
   in = fopen("image.ppm", "rb");
   if (!in)
   {
-    if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                         "testcmyk: Unable to open image.ppm: %s", strerror(errno));
+    perror("image.ppm");
     exit(EXIT_FAILURE);
   }
   while (fgets(line, sizeof(line), in) != NULL)
@@ -361,8 +356,7 @@ test_rgb(int        num_comps,		// I - Number of components
     out[i] = fopen(filename, "wb");
     if (!out[i])
     {
-      if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                           "testcmyk: Unable to open %s: %s", filename, strerror(errno));
+      perror(filename);
       while (i > 0)
         fclose(out[--i]);
       fclose(in);
@@ -377,8 +371,7 @@ test_rgb(int        num_comps,		// I - Number of components
   comp = fopen(filename, "wb");
   if (!comp)
   {
-    if (logfunc) logfunc(ld, CF_LOGLEVEL_ERROR,
-                         "testcmyk: Unable to open %s: %s", filename, strerror(errno));
+    perror(filename);
     for (i = 0; i < num_comps; i ++)
       fclose(out[i]);
     fclose(in);

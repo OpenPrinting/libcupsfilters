@@ -204,8 +204,7 @@ main(void)
   if (test_entry() || test_universal() || test_pids(1, 0) ||
       test_pids(2, 0) || test_pids(0, 1))
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "Filter allocation failure test failed");
+    fputs("Filter allocation failure test failed\n", stderr);
     return (1);
   }
   return (0);

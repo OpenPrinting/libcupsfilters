@@ -19,7 +19,6 @@
 //
 
 #include <config.h>
-#include <errno.h>
 #include <string.h>
 #include <ctype.h>
 #include "driver.h"
@@ -115,8 +114,7 @@ test_gray(cf_sample_t   *samples,	// I - Sample values
   in = fopen("image.pgm", "rb");
   if (!in)
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "testrgb: Unable to open image.pgm: %s", strerror(errno));
+    perror("image.pgm");
     exit(EXIT_FAILURE);
   }
   while (fgets(line, sizeof(line), in) != NULL)
@@ -143,8 +141,7 @@ test_gray(cf_sample_t   *samples,	// I - Sample values
     out[i] = fopen(filename, "wb");
     if (!out[i])
     {
-      cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                    "testrgb: Unable to open %s: %s", filename, strerror(errno));
+      perror(filename);
       while (i > 0)
         fclose(out[--i]);
       fclose(in);
@@ -159,8 +156,7 @@ test_gray(cf_sample_t   *samples,	// I - Sample values
   comp = fopen(filename, "wb");
   if (!comp)
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "testrgb: Unable to open %s: %s", filename, strerror(errno));
+    perror(filename);
     for (i = 0; i < num_comps; i ++)
       fclose(out[i]);
     fclose(in);
@@ -271,8 +267,7 @@ test_rgb(cf_sample_t   *samples,	// I - Sample values
   in = fopen("image.ppm", "rb");
   if (!in)
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "testrgb: Unable to open image.ppm: %s", strerror(errno));
+    perror("image.ppm");
     exit(EXIT_FAILURE);
   }
   while (fgets(line, sizeof(line), in) != NULL)
@@ -299,8 +294,7 @@ test_rgb(cf_sample_t   *samples,	// I - Sample values
     out[i] = fopen(filename, "wb");
     if (!out[i])
     {
-      cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                    "testrgb: Unable to open %s: %s", filename, strerror(errno));
+      perror(filename);
       while (i > 0)
         fclose(out[--i]);
       fclose(in);
@@ -315,8 +309,7 @@ test_rgb(cf_sample_t   *samples,	// I - Sample values
   comp = fopen(filename, "wb");
   if (!comp)
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "testrgb: Unable to open %s: %s", filename, strerror(errno));
+    perror(filename);
     for (i = 0; i < num_comps; i ++)
       fclose(out[i]);
     fclose(in);

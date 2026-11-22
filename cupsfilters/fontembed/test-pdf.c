@@ -6,13 +6,10 @@
 //
 
 #include <cupsfilters/fontembed-private.h>
-#include <cupsfilters/filter.h>
 #include <cupsfilters/debug-internal.h>
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <string.h>
 
 
 static void
@@ -118,8 +115,7 @@ main(int argc,
   FILE *f = fopen("test.pdf", "w");
   if (!f)
   {
-    cfCUPSLogFunc(NULL, CF_LOGLEVEL_ERROR,
-                  "test-pdf: Unable to open test.pdf: %s", strerror(errno));
+    perror("fopen");
     _cfFontEmbedEmbClose(emb);
     return (1);
   }
