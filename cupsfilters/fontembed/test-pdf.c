@@ -113,7 +113,12 @@ main(int argc,
 		       _CF_FONTEMBED_EMB_C_TAKE_FONTFILE);
 
   FILE *f = fopen("test.pdf", "w");
-  DEBUG_assert(f);
+  if (!f)
+  {
+    perror("fopen");
+    _cfFontEmbedEmbClose(emb);
+    return (1);
+  }
   int xref[100], xrefpos = 3;
   int stream_len;
 

@@ -130,6 +130,7 @@ check_PROGRAMS = \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
 	test-ipp-media-sizes \
+	test-filter-allocation \
 	test-pclmtoraster-stream-errors \
 	testfilters
 
@@ -144,6 +145,7 @@ TESTS = \
 	test-ieee1284-normalize \
 	test-raster-color-mode \
 	test-ipp-media-sizes \
+	test-filter-allocation \
 	test-pclmtoraster-stream-errors \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
@@ -192,7 +194,6 @@ libcupsfilters_la_SOURCES = \
 	cupsfilters/cmyk.c \
 	cupsfilters/colord.c \
 	cupsfilters/colormanager.c \
-	cupsfilters/testfilters.c \
 	cupsfilters/debug.c \
 	cupsfilters/debug-internal.h \
 	cupsfilters/dither.c \
@@ -361,6 +362,15 @@ test_ipp_media_sizes_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 test_ipp_media_sizes_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
+
+test_filter_allocation_SOURCES = \
+	cupsfilters/test-filter-allocation.c
+test_filter_allocation_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_filter_allocation_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS)
 

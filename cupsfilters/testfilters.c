@@ -57,6 +57,8 @@ void                                            //  O - Pointer to parameters st
 *ghostscript_param_gen(const char *output_mime)   // I - Output MIME type
 {
     cf_filter_out_format_t *out = malloc(sizeof(cf_filter_out_format_t));
+    if (!out)
+        return NULL;
     if (strcasecmp(output_mime, "application/pdf") == 0) {
         *out = CF_FILTER_OUT_FORMAT_PDF;
     } else if (strcasecmp(output_mime, "image/pwg-raster") == 0) {
@@ -95,11 +97,27 @@ FilterMapping filter_mappings[] = {
 // 'parse_filter_chain()' - Parse a filter chain string into an array of filter functions and their parameters.
 //
 
+static void
+free_filter_chain(cups_array_t *chain)
+{
+  cf_filter_filter_in_chain_t *filter;
+
+  while ((filter = cupsArrayGetFirst(chain)) != NULL)
+  {
+    cupsArrayRemove(chain, filter);
+    free(filter->parameters);
+    free(filter);
+  }
+  cupsArrayDelete(chain);
+}
+
 cups_array_t*                                     // O - Array of filter functions and their parameters
 parse_filter_chain(const char *filter_chain_str,   // I - Filter chain string (comma-separated)
 		   const char *output_mime)                     // I - Output MIME type
 {
   cups_array_t *chain = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
+  if (!chain)
+    return NULL;
   char *saveptr;
   char *filter_name = strtok_r((char *)filter_chain_str, ",", &saveptr);
   while (filter_name) 
@@ -110,10 +128,18 @@ parse_filter_chain(const char *filter_chain_str,   // I - Filter chain string (c
       if (strcasecmp(filter_name, filter_mappings[i].name) == 0) 
       {
         cf_filter_filter_in_chain_t *filter = malloc(sizeof(cf_filter_filter_in_chain_t));
+        if (!filter)
+          goto fail;
         filter->function = filter_mappings[i].function;
         filter->name = (char *)filter_mappings[i].name; // Explicit cast here
         filter->parameters = filter_mappings[i].param_generator ?  filter_mappings[i].param_generator(output_mime) : NULL;
-        cupsArrayAdd(chain, filter);
+        if ((filter_mappings[i].param_generator && !filter->parameters) ||
+            !cupsArrayAdd(chain, filter))
+        {
+          free(filter->parameters);
+          free(filter);
+          goto fail;
+        }
         break;
       }
     }
@@ -121,6 +147,10 @@ parse_filter_chain(const char *filter_chain_str,   // I - Filter chain string (c
   filter_name = strtok_r(NULL, ",", &saveptr);
   }
   return chain;
+
+ fail:
+  free_filter_chain(chain);
+  return NULL;
 }
 
 /*
@@ -357,19 +387,13 @@ test_wrapper(
 
    if (filter_chain && cupsArrayGetCount(filter_chain) > 0) {  
         retval = cfFilterChain(inputfd, outputfd, inputseekable, &filter_data, filter_chain);
-	cf_filter_filter_in_chain_t *filter;
-        while ((filter = cupsArrayGetFirst(filter_chain)) != NULL) {  
-            free(filter->parameters);
-            cupsArrayRemove(filter_chain, filter);
-            free(filter);
-        }
-        cupsArrayDelete(filter_chain);
     } else {
         retval = cfFilterUniversal(inputfd, outputfd, inputseekable, &filter_data, parameters);
     }
 
 
 
+  cupsFreeOptions(filter_data.num_options, filter_data.options);
   return retval;
 }
 
@@ -1120,18 +1144,22 @@ run_test(
 {
  
   cups_array_t *filter_chain = NULL;
+  ipp_t *emulated_ipp = NULL;
+  char **clargs = NULL;
+  int token_index = 1;
+  int result = 1;
   char *filter_chain_str = NULL;
 
-  char* make = (char*) malloc(100 * sizeof(char));
-  char* model = (char*) malloc(100 * sizeof(char));
+  char *make = "";
+  char *model = "";
    
   int ppm = 1;
    
-  char* inputFileName = (char*) malloc(100 * sizeof(char));
-  char* outputFileName = (char*) malloc(100 * sizeof(char));
+  char *inputFileName = "";
+  char *outputFileName = "";
    
-  char* inputContentType = (char*) malloc(100 * sizeof(char));
-  char* outputContentType = (char*) malloc(100 * sizeof(char));
+  char *inputContentType = "";
+  char *outputContentType = "";
    
   // ppm_color and duplex should be supplied...
   int color = 0;
@@ -1140,21 +1168,26 @@ run_test(
        
   cups_array_t* docformats = cupsArrayNew(NULL, NULL, NULL, 0, NULL, NULL);
     
+  if (!docformats)
+    goto cleanup;
+
   int jobCanceled = 0;
 
   char* next_token1, *next_token2;
    
   char *token = strtok_r(test_case, "\t", &next_token1);
+  if (!token)
+    goto cleanup;
   token = remove_white_space(token);
   //printf( "%s\n", token ); //printing each token
    
-  strcpy(inputFileName, token);
-   
-  int token_index = 1;
+  inputFileName = token;
    
   //dynamic allocation of clargs as we dont know number of arguments
       
-  char **clargs = (char**)malloc(1*sizeof(char*));
+  clargs = malloc(sizeof(char*));
+  if (!clargs)
+    goto cleanup;
   clargs[0] = currentFile;
    
   int globalFlag = 1;
@@ -1168,33 +1201,33 @@ run_test(
       
     if (globalFlag == 1)
     {
-      strcpy(inputContentType, token);
+      inputContentType = token;
       globalFlag++;
       continue;
     }
     else if (globalFlag == 2)
     {
-      strcpy(outputFileName, token);
+      outputFileName = token;
       globalFlag++;
       continue;
     }
     else if (globalFlag == 3)
     {
-      strcpy(outputContentType, token);
+      outputContentType = token;
       globalFlag++;
       continue;
     }
     else if (globalFlag == 4)
     {
       /* make string */
-      strcpy(make, token);
+      make = token;
       globalFlag++;
       continue;
     }
     else if (globalFlag == 5)
     {
       /* model string */
-      strcpy(model, token);
+      model = token;
       globalFlag++;
       continue;
     }
@@ -1236,7 +1269,7 @@ run_test(
      if (!tmp_clargs)
      {
          fprintf(stderr, "Memory allocation failed for clargs\n");
-         break;
+         goto cleanup;
      }
      clargs = tmp_clargs;
 
@@ -1244,7 +1277,7 @@ run_test(
      if (!tmp_token)
      {
          fprintf(stderr, "Memory allocation failed for tmp_token\n");
-         break;
+         goto cleanup;
      }
      strcpy(tmp_token, token);
       
@@ -1256,18 +1289,29 @@ run_test(
         filter_chain_str = clargs[token_index-1];
         if (filter_chain_str && strlen(filter_chain_str) > 0) {
             filter_chain = parse_filter_chain(filter_chain_str, outputContentType);
+            if (!filter_chain)
+                goto cleanup;
         }
     }
 
-   ipp_t* emulated_ipp = load_legacy_attributes(make, model, ppm, ppm_color, duplex, docformats);
-//   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp, inputContentType, outputContentType, inputFileName, outputFileName);
-
-   return test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp,
+   emulated_ipp = load_legacy_attributes(make, model, ppm, ppm_color, duplex, docformats);
+   result = test_wrapper(token_index, clargs, NULL, &jobCanceled, emulated_ipp,
                        inputContentType, outputContentType,
                        inputFileName,    // Fixed variable name
                        outputFileName,   // Fixed variable name
                        filter_chain);
 
+ cleanup:
+   if (clargs)
+   {
+     for (int i = 1; i < token_index; i++)
+       free(clargs[i]);
+     free(clargs);
+   }
+   free_filter_chain(filter_chain);
+   cupsArrayDelete(docformats);
+   ippDelete(emulated_ipp);
+   return result;
 }
 
 //

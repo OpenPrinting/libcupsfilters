@@ -34,6 +34,8 @@ _cfFontEmbedFontFileOpenSFNT(_cf_fontembed_otf_file_t *otf) // {{{
   }
   _cf_fontembed_fontfile_t *ret = calloc(1, sizeof(_cf_fontembed_fontfile_t));
 
+  if (!ret)
+    return (NULL);
   ret->sfnt = otf;
 
   return (ret);
@@ -47,7 +49,14 @@ _cfFontEmbedFontFileOpenStd(const char *name) // {{{
   DEBUG_assert(name);
   _cf_fontembed_fontfile_t *ret = calloc(1, sizeof(_cf_fontembed_fontfile_t));
 
+  if (!ret)
+    return (NULL);
   ret->stdname = strdup(name);
+  if (!ret->stdname)
+  {
+    free(ret);
+    return (NULL);
+  }
   // cppcheck-suppress memleak
   return (ret);
 }

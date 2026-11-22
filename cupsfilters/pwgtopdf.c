@@ -535,32 +535,24 @@ create_pdf_file(struct pdf_info *info,
   return 0;
 }
 
-static pdfio_rect_t*
+static pdfio_rect_t
 make_real_box(double x1,
 	      double y1,
 	      double x2,
 	      double y2)
 {
-  pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
-  rect->x1 = x1;
-  rect->y1 = y1;
-  rect->x2 = x2;
-  rect->y2 = y2;
+  pdfio_rect_t rect = { x1, y1, x2, y2 };
  
   return rect; 
 }
 
-static pdfio_rect_t*
+static pdfio_rect_t
 make_integer_box(int x1,
 	      int y1,
 	      int x2,
 	      int y2)
 {
-  pdfio_rect_t *rect = (pdfio_rect_t *)malloc(sizeof(pdfio_rect_t));
-  rect->x1 = x1;
-  rect->y1 = y1;
-  rect->x2 = x2;
-  rect->y2 = y2;
+  pdfio_rect_t rect = { x1, y1, x2, y2 };
  
   return rect; 
 }
@@ -1477,19 +1469,18 @@ add_pdf_page(struct pdf_info *info,
   {
     pdfio_dict_t *content_dict = pdfioDictCreate(info->pdf);
     pdfioDictSetObj(page_dict, "Contents", pdfioFileCreateObj(info->pdf, content_dict));
-    pdfioDictSetRect(page_dict, "MediaBox", make_real_box(0, 0, info->page_width,
-			    				     info->page_height));
-    pdfioDictSetRect(page_dict, "CropBox", make_real_box(0, 0, info->page_width,
-			    				     info->page_height));
+    pdfio_rect_t box = make_real_box(0, 0, info->page_width, info->page_height);
+    pdfioDictSetRect(page_dict, "MediaBox", &box);
+    pdfioDictSetRect(page_dict, "CropBox", &box);
   }
   else if(info->outformat == CF_FILTER_OUT_FORMAT_PCLM)
   {
     pdfio_dict_t *content_dict = pdfioDictCreate(info->pdf);
     pdfioDictSetObj(page_dict, "Contents", pdfioFileCreateObj(info->pdf, content_dict));
-    pdfioDictSetRect(page_dict, "MediaBox", make_integer_box(0, 0, info->page_width + 0.5,
-			    				     info->page_height + 0.5));
-    pdfioDictSetRect(page_dict, "CropBox", make_integer_box(0, 0, info->page_width + 0.5,
-			    				     info->page_height + 0.5));
+    pdfio_rect_t box = make_integer_box(0, 0, info->page_width + 0.5,
+                                      info->page_height + 0.5);
+    pdfioDictSetRect(page_dict, "MediaBox", &box);
+    pdfioDictSetRect(page_dict, "CropBox", &box);
   }
   
   info->page_dict = page_dict;

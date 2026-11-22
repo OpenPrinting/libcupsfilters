@@ -100,6 +100,11 @@ test_gray(int        num_comps,		// I - Number of components
   //
 
   in = fopen("image.pgm", "rb");
+  if (!in)
+  {
+    perror("image.pgm");
+    exit(EXIT_FAILURE);
+  }
   while (fgets(line, sizeof(line), in) != NULL)
     if (isdigit(line[0]))
       break;
@@ -148,12 +153,30 @@ test_gray(int        num_comps,		// I - Number of components
   {
     sprintf(filename, "%s%d.pgm", basename, i);
     out[i] = fopen(filename, "wb");
+    if (!out[i])
+    {
+      perror(filename);
+      while (i > 0)
+        fclose(out[--i]);
+      fclose(in);
+      cfCMYKDelete(cmyk);
+      exit(EXIT_FAILURE);
+    }
 
     fprintf(out[i], "P5\n%d %d 255\n", width, height);
   }
 
   sprintf(filename, "%s.ppm", basename);
   comp = fopen(filename, "wb");
+  if (!comp)
+  {
+    perror(filename);
+    for (i = 0; i < num_comps; i ++)
+      fclose(out[i]);
+    fclose(in);
+    cfCMYKDelete(cmyk);
+    exit(EXIT_FAILURE);
+  }
 
   fprintf(comp, "P6\n%d %d 255\n", width, height);
 
@@ -282,6 +305,11 @@ test_rgb(int        num_comps,		// I - Number of components
   //
 
   in = fopen("image.ppm", "rb");
+  if (!in)
+  {
+    perror("image.ppm");
+    exit(EXIT_FAILURE);
+  }
   while (fgets(line, sizeof(line), in) != NULL)
     if (isdigit(line[0]))
       break;
@@ -326,12 +354,30 @@ test_rgb(int        num_comps,		// I - Number of components
   {
     sprintf(filename, "%s%d.pgm", basename, i);
     out[i] = fopen(filename, "wb");
+    if (!out[i])
+    {
+      perror(filename);
+      while (i > 0)
+        fclose(out[--i]);
+      fclose(in);
+      cfCMYKDelete(cmyk);
+      exit(EXIT_FAILURE);
+    }
 
     fprintf(out[i], "P5\n%d %d 255\n", width, height);
   }
 
   sprintf(filename, "%s.ppm", basename);
   comp = fopen(filename, "wb");
+  if (!comp)
+  {
+    perror(filename);
+    for (i = 0; i < num_comps; i ++)
+      fclose(out[i]);
+    fclose(in);
+    cfCMYKDelete(cmyk);
+    exit(EXIT_FAILURE);
+  }
 
   fprintf(comp, "P6\n%d %d 255\n", width, height);
 

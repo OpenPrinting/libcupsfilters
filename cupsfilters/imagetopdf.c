@@ -1131,6 +1131,12 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       posw = (1 + doc.XPosition) * posw;
       posh = (1 - doc.YPosition) * posh;
       cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+      if (!img2)
+      {
+        if (!inputseekable)
+          unlink(tempfile);
+        goto out_of_memory;
+      }
       cfImageClose(doc.img);
       doc.img = img2;
     }
@@ -1157,6 +1163,12 @@ cfFilterImageToPDF(int inputfd,         // I - File descriptor input stream
       posw = (1 + doc.XPosition) * posw;
       posh = (1 - doc.YPosition) * posh;
       cf_image_t *img2 = cfImageCrop(doc.img, posw, posh, final_w, final_h);
+      if (!img2)
+      {
+        if (!inputseekable)
+          unlink(tempfile);
+        goto out_of_memory;
+      }
       cfImageClose(doc.img);
       doc.img = img2;
       if (doc.Orientation & 1)

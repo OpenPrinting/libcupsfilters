@@ -662,6 +662,12 @@ cfImageCrop(cf_image_t* img,        // I - Image to crop
   cf_image_t* temp = calloc(1, sizeof(cf_image_t));
   cf_ib_t *pixels = (cf_ib_t*)malloc(img->xsize * cfImageGetDepth(img));
 
+  if (!temp || !pixels)
+  {
+    free(temp);
+    free(pixels);
+    return (NULL);
+  }
   temp->cachefile = -1;
   temp->max_ics = img->max_ics;
   temp->colorspace = img->colorspace;
@@ -936,6 +942,12 @@ find_bytes(FILE *fp,
   long int res = ftell(fp);
 
   buf = (unsigned char *)malloc(res * sizeof(unsigned char) + 1);
+  if (!buf)
+  {
+    *size = 0;
+    fseek(fp, originalOffset, SEEK_SET);
+    return (NULL);
+  }
   fseek(fp, 0, SEEK_SET);
 
   if (fread(buf, 1, res, fp) < res)

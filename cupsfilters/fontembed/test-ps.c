@@ -86,7 +86,12 @@ main(int argc,
 		       _CF_FONTEMBED_EMB_C_TAKE_FONTFILE);
 
   FILE *f = fopen("test.ps", "w");
-  DEBUG_assert(f);
+  if (!f)
+  {
+    perror("fopen");
+    _cfFontEmbedEmbClose(emb);
+    return (1);
+  }
 
   fprintf(f, "%%!PS-Adobe-2.0\n");
 
