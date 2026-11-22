@@ -131,6 +131,7 @@ check_PROGRAMS = \
 	test-raster-color-mode \
 	test-ipp-media-sizes \
 	test-filter-allocation \
+	test-pclmtoraster-stream-errors \
 	testfilters
 
 TESTS = \
@@ -145,6 +146,7 @@ TESTS = \
 	test-raster-color-mode \
 	test-ipp-media-sizes \
 	test-filter-allocation \
+	test-pclmtoraster-stream-errors \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-imagetoraster-row-size.sh \
@@ -370,6 +372,15 @@ test_filter_allocation_CFLAGS = \
 	-I$(srcdir)/cupsfilters/ \
 	$(CUPS_CFLAGS)
 test_filter_allocation_LDADD = \
+	libcupsfilters.la \
+	$(CUPS_LIBS)
+
+test_pclmtoraster_stream_errors_SOURCES = \
+	cupsfilters/test-pclmtoraster-stream-errors.c
+test_pclmtoraster_stream_errors_CFLAGS = \
+	-D_GNU_SOURCE -I$(srcdir)/cupsfilters/ \
+	$(CUPS_CFLAGS)
+test_pclmtoraster_stream_errors_LDADD = \
 	libcupsfilters.la \
 	$(CUPS_LIBS)
 
