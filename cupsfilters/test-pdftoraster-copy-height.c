@@ -45,8 +45,14 @@ main(void)
 
   // colordata holds EXACTLY copy_height rows; reading row copy_height is OOB.
   unsigned char *colordata = (unsigned char *)malloc((size_t)copy_height * rowsize);
-  memset(colordata, 0x55, (size_t)copy_height * rowsize);
   unsigned char *lineBuf = (unsigned char *)malloc(rowsize);
+  if (!colordata || !lineBuf)
+  {
+    free(colordata);
+    free(lineBuf);
+    return (2);
+  }
+  memset(colordata, 0x55, (size_t)copy_height * rowsize);
 
   pdftoraster_doc_t doc;
   memset(&doc, 0, sizeof(doc));

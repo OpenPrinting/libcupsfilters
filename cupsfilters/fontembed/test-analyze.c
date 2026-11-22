@@ -243,7 +243,7 @@ main(int argc,
 
   DEBUG_assert(otf);
   if (otf->numTTC)
-    printf("TTC has %d fonts, using %d\n", otf->numTTC, otf->useTTC);
+    printf("TTC has %u fonts, using %u\n", otf->numTTC, otf->useTTC);
   if (otf->version == 0x00010000)
     printf("Got TTF 1.0\n");
   else if (otf->version == _CF_FONTEMBED_OTF_TAG('O','T','T','O'))

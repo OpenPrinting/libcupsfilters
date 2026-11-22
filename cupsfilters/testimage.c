@@ -69,6 +69,13 @@ main(int  argc,				// I - Number of command-line arguments
   height = cfImageGetHeight(img);
   depth  = cfImageGetDepth(img);
   line   = calloc(width, depth);
+  if (!line)
+  {
+    perror("calloc");
+    cfImageClose(img);
+    fclose(out);
+    return (1);
+  }
 
   fprintf(out, "P%d\n%d\n%d\n255\n",
           cfImageGetColorSpace(img) == CF_IMAGE_WHITE ? 5 : 6,
@@ -82,6 +89,7 @@ main(int  argc,				// I - Number of command-line arguments
 
   cfImageClose(img);
   fclose(out);
+  free(line);
 
   //
   // Closing a NULL image should be a safe no-op, not a crash...
