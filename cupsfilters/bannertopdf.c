@@ -920,7 +920,8 @@ generate_banner_pdf(banner_t *banner,
     return (1);
   }
 
-  iterate_data_t *iterate_helper = (iterate_data_t *)malloc(sizeof(iterate_data_t));
+  iterate_data_t iteration = { 0 };
+  iterate_data_t *iterate_helper = &iteration;
   output_doc = cfCopyPDFdoc(input_doc, outputfp, iterate_helper);
   font_context.iterate_helper = iterate_helper;
   font_context.log = log;
@@ -1185,7 +1186,6 @@ generate_banner_pdf(banner_t *banner,
   }
 
   free(buf);
-  free(iterate_helper);
   cfPDFFree(input_doc);
   cfPDFFree(output_doc);
   return (0);
