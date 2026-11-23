@@ -54,6 +54,12 @@ _cfPDFOutputString(_cf_pdf_out_t *pdf,
   DEBUG_assert(pdf);
   DEBUG_assert(str);
 
+  if (!str){
+    fputs("()", stdout);
+    pdf->filepos += 2;
+    return;
+  }
+
   if (len == -1)
     len = strlen(str);
   putc('(', stdout);
