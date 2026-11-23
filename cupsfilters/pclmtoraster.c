@@ -1186,6 +1186,13 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   if (rotate)
   {
     unsigned char *bitmap2 = (unsigned char *) malloc(data->pixel_count);
+    if (bitmap2 == NULL)
+    {
+      if (log) log(ld, CF_LOGLEVEL_ERROR,
+		   "cfFilterPCLmToRaster: Unable to allocate rotation buffer "
+		   "for page %d", pgno + 1);
+      return (1);
+    }
     bitmap2 = rotate_bitmap(data->bitmap, bitmap2, rotate,
 			    data->header.cupsHeight,
 			    data->header.cupsWidth, data->rowsize,
@@ -1199,6 +1206,15 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   // Write page image
   lineBuf = (unsigned char *)malloc(data->bytesPerLine * sizeof(unsigned char));
   line = (unsigned char *)malloc(data->bytesPerLine * sizeof(unsigned char));
+  if (lineBuf == NULL || line == NULL)
+  {
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPCLmToRaster: Unable to allocate line buffers for "
+		 "page %d", pgno + 1);
+    free(lineBuf);
+    free(line);
+    return (1);
+  }
 
   if (data->header.Duplex && (pgno & 1) && data->swap_image_y)
   {
