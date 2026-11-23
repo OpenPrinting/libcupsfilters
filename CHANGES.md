@@ -32,6 +32,10 @@
   order, and `sides` from `sides-default` (with a PPD, `*DefaultDuplex`),
   so that documents and copies on queues defaulting to duplex are padded
   to whole sheets.
+- `cfFilterPDFToPDF()`: Read the job IPP attributes together with the
+  job's options again (`cfJoinJobOptionsAndAttrs()`), as the QPDF-based
+  `pdftopdf` did, so that options supplied as job attributes are
+  applied, too.
 - CI test `test-pdftopdf-printer-defaults` for the above.
 
 ## CHANGES IN V2.2.1 (11th August 2026)
