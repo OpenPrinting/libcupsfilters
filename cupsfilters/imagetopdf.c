@@ -227,7 +227,7 @@ out_string(imagetopdf_doc_t *doc,
   char c;
 
   putc_pdf(doc, '(');
-  for (; (c = *s) != '\0'; s ++)
+  for (; s && (c = *s) != '\0'; s ++)
   {
     if (c == '\\' || c == '(' || c == ')')
       putc_pdf(doc, '\\');
@@ -251,9 +251,13 @@ out_trailer(imagetopdf_doc_t *doc)
   snprintf(doc->linebuf, LINEBUFSIZE, "<</Size %d ", doc->currentObjectNo);
   out_pdf(doc, doc->linebuf);
   out_pdf(doc, "/Root 1 0 R\n");
-  out_pdf(doc, "/Info << /Title ");
-  out_string(doc, doc->title);
-  putc_pdf(doc, ' ');
+  out_pdf(doc, "/Info << ");
+  if (doc->title)
+  {
+    out_pdf(doc, "/Title ");
+    out_string(doc, doc->title);
+    putc_pdf(doc, ' ');
+  }
   snprintf(doc->linebuf, LINEBUFSIZE, "/CreationDate (%s) ", curdate);
   out_pdf(doc, doc->linebuf);
   snprintf(doc->linebuf, LINEBUFSIZE, "/ModDate (%s) ", curdate);

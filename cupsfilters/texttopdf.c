@@ -2504,6 +2504,8 @@ static lchar_t
   const unsigned char	*utf8;	// UTF8 text
   lchar_t *ret,*out;
 
+  if (!buf)
+    return (NULL);
 
   // This is enough, utf8 chars will only require less space
   out = ret = malloc((strlen(buf) + 1) * sizeof(lchar_t));
@@ -2642,6 +2644,8 @@ write_font_str(float x,
   static char		*names[] =	// Font names
 				{ "FN","FB","FI","FBI" };
 
+  if (!str)
+    return;
 
   if (len == -1)
     for (len = 0; str[len].ch; len++);
@@ -2731,6 +2735,8 @@ string_width_x(lchar_t *str,
 {
   int len;
 
+  if (!str)
+    return (0.0f);
 
   for (len = 0; str[len].ch; len ++);
 
