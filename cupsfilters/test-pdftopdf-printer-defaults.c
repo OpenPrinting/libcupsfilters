@@ -58,6 +58,7 @@ typedef struct
   const char	*option;		// Job option ("name=value") or NULL
   int		copies;			// Number of copies
   const char	*expected;		// Expected pages in output order
+  int		job_attr;		// Pass option as job IPP attribute?
 } test_case_t;
 
 
@@ -224,7 +225,9 @@ run_test(const test_case_t *test,	// I - Test case
          const char        *output)	// I - Output document
 {
   cf_filter_data_t	data;		// Filter data
-  ipp_t			*printer_attrs;	// Printer attributes
+  ipp_t			*printer_attrs,	// Printer attributes
+			*job_attrs = NULL;
+					// Job attributes
   int			infd,		// Input file
 			outfd,		// Output file
 			ret;		// Filter status
@@ -256,7 +259,14 @@ run_test(const test_case_t *test,	// I - Test case
     if ((value = strchr(name, '=')) != NULL)
     {
       *value++ = '\0';
-      data.num_options = cupsAddOption(name, value, data.num_options, &data.options);
+      if (test->job_attr)
+      {
+        job_attrs = ippNew();
+        ippAddString(job_attrs, IPP_TAG_JOB, IPP_TAG_KEYWORD, name, NULL, value);
+        data.job_attrs = job_attrs;
+      }
+      else
+        data.num_options = cupsAddOption(name, value, data.num_options, &data.options);
     }
   }
 
@@ -268,6 +278,7 @@ run_test(const test_case_t *test,	// I - Test case
   close(infd);
   close(outfd);
   cupsFreeOptions(data.num_options, data.options);
+  ippDelete(job_attrs);
   ippDelete(printer_attrs);
 
   if (ret)
@@ -332,7 +343,13 @@ main(void)
     { "duplex default, face-down bin, 2 copies", BIN_FACE_DOWN, "two-sided-long-edge", NULL, 2, "1,2,3,0,1,2,3,0" },
     { "duplex default, sides=one-sided", BIN_FACE_DOWN, "two-sided-long-edge", "sides=one-sided", 1, "1,2,3" },
     { "duplex default, Duplex=None", BIN_FACE_DOWN, "two-sided-long-edge", "Duplex=None", 1, "1,2,3" },
-    { "simplex default, sides=two-sided-long-edge", BIN_FACE_DOWN, NULL, "sides=two-sided-long-edge", 1, "1,2,3,0" }
+    { "simplex default, sides=two-sided-long-edge", BIN_FACE_DOWN, NULL, "sides=two-sided-long-edge", 1, "1,2,3,0" },
+
+    // Options supplied as job IPP attributes count like CUPS options
+    { "lastToFirst bin, page-delivery=same-order-face-down attribute", BIN_STACKING_LAST_TO_FIRST, NULL, "page-delivery=same-order-face-down", 1, "1,2,3", 1 },
+    { "face-down bin, page-delivery=reverse-order-face-down attribute", BIN_FACE_DOWN, NULL, "page-delivery=reverse-order-face-down", 1, "3,2,1", 1 },
+    { "duplex default, sides=one-sided attribute", BIN_FACE_DOWN, "two-sided-long-edge", "sides=one-sided", 1, "1,2,3", 1 },
+    { "simplex default, sides=two-sided-long-edge attribute", BIN_FACE_DOWN, NULL, "sides=two-sided-long-edge", 1, "1,2,3,0", 1 }
   };
 
 

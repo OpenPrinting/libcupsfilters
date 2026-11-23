@@ -227,21 +227,23 @@ job_sheet_wanted(const char *job_sheets,// I - "job-sheets" value
 //
 // 'job_option_requested()' - Check whether the job sets an option.
 //
-// Like cfFilterOptionsCreate(), this looks at the job's options and at the
-// "IPP_NAME" and "IPP_NAME_DEFAULT" environment variables.
+// Like cfFilterOptionsCreate(), this looks at the job's options (together
+// with the job's IPP attributes) and at the "IPP_NAME" and
+// "IPP_NAME_DEFAULT" environment variables.
 //
 
 static bool				// O - `true` if set, `false` otherwise
 job_option_requested(
-    const char       *name,		// I - Option name
-    cf_filter_data_t *data)		// I - Filter data
+    const char    *name,		// I - Option name
+    int           num_options,		// I - Number of job options
+    cups_option_t *options)		// I - Job options and attributes
 {
   char		env[256],		// Environment variable name
 		*ptr;			// Pointer into name
   size_t	len;			// Length of name
 
 
-  if (cupsGetOption(name, data->num_options, data->options))
+  if (cupsGetOption(name, num_options, options))
     return (true);
 
   snprintf(env, sizeof(env), "IPP_%s", name);
@@ -275,12 +277,14 @@ job_option_requested(
 static bool				// O - `true` if requested, `false` otherwise
 output_order_requested(
     cf_filter_options_t *options,	// I - IPP options
-    cf_filter_data_t    *data)		// I - Filter data
+    int                 num_job_options,// I - Number of job options
+    cups_option_t       *job_options)	// I - Job options and attributes
 {
   return (options->output_bin[0] ||
-          job_option_requested("outputorder", data) ||
-          cupsGetOption("output-order", data->num_options, data->options) ||
-          job_option_requested("page-delivery", data));
+          job_option_requested("outputorder", num_job_options, job_options) ||
+          cupsGetOption("output-order", num_job_options, job_options) ||
+          job_option_requested("page-delivery", num_job_options,
+			       job_options));
 }
 
 
@@ -2844,6 +2848,8 @@ prepare_documents(
     const char       *outformat,	// I - Output format
     unsigned         *outpages,		// O - Number of pages
     bool             generate_copies,	// I - Generate copies in output PDF?
+    int              num_job_options,	// I - Number of job options
+    cups_option_t    *job_options,	// I - Job options and attributes
     cf_filter_data_t *data)		// I - Filter data for logging
 {
   bool			ret = false;	// Return value
@@ -3125,7 +3131,7 @@ prepare_documents(
   // the printer's default output bin and how it stacks the pages, as the
   // QPDF-based pdftopdf did, so that printers with only a face-up output bin
   // get the pages in reverse order by default.
-  if (output_order_requested(options, data))
+  if (output_order_requested(options, num_job_options, job_options))
   {
     reverse_order = !strcmp(options->output_bin, "face-up");
     if (options->page_delivery >= CF_FILTER_DELIVERY_REVERSE_ORDER_FACE_DOWN)
@@ -3490,10 +3496,16 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
 		ret;			// Return value
 
   unsigned           pdf_pages;
+  int		num_options = 0;	// Number of job options
+  cups_option_t	*options = NULL;	// Job options and attributes
 
   memset(&file, 0, sizeof(file));
 
-  filter_options = cfFilterOptionsCreate(data->num_options, data->options);
+  // Options can come as CUPS options or as job IPP attributes, look at both,
+  // as the QPDF-based pdftopdf did
+  num_options = cfJoinJobOptionsAndAttrs(data, num_options, &options);
+
+  filter_options = cfFilterOptionsCreate(num_options, options);
 
   // CUPS passes the copy count through the standard "copies" filter argument
   // (argv[4], exposed here as data->copies) and strips the "copies" option
@@ -3510,8 +3522,8 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // from *DefaultDuplex.  Documents and copies are only padded to whole
   // sheets, and reversed pages are only paired correctly on the sheets, if
   // pdftopdf knows that the job is printed duplex.
-  if (!job_option_requested("sides", data) &&
-      !job_option_requested("Duplex", data) &&
+  if (!job_option_requested("sides", num_options, options) &&
+      !job_option_requested("Duplex", num_options, options) &&
       (val = cfIPPAttrEnumValForPrinter(data->printer_attrs, data->job_attrs,
 					"sides")) != NULL)
     snprintf(filter_options->sides, sizeof(filter_options->sides), "%s", val);
@@ -3521,16 +3533,16 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // make and collate the copies themselves and raster drivers to need
   // software copies.  Copies left to the printer are passed on to the
   // following filters with the "%%PDFTOPDFNumCopies" comment.
-  if ((val = cupsGetOption("hardware-copies", data->num_options,
-			   data->options)) != NULL)
+  if ((val = cupsGetOption("hardware-copies", num_options,
+			   options)) != NULL)
     hw_copies = is_true(val);
   else
     hw_copies = (data->final_content_type &&
 		 (strcasestr(data->final_content_type, "/pdf") ||
 		  strcasestr(data->final_content_type, "/vnd.cups-pdf")));
 
-  if ((val = cupsGetOption("hardware-collate", data->num_options,
-			   data->options)) != NULL)
+  if ((val = cupsGetOption("hardware-collate", num_options,
+			   options)) != NULL)
     hw_collate = is_true(val);
   else
     hw_collate = (data->final_content_type &&
@@ -3540,14 +3552,14 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
 		   strcasestr(data->final_content_type, "/urf") ||
 		   strcasestr(data->final_content_type, "/PCLm")));
 
-  if ((val = cupsGetOption("Collate", data->num_options,
-			   data->options)) != NULL && is_true(val))
+  if ((val = cupsGetOption("Collate", num_options,
+			   options)) != NULL && is_true(val))
     collate = true;
-  else if ((val = cupsGetOption("sheet-collate", data->num_options,
-				data->options)) != NULL)
+  else if ((val = cupsGetOption("sheet-collate", num_options,
+				options)) != NULL)
     collate = strcasecmp(val, "uncollated");
   else if ((val = cupsGetOption("multiple-document-handling",
-				data->num_options, data->options)) != NULL ||
+				num_options, options)) != NULL ||
 	   (val = cfIPPAttrEnumValForPrinter(data->printer_attrs,
 					     data->job_attrs,
 					     "multiple-document-handling")) !=
@@ -3571,12 +3583,12 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   // "job-name" and "job-originating-user-name" options, so use them for the
   // banner unless the options are present.
   if (data->job_title && data->job_title[0] &&
-      !cupsGetOption("job-name", data->num_options, data->options))
+      !cupsGetOption("job-name", num_options, options))
     snprintf(filter_options->job_name, sizeof(filter_options->job_name),
 	     "%s", data->job_title);
   if (data->job_user && data->job_user[0] &&
-      !cupsGetOption("job-originating-user-name", data->num_options,
-		     data->options))
+      !cupsGetOption("job-originating-user-name", num_options,
+		     options))
     snprintf(filter_options->job_originating_user_name,
 	     sizeof(filter_options->job_originating_user_name), "%s",
 	     data->job_user);
@@ -3593,7 +3605,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   {
     filter_options->pagesize_requested =
         (cfGetPageDimensions(data->printer_attrs, data->job_attrs,
-                             data->num_options, data->options, NULL, 0,
+                             num_options, options, NULL, 0,
                              &filter_options->page_width_pt,
                              &filter_options->page_height_pt,
                              &filter_options->page_left_pt,
@@ -3623,6 +3635,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   if (temp_fd == -1)
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR, "tempfilename wasn't created");
+    cupsFreeOptions(num_options, options);
     return 1;
   }
 
@@ -3633,6 +3646,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
       close(temp_fd);
       close(inputfd);
       unlink(temp_filename);
+      cupsFreeOptions(num_options, options);
       return 1;
   }
   if (copy_fd_to_tempfile(inputfd, inputfp) == -1) {
@@ -3640,6 +3654,7 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
         fclose(inputfp);
         close(inputfd);
         unlink(temp_filename); // Clean up temporary file
+        cupsFreeOptions(num_options, options);
         return 1;
     }
 
@@ -3649,10 +3664,11 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
   file.format = "application/pdf";
   file.pdf_filename = temp_filename;
 
-  if (!prepare_documents(1, &file, filter_options, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, device_copies == 1, data))
+  if (!prepare_documents(1, &file, filter_options, pdf_file, sizeof(pdf_file), output_type, &pdf_pages, device_copies == 1, num_options, options, data))
   {
     // Unable to prepare documents, exit...
     cfFilterOptionsDelete(filter_options);
+    cupsFreeOptions(num_options, options);
     return (1);
   }
 
@@ -3665,6 +3681,7 @@ unlink(temp_filename); // Remove the initial temporary file
 		     log, ld);
   unlink(pdf_file);
   cfFilterOptionsDelete(filter_options);
+  cupsFreeOptions(num_options, options);
 
   return (ret);
 }
