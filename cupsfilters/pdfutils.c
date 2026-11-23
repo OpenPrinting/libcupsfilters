@@ -239,6 +239,9 @@ _cfPDFOutAddKeyValue(_cf_pdf_out_t *pdf,
   DEBUG_assert(pdf);
   DEBUG_assert(pdf->kvsize <= pdf->kvalloc);
 
+  if (!key || !val)
+    return (0);
+
   if (pdf->kvsize == pdf->kvalloc)
   {
     struct _cf_keyval_t *tmp;

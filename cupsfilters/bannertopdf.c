@@ -288,7 +288,7 @@ banner_new_from_file(const char *filename,
       while (*key == '%')
 	key ++;
 
-    if (!banner->template_file && !strcasecmp(key, "template"))
+    if (!banner->template_file && !strcasecmp(key, "template") && datadir)
       banner->template_file = template_path(value, datadir);
     else if (!banner->header && !strcasecmp(key, "header"))
       banner->header = strdup(value);
@@ -329,7 +329,7 @@ banner_new_from_file(const char *filename,
   {
     if (ispdf)
       banner->template_file = strdup(filename);
-    else
+    else if (datadir)
       banner->template_file = template_path("default.pdf", datadir);
   }
   if (!gotinfos)
@@ -916,7 +916,8 @@ generate_banner_pdf(banner_t *banner,
   {
     if (log) log(ld, CF_LOGLEVEL_ERROR,
 		 "PDF template must exist and contain exactly 1 page: %s",
-		 banner->template_file);
+		 banner->template_file ? banner->template_file :
+		 "(no template directory given)");
     return (1);
   }
 
