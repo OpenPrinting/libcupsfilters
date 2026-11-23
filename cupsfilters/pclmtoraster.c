@@ -1135,10 +1135,11 @@ out_page(cups_raster_t*	 raster, 	// I - Raster stream
   colorspace_obj = pdfioDictGetObj(pdfioObjGetDict(page), "ColorSpace");
 
     if (colorspace_obj) {
-      if (strcmp(pdfioObjGetType(colorspace_obj), "Name") == 0) 
-	strncpy(data->colorspace, pdfioDictGetName(pdfioObjGetDict(colorspace_obj), "Type"), sizeof(data->colorspace) - 1);	
+      if (strcmp(pdfioObjGetType(colorspace_obj), "Name") == 0)
+	strncpy(data->colorspace, pdfioDictGetName(pdfioObjGetDict(colorspace_obj), "Type"), sizeof(data->colorspace) - 1);
       else
 	strncpy(data->colorspace, "DeviceRGB", sizeof(data->colorspace) - 1);
+      data->colorspace[sizeof(data->colorspace) - 1] = '\0';
     }
 
 
