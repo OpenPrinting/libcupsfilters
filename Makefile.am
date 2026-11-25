@@ -110,6 +110,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-pdftopdf-form-many-pages.sh \
+	cupsfilters/test-pdftopdf-split-content-streams.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
@@ -169,6 +170,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
 	cupsfilters/test-pdftopdf-form-many-pages.sh \
+	cupsfilters/test-pdftopdf-split-content-streams.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
 	cupsfilters/test-texttopdf-invalid-utf8-title.sh \
@@ -482,6 +484,7 @@ EXTRA_DIST += cupsfilters/test-pdftopdf-duplex-backside.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-single-document-new-sheet.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-landscape-centered.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-form-many-pages.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-split-content-streams.c
 EXTRA_DIST += cupsfilters/test-bannertopdf-unicode.c
 EXTRA_DIST += cupsfilters/test-ghostscript-ocr.c
 EXTRA_DIST += cupsfilters/test-image-tiff-scanline.c
@@ -506,6 +509,8 @@ EXTRA_DIST += \
 	cupsfilters/test_files/gen-symbol-only-font.py \
 	cupsfilters/test_files/form_english.pdf \
 	cupsfilters/test_files/inherited_mediabox.pdf \
+	cupsfilters/test_files/split_content_streams.pdf \
+	cupsfilters/test_files/split_content_streams_annot.pdf \
 	cupsfilters/test_files/jpeg-no-app-marker.jpg \
 	cupsfilters/test_files/link-annots-no-appearance.pdf \
 	cupsfilters/test_files/malformed.pdf \
