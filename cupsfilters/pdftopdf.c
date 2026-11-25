@@ -2438,8 +2438,12 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
       {
         pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
       }
+
+      // Separate content streams so tokens at the boundary don't merge
+      // (e.g. "Q" + "Q" -> "QQ", Issue #293)...
+      pdfioStreamPuts(outpage->output, "\n");
+      pdfioStreamClose(st);
     }
-    pdfioStreamClose(st);
   }
 
 
@@ -2861,6 +2865,9 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
           pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
       }
 
+      // Separate content streams so tokens at the boundary don't merge
+      // (e.g. "Q" + "Q" -> "QQ", Issue #293)...
+      pdfioStreamPuts(outpage->output, "\n");
       pdfioStreamClose(st);
     }
   }
