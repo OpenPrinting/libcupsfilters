@@ -175,7 +175,11 @@ run_case(const char *input,		// I - Input PDF
   data.final_content_type = "application/vnd.cups-pdf";
   data.back_pipe[0]       = data.back_pipe[1] = -1;
   data.side_pipe[0]       = data.side_pipe[1] = -1;
+#if CUPS_VERSION_MAJOR >= 3
+  data.num_options        = cupsParseOptions(options, /*end*/NULL, 0, &data.options);
+#else
   data.num_options        = cupsParseOptions(options, 0, &data.options);
+#endif // CUPS_VERSION_MAJOR >= 3
 
   status = cfFilterPDFToPDF(inputfd, outputfd, 1, &data, NULL);
 
