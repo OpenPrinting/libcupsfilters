@@ -215,7 +215,19 @@ main(void)
 	input[1024],			// Input PDF
 	output[1024];			// Output PDF
   int	failed = 0;			// Test failed?
+  int	major = 0,			// PDFio version numbers
+	minor = 0,
+	patch = 0;
 
+
+  // PDFio before 1.6.5 crashes in pdfioPageCopy() when a value cannot be
+  // copied, which pdftopdf cannot prevent, so skip the test there...
+  sscanf(PDFIO_VERSION, "%d.%d.%d", &major, &minor, &patch);
+  if (major < 1 || (major == 1 && (minor < 6 || (minor == 6 && patch < 5))))
+  {
+    printf("SKIP: PDFio %s crashes on failed page copies, need 1.6.5 or later.\n", PDFIO_VERSION);
+    return (77);
+  }
 
   if (!mkdtemp(directory))
     return (1);
