@@ -102,6 +102,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
+	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-number-up.sh \
@@ -160,6 +161,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
+	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-pdftopdf-copies.sh \
 	cupsfilters/test-pdftopdf-number-up.sh \
@@ -471,6 +473,8 @@ EXTRA_DIST += cupsfilters/test-pdftoraster-copy-height.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-inherited-mediabox.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-no-appearance.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-print-scaling-none.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-print-scaling-auto.c
+EXTRA_DIST += cupsfilters/test-pdftopdf-print-scaling-auto-mixed.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-job-sheets.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-copies.c
 EXTRA_DIST += cupsfilters/test-pdftopdf-number-up.c

@@ -101,6 +101,9 @@ typedef struct xform_prepare_s          // Preparation data
   bool 		has_form;    		// does PDF have Acroform(is flattening required?)
   bool 		has_annotations;   	// does PDF have annotations in Acroform(is flattenning required?)
   bool 		needAppearances;	// does PDF need appearances?
+  bool          auto_cropfit;         // print-scaling=auto/auto-fit resolved to
+                                      // no scaling: center pages on the media
+                                      // and crop, do not fast-copy
   char          **annotation_contents; // Annotation contents to write to page streams
   size_t        num_annotations;       // Number of annotations to write
 } xform_prepare_t;
