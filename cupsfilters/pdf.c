@@ -307,6 +307,11 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
     if ((st = pdfioPageOpenStream(page, i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
+
+      // Keep this stream's first token apart from the last token of the
+      // previous stream
+      pdfioStreamPuts(new_stream, "\n");
+
       while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
       {
         pdfioStreamWrite(new_stream, buffer, (size_t)bytes);

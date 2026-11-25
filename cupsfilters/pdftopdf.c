@@ -2401,6 +2401,11 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
     if ((st = pdfioPageOpenStream(outpage->input[pg], i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
+
+      // Keep this stream's first token apart from the previous stream's
+      // last one, see copy_page() 
+      pdfioStreamPuts(outpage->output, "\n");
+
       while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
       {
         pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
@@ -2643,6 +2648,12 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
     if ((st = pdfioPageOpenStream(outpage->input[layout], i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u, resmap[%u]=%p\n", (unsigned)i + 1, (unsigned)layout, (void *)outpage->resmap[layout]);
+
+      // The page's streams are one content stream split between any two
+      // tokens, so keep this stream's first token apart from the previous
+      // stream's last one
+      pdfioStreamPuts(outpage->output, "\n");
+
       if (outpage->resmap[layout])
       {
         // Need to map resource names...
