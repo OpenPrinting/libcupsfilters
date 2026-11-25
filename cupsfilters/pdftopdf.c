@@ -355,6 +355,39 @@ page_get_rect(pdfio_obj_t  *page,       // I - Page object
   return (false);
 }
 
+//
+// 'page_larger_than_media()' - Is a page too large for the output media?
+//
+// This uses 2% of tolerance and checks both orientations, like the
+// QPDF-based pdftopdf filter of libcupsfilters 2.1.x did for the
+// "print-scaling=auto"/"auto-fit" decision...
+//
+
+static bool				// O - `true` if the page is too large
+page_larger_than_media(
+    pdfio_file_t *pdf,			// I - PDF file
+    size_t       pg,			// I - Page number, 0-based
+    pdfio_rect_t *media)		// I - Output media box
+{
+  pdfio_obj_t	*page;			// Page object
+  pdfio_rect_t	rect;			// Page rectangle
+  double	w, h;			// Page dimensions, 2% tolerance
+
+
+  if ((page = pdfioFileGetPage(pdf, pg)) == NULL)
+    return (false);
+
+  if (!page_get_rect(page, "CropBox", &rect) &&
+      !page_get_rect(page, "MediaBox", &rect))
+    return (false);
+
+  w = (rect.x2 - rect.x1) * 100.0 / 102.0;
+  h = (rect.y2 - rect.y1) * 100.0 / 102.0;
+
+  return ((w > (media->x2 - media->x1) || h > (media->y2 - media->y1)) &&
+	  (h > (media->x2 - media->x1) || w > (media->y2 - media->y1)));
+}
+
 
 //
 // 'page_get_rotate()' - Look up the inheritable /Rotate attribute for a page,
@@ -2872,6 +2905,9 @@ prepare_documents(
   int			page;		// Current page number
   bool			duplex = !strncmp(options->sides, "two-sided-", 10);
 					// Doing two-sided printing?
+  bool			document_large = false;
+					// Any input page larger than the media?
+  const char		*val;		// Option value
   pdfio_file_t *flattened_pdf;
   char          flattened_pdf_file[1024];
   int		outfd;			// Output temporary file
@@ -3099,6 +3135,32 @@ prepare_documents(
       page ++;
     }
 
+    // Check whether any of the pages that actually get printed is too
+    // large for the output media, for the print-scaling=auto/auto-fit
+    // decision after the document loop, like the QPDF-based pdftopdf of
+    // libcupsfilters 2.1.x did. Only the pages selected by the page
+    // ranges count, and the check is not needed when the scaling mode
+    // is fixed anyway...
+    if (options->print_scaling == CF_FILTER_SCALING_AUTO ||
+	options->print_scaling == CF_FILTER_SCALING_AUTO_FIT)
+    {
+      size_t	num_pages = (size_t)pdfioFileGetNumPages(d->pdf);
+					// Number of pages in document
+      for (size_t pg = 0; pg < num_pages; pg ++)
+      {
+	int	docpage;		// Page number for the page range check
+
+	if (options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT)
+	  docpage = (int)pg + 1;
+	else
+	  docpage = d->first_page + (int)pg;
+
+	if (cfFilterOptionsIsPageInRange(options, docpage) &&
+	    page_larger_than_media(d->pdf, pg, &p.media))
+	  document_large = true;
+      }
+    }
+
     if ((d->last_page & 1) && duplex && options->multiple_document_handling != CF_FILTER_HANDLING_SINGLE_DOCUMENT)
     {
       d->last_page ++;
@@ -3109,6 +3171,57 @@ prepare_documents(
       d->num_pages ++;
 
     p.num_inpages += d->num_pages;
+  }
+
+  // Resolve "print-scaling=auto" and "print-scaling=auto-fit" like the
+  // QPDF-based pdftopdf filter of libcupsfilters 2.1.x did: when the
+  // pages of the document fit on the output media (with 2% tolerance,
+  // in either orientation) and the client did not request exact
+  // attribute fidelity, keep them at their original size, only centered
+  // on the sheet, and let the printer's hardware margins crop what
+  // sticks out. Only scale the pages when the document is too large
+  // for the media, or to fill the page when the printer's printable
+  // area is the whole page...
+  if (options->print_scaling == CF_FILTER_SCALING_AUTO ||
+      options->print_scaling == CF_FILTER_SCALING_AUTO_FIT)
+  {
+    bool	margin_defined =		// Printable area smaller than media?
+		  (p.crop.x1 > 0.0 || p.crop.y1 > 0.0 ||
+		   p.crop.x2 < p.media.x2 || p.crop.y2 < p.media.y2);
+    bool	fidelity =		// Exact attribute fidelity requested?
+		  ((val = cupsGetOption("ipp-attribute-fidelity",
+					num_job_options, job_options)) != NULL &&
+		   is_true(val));
+
+    if (fidelity || document_large)
+    {
+      if (options->print_scaling == CF_FILTER_SCALING_AUTO && !margin_defined)
+	options->print_scaling = CF_FILTER_SCALING_FILL;
+      else
+	options->print_scaling = CF_FILTER_SCALING_FIT;
+
+      if (p.logfunc)
+	p.logfunc(p.logdata, CF_LOGLEVEL_DEBUG,
+		  "cfFilterPDFToPDF: %s, scaling pages to %s the %s.",
+		  fidelity ?
+		      "Exact attribute fidelity requested" :
+		      "Pages too large for output page size",
+		  options->print_scaling == CF_FILTER_SCALING_FILL ? "fill" : "fit",
+		  options->print_scaling == CF_FILTER_SCALING_FILL ? "page" : "printable area");
+    }
+    else
+    {
+      // Do not scale, only center the pages on the sheet and let the
+      // printer's hardware margins crop (cropfit). This must not take
+      // the fast-copy path below, as there the pages would keep their
+      // own size instead of getting centered on the output media...
+      options->print_scaling = CF_FILTER_SCALING_NONE;
+      p.auto_cropfit = true;
+
+      if (p.logfunc)
+	p.logfunc(p.logdata, CF_LOGLEVEL_DEBUG,
+		  "cfFilterPDFToPDF: Pages fit output page size, no scaling, centering, crop if needed.");
+    }
   }
 
   // When doing N-up or booklet printing, the default is to scale to fit unless
@@ -3170,9 +3283,10 @@ prepare_documents(
       outdir  = 1;
     }
 
-    if (p.num_layout == 1 && 
-        options->print_scaling == CF_FILTER_SCALING_NONE && 
-	strcasecmp(outformat, "image/pwg-raster") && 
+    if (p.num_layout == 1 &&
+        options->print_scaling == CF_FILTER_SCALING_NONE &&
+	!p.auto_cropfit &&
+	strcasecmp(outformat, "image/pwg-raster") &&
 	strcasecmp(outformat, "image/urf") && 
 	!strcmp(options->page_border, "none") && 
 	!options->mirror && 
