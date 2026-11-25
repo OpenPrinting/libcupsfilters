@@ -67,6 +67,7 @@ typedef struct xform_page_s             // Output page
   pdfio_dict_t  *resmap[XFORM_MAX_LAYOUT];  // Resource name map
   pdfio_dict_t  *restype;               // Current resource type dictionary
   pdfio_stream_t *output;               // Output page stream
+  bool          copy_failed;            // Unable to copy a page resource?
 } xform_page_t;
 
 typedef struct xform_page_ext_s             // Output page

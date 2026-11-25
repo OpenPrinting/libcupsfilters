@@ -133,6 +133,7 @@ check_PROGRAMS = \
 	test-filter-allocation \
 	test-pclmtoraster-stream-errors \
 	test-pdftopdf-printer-defaults \
+	test-pdftopdf-null-value \
 	testfilters
 
 TESTS = \
@@ -149,6 +150,7 @@ TESTS = \
 	test-filter-allocation \
 	test-pclmtoraster-stream-errors \
 	test-pdftopdf-printer-defaults \
+	test-pdftopdf-null-value \
 	cupsfilters/testfilters.sh \
 	cupsfilters/test-pclm-overflow.sh \
 	cupsfilters/test-imagetoraster-row-size.sh \
@@ -392,6 +394,17 @@ test_pdftopdf_printer_defaults_CFLAGS = \
 	$(LIBPDFIO_CFLAGS) \
 	$(CUPS_CFLAGS)
 test_pdftopdf_printer_defaults_LDADD = \
+	libcupsfilters.la \
+	$(LIBPDFIO_LIBS) \
+	$(CUPS_LIBS)
+
+test_pdftopdf_null_value_SOURCES = \
+	cupsfilters/test-pdftopdf-null-value.c
+test_pdftopdf_null_value_CFLAGS = \
+	-I$(srcdir)/cupsfilters/ \
+	$(LIBPDFIO_CFLAGS) \
+	$(CUPS_CFLAGS)
+test_pdftopdf_null_value_LDADD = \
 	libcupsfilters.la \
 	$(LIBPDFIO_LIBS) \
 	$(CUPS_LIBS)

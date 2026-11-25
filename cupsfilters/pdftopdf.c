@@ -535,7 +535,8 @@ resource_dict_cb(
 	  key = mapname;
 	}
 
-        pdfioDictSetArray(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval));
+        if (!pdfioDictSetArray(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval)))
+          outpage->copy_failed = true;
         break;
 
     case PDFIO_VALTYPE_DICT : // Dictionary
@@ -549,7 +550,8 @@ resource_dict_cb(
 	  key = mapname;
 	}
 
-        pdfioDictSetDict(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
+        if (!pdfioDictSetDict(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval)))
+          outpage->copy_failed = true;
         break;
 
     case PDFIO_VALTYPE_NAME : // Name
@@ -580,7 +582,8 @@ resource_dict_cb(
 	  key = mapname;
 	}
 
-        pdfioDictSetObj(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioObjCopy(outpage->pdf, objval));
+        if (!pdfioDictSetObj(outpage->restype, pdfioStringCreate(outpage->pdf, key), pdfioObjCopy(outpage->pdf, objval)))
+          outpage->copy_failed = true;
         break;
 
     default :
@@ -653,7 +656,8 @@ page_dict_cb(pdfio_dict_t *dict,	// I - Dictionary
     if ((arrayres = pdfioDictGetArray(outpage->resdict, key)) == NULL)
     {
       // Copy array
-      pdfioDictSetArray(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval));
+      if (!pdfioDictSetArray(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioArrayCopy(outpage->pdf, arrayval)))
+        outpage->copy_failed = true;
     }
     else if (!strcmp(key, "ProcSet"))
     {
@@ -685,7 +689,10 @@ page_dict_cb(pdfio_dict_t *dict,	// I - Dictionary
   {
     // Copy/merge dictionary...
     if ((outpage->restype = pdfioDictGetDict(outpage->resdict, key)) == NULL)
-      pdfioDictSetDict(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval));
+    {
+      if (!pdfioDictSetDict(outpage->resdict, pdfioStringCreate(outpage->pdf, key), pdfioDictCopy(outpage->pdf, dictval)))
+        outpage->copy_failed = true;
+    }
     else
       pdfioDictIterateKeys(dictval, (pdfio_dict_cb_t)resource_dict_cb, outpage);
   }
@@ -3181,7 +3188,15 @@ prepare_documents(
       {
 	if (outpage->input[0])
 	{
-	  pdfioPageCopy(p.pdf, outpage->input[0]);
+	  if (!pdfioPageCopy(p.pdf, outpage->input[0]))
+	  {
+	    // Do not silently drop the page and report success...
+	    if (p.logfunc)
+	      p.logfunc(p.logdata, CF_LOGLEVEL_ERROR,
+			"cfFilterPDFToPDF: Unable to copy output page %u.",
+			(unsigned)(outpage - p.outpages + 1));
+	    goto done;
+	  }
 	}
 	else if (outpage->pdf)
 	{
@@ -3253,6 +3268,16 @@ prepare_documents(
             fprintf(stderr, "DEBUG: No Resources for cell %u.\n", (unsigned)layout);
 
 	  // TODO: Handle inherited resources from parent page objects...
+	}
+
+	if (outpage->copy_failed)
+	{
+	  // Do not silently drop page content and report success...
+	  if (p.logfunc)
+	    p.logfunc(p.logdata, CF_LOGLEVEL_ERROR,
+		      "cfFilterPDFToPDF: Unable to copy resources for output page %u.",
+		      (unsigned)(outpage - p.outpages + 1));
+	  goto done;
 	}
 
 	// Now copy the content streams to build the composite page, using the
