@@ -512,9 +512,12 @@ create_pdf_file(struct pdf_info *info,
                 cf_filter_out_format_t outformat,
 		FILE *outputfp)
 {
-  char tmp_filename[] = "/tmp/tmpfileXXXXXX";
+  char tmp_filename[1024];
 
-  int tmp_fd = mkstemp(tmp_filename);
+  int tmp_fd = cupsCreateTempFd(NULL, NULL, tmp_filename,
+				sizeof(tmp_filename));
+  if (tmp_fd < 0)
+    return 1;
   close(tmp_fd);
 
   info->pdf = NULL;

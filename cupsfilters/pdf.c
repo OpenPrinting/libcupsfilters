@@ -13,6 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
+#include <cups/cups.h>
+#include <cupsfilters/libcups2-private.h>
 
 #include "pdf.h"
 
@@ -141,12 +144,14 @@ int 				  // O - Number of pages or -1 on error
 cfPDFPagesFP(FILE *file) 	// I - File pointer of PDF
 {
   // Convert the FILE to a temporary file, as PDFio doesn't open PDF without path
-  char temp_filename[] = "/tmp/pdf-file-XXXXXX";
-  int temp_fd = mkstemp(temp_filename);
+  char temp_filename[1024];
+  int temp_fd = cupsCreateTempFd(NULL, NULL, temp_filename,
+				 sizeof(temp_filename));
 
   if (temp_fd == -1) 
   {
-    fprintf(stderr, "mkstemp: Could not create temporary file\n");
+    fprintf(stderr, "cfPDFPagesFP: Could not create temporary file: %s\n",
+	    strerror(errno));
     return (-1);
   }
 
