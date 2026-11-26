@@ -108,6 +108,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
+	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-form-many-pages.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \
@@ -166,6 +167,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-duplex-backside.sh \
 	cupsfilters/test-pdftopdf-single-document-new-sheet.sh \
 	cupsfilters/test-pdftopdf-landscape-centered.sh \
+	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-form-many-pages.sh \
 	cupsfilters/test-bannertopdf-unicode.sh \
 	cupsfilters/test-texttopdf-font-coverage.sh \

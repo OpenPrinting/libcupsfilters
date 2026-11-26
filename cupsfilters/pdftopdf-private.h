@@ -98,7 +98,9 @@ typedef struct xform_prepare_s          // Preparation data
   xform_page_t  outpages[XFORM_MAX_PAGES];  // Output pages
   size_t        num_layout;             // Number of layout rectangles
   pdfio_rect_t  layout[XFORM_MAX_LAYOUT]; // Layout rectangles
-  bool 		has_form;    		// does PDF have Acroform(is flattening required?)
+  cf_filter_scaling_t print_scaling;	// Scaling used for the layout, with
+					// "auto" and "auto-fit" resolved
+  bool 		has_form;   		// does PDF have Acroform(is flattening required?)
   bool 		has_annotations;   	// does PDF have annotations in Acroform(is flattenning required?)
   bool 		needAppearances;	// does PDF need appearances?
   char          **annotation_contents; // Annotation contents to write to page streams

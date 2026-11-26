@@ -2476,7 +2476,7 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
     return;
 
   if ((!p->options->pagesize_requested ||
-       p->options->print_scaling == CF_FILTER_SCALING_NONE) &&
+       p->print_scaling == CF_FILTER_SCALING_NONE) &&
       p->num_layout == 1)
   {
     // Single page per sheet with no page size requested or no scaling:
@@ -2571,12 +2571,12 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   final_iheight = final_box.y2 - final_box.y1;
 
   scaling = cwidth / final_iwidth;
-  if (p->options->print_scaling == CF_FILTER_SCALING_NONE)
+  if (p->print_scaling == CF_FILTER_SCALING_NONE)
   {
     // No scaling, keep the input page at its original size...
     scaling = 1.0;
   }
-  else if (p->options->print_scaling == CF_FILTER_SCALING_FILL)
+  else if (p->print_scaling == CF_FILTER_SCALING_FILL)
   {
     // Scale to fill...
     if ((final_iheight * scaling) < cheight)
@@ -2835,6 +2835,110 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   // Restore state...
   pdfioStreamPuts(outpage->output, "\n");
   pdfioContentRestore(outpage->output);
+}
+
+
+//
+// 'resolve_print_scaling()' - Turn "auto" and "auto-fit" into the scaling
+//                             mode used for the layout.
+//
+// This follows the QPDF-based pdftopdf of libcupsfilters 2.1.x: a document
+// whose pages all fit on the paper (with 2% tolerance, in either orientation)
+// is printed at its original size ("none"), unless "ipp-attribute-fidelity"
+// is set.  Otherwise "auto-fit" scales to fit the printable area, and "auto"
+// does too unless the media has no margins, in which case it fills the page.
+//
+
+static void
+resolve_print_scaling(
+    xform_prepare_t  *p,		// I - Preparation data
+    size_t           num_documents,	// I - Number of input documents
+    xform_document_t *documents,	// I - Input documents
+    int              num_job_options,	// I - Number of job options
+    cups_option_t    *job_options)	// I - Job options and attributes
+{
+  cf_filter_scaling_t	scaling = p->options->print_scaling;
+					// Requested scaling
+  const char	*val;			// Option value
+  bool		fidelity,		// "ipp-attribute-fidelity" set?
+		document_large = false,	// Any page larger than the paper?
+		margin_defined;		// Does the media have margins?
+  double	pw = p->media.x2 - p->media.x1,
+		ph = p->media.y2 - p->media.y1;
+					// Paper size
+  size_t	i;			// Looping var
+  xform_document_t *d;			// Current document
+
+
+  p->print_scaling = scaling;
+
+  if (p->num_layout != 1 ||
+      (scaling != CF_FILTER_SCALING_AUTO &&
+       scaling != CF_FILTER_SCALING_AUTO_FIT))
+    return;
+
+  val      = cupsGetOption("ipp-attribute-fidelity", num_job_options, job_options);
+  fidelity = val && (!strcasecmp(val, "true") || !strcasecmp(val, "on") ||
+                     !strcasecmp(val, "yes"));
+
+  margin_defined = p->crop.x1 != p->media.x1 || p->crop.y1 != p->media.y1 ||
+                   p->crop.x2 != p->media.x2 || p->crop.y2 != p->media.y2;
+
+  for (i = 0, d = documents; i < num_documents && !document_large; i ++, d ++)
+  {
+    size_t	pg,			// Page index
+		num_pages;		// Number of pages in document
+    int		number;			// Page number for page ranges
+
+    if (!d->pdf)
+      continue;
+
+    num_pages = pdfioFileGetNumPages(d->pdf);
+    for (pg = 0; pg < num_pages; pg ++)
+    {
+      pdfio_obj_t	*page = pdfioFileGetPage(d->pdf, pg);
+      pdfio_rect_t	r;		// Page size
+      double		w, h;		// Page size minus 2% tolerance
+
+      if (p->options->multiple_document_handling < CF_FILTER_HANDLING_SINGLE_DOCUMENT)
+        number = (int)pg + 1;
+      else
+        number = d->first_page + (int)pg;
+
+      if (!cfFilterOptionsIsPageInRange(p->options, number))
+        continue;
+
+      if (!page_get_rect(page, "CropBox", &r) &&
+          !page_get_rect(page, "MediaBox", &r))
+        continue;
+
+      w = (r.x2 - r.x1) * 100.0 / 102.0;
+      h = (r.y2 - r.y1) * 100.0 / 102.0;
+
+      if ((w > pw || h > ph) && (h > pw || w > ph))
+      {
+        prepare_log(p, false, "Page %d is too large for the output page size, scaling pages to fit.", number);
+        document_large = true;
+        break;
+      }
+    }
+  }
+
+  if (fidelity || document_large)
+  {
+    if (scaling == CF_FILTER_SCALING_AUTO && !margin_defined)
+      p->print_scaling = CF_FILTER_SCALING_FILL;
+    else
+      p->print_scaling = CF_FILTER_SCALING_FIT;
+  }
+  else
+    p->print_scaling = CF_FILTER_SCALING_NONE;
+
+  if (Verbosity)
+    fprintf(stderr, "DEBUG: print-scaling=%s resolved to %s.\n",
+            scaling == CF_FILTER_SCALING_AUTO ? "auto" : "auto-fit",
+            p->print_scaling == CF_FILTER_SCALING_NONE ? "none" :
+            p->print_scaling == CF_FILTER_SCALING_FILL ? "fill" : "fit");
 }
 
 
@@ -3115,6 +3219,9 @@ prepare_documents(
   // fill is explicitly chosen...
   if (p.num_layout > 1 && options->print_scaling != CF_FILTER_SCALING_FILL)
     options->print_scaling = CF_FILTER_SCALING_FIT;
+
+  // Decide what "auto" and "auto-fit" mean for this job...
+  resolve_print_scaling(&p, num_documents, documents, num_job_options, job_options);
 
   // Prepare output pages...
   prepare_pages(&p, num_documents, documents);
