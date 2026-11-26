@@ -2454,10 +2454,10 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
   double	final_iwidth,		// Input page width after effective_rotate
 		final_iheight;		// Input page height after effective_rotate
   bool		fit_swap;		// Does an extra 90 degree turn fit the cell better?
-  pdfio_matrix_t cm,			// Cell transform matrix
-		rotate_m,		// effective_rotate as a rotation matrix
-		scale_m,		// Uniform scale by "scaling"
-		translate_m;		// A translation step of the composition below
+  pdfio_matrix_t cm = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } },		// Cell transform matrix
+		rotate_m = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } },	// effective_rotate as a rotation matrix
+		scale_m = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } },	// Uniform scale by "scaling"
+		translate_m = { { 1.0, 0.0 }, { 0.0, 1.0 }, { 0.0, 0.0 } };	// A translation step of the composition below
   size_t	i,			// Looping var
 		count;			// Number of input page streams
   pdfio_stream_t *st;			// Input page stream
