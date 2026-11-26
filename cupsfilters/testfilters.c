@@ -319,7 +319,8 @@ test_wrapper(
   if (num_clargs > 5)
     num_options = cupsParseOptions(clargs[5], NULL, 0, &options);
 	fprintf(stderr, "NUM Options: %d\n", num_options);
-  if ((filter_data.printer = getenv("PRINTER")) == NULL)
+  filter_data.printer = getenv("PRINTER");
+  if (filter_data.printer == NULL)
     filter_data.printer = clargs[0];
   filter_data.job_id = num_clargs > 1 ? atoi(clargs[1]) : 0;
   filter_data.job_user = num_clargs > 2 ? clargs[2] : NULL;
