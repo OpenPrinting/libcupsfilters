@@ -105,14 +105,6 @@ Sources of Current Files utilized in Test
 | `test_file_4pg.pdf`                | [cups/example/document-a4.pdf](https://github.com/OpenPrinting/cups/blob/master/examples/document-a4.pdf)   |
 | `test_file_8pg.pdf`                | [cups/example/testfile.pdf](https://github.com/OpenPrinting/cups/blob/master/examples/testfile.pdf)  |
 
-Some tests write their input PDFs at run time instead of keeping them in
-`test_files/`, so the exact bytes that trigger the bug are in the source:
-
-| Test                                     | Input written by |
-|------------------------------------------|------------------|
-| `test-pdftopdf-split-content-streams.sh` | `cupsfilters/test-pdftopdf-split-content-streams.c --write` (a page whose `/Contents` is split into three streams, with and without an annotation) |
-| `test-pdftopdf-null-value`               | `cupsfilters/test-pdftopdf-null-value.c` (a pdfjam-like PDF with null values in the info dictionary) |
-
 
 If more files are required by you for testing your additions or enhance the testing suite, you can visit the following sites:
 - [Printer Working Group](https://www.pwg.org/)
