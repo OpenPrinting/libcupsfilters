@@ -27,6 +27,7 @@
 #include "pdftopdf-private.h"
 
 #include <stdarg.h>
+#include <errno.h>
 
 #define MAX_VISITED 20
 
@@ -3780,11 +3781,14 @@ cfFilterPDFToPDF(int inputfd,       // I - Input file descriptor
            filter_options->number_up > 1)
     filter_options->pagesize_requested = true;
 
-  char temp_filename[] = "/tmp/tempfileXXXXXX";
-  int temp_fd = mkstemp(temp_filename);
+  char temp_filename[1024];
+  int temp_fd = cupsCreateTempFd(NULL, NULL, temp_filename,
+				 sizeof(temp_filename));
   if (temp_fd == -1)
   {
-    if (log) log(ld, CF_LOGLEVEL_ERROR, "tempfilename wasn't created");
+    if (log) log(ld, CF_LOGLEVEL_ERROR,
+		 "cfFilterPDFToPDF: Unable to create temporary file: %s",
+		 strerror(errno));
     cupsFreeOptions(num_options, options);
     return 1;
   }

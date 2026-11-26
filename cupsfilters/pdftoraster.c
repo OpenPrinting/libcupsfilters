@@ -1829,8 +1829,15 @@ write_page_image(cups_raster_t *raster,			// I - Cups raster output data struct
       fakeres[i] = (int)(fakeres[i] * overspray_factor);
 
   //settin up the temporary files
-  char img_path[] = "/tmp/tempimg_XXXXXX";
-  int fd_img = mkstemp(img_path);
+  char img_path[1024];
+  int fd_img = cupsCreateTempFd(NULL, NULL, img_path, sizeof(img_path));
+  if (fd_img < 0)
+  {
+    if (doc->logfunc) doc->logfunc(doc->logdata, CF_LOGLEVEL_ERROR,
+                                   "pdftoraster: Unable to create temporary file: %s",
+                                   strerror(errno));
+    return;
+  }
   close(fd_img); // We just need the filename
  
   int ret = 0;		// exit status
