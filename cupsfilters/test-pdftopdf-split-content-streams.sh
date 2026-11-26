@@ -9,15 +9,13 @@
 # "q" + "0.5" became "q0.5", so the page rendered blank or the printer
 # rejected the job.
 #
-# test_files/split_content_streams.pdf has a single page whose content is
-# split as "q\nq" | "0.5 0 0 0.5 0 0 cm ... Q" | "Q".
-# test_files/split_content_streams_annot.pdf is the same page with an
-# annotation, so that pdftopdf flattens it first (flatten_pdf()) before
-# laying it out (copy_page()).
+# test-pdftopdf-split-content-streams.c writes the two inputs: a single
+# page whose content is split as "q\nq" | "0.5 0 0 0.5 0 0 cm ... Q" | "Q",
+# and the same page with an annotation, so that pdftopdf flattens it first
+# (flatten_pdf()) before laying it out (copy_page()).
 #
-# Each output is tokenized with PDFio (see
-# test-pdftopdf-split-content-streams.c): no fused tokens may appear and
-# q/Q must stay balanced.
+# Each output is then tokenized with PDFio by the same program: no fused
+# tokens may appear and q/Q must stay balanced.
 #
 # Like testfilters.sh, this runs from the top-level build directory and
 # passes file names relative to it: testfilters copies the case file names
@@ -33,15 +31,11 @@ if [[ ! -x "${TESTFILTERS}" ]]; then
   exit 99
 fi
 
-FIXTURE="cupsfilters/test_files/split_content_streams.pdf"
-FIXTURE_ANNOT="cupsfilters/test_files/split_content_streams_annot.pdf"
 CHECKER_SRC="cupsfilters/test-pdftopdf-split-content-streams.c"
-for f in "${FIXTURE}" "${FIXTURE_ANNOT}" "${CHECKER_SRC}"; do
-  if [[ ! -f "${f}" ]]; then
-    echo "test file not found: ${f}" >&2
-    exit 99
-  fi
-done
+if [[ ! -f "${CHECKER_SRC}" ]]; then
+  echo "test file not found: ${CHECKER_SRC}" >&2
+  exit 99
+fi
 
 PKG_CFLAGS="$(pkg-config --cflags pdfio 2>/dev/null || true)"
 PKG_LIBS="$(pkg-config --libs pdfio 2>/dev/null || true)"
@@ -54,10 +48,16 @@ WORKDIR="$(mktemp -d ./split-content-streams.XXXXXX)"
 cleanup() { rm -rf "${WORKDIR}"; }
 trap cleanup EXIT
 
+FIXTURE="${WORKDIR}/input.pdf"
+FIXTURE_ANNOT="${WORKDIR}/input-annot.pdf"
 CASES="${WORKDIR}/cases.txt"
 OUTPUT="${WORKDIR}/output.pdf"
 OUTPUT_ANNOT="${WORKDIR}/output-annot.pdf"
 CHECKER="${WORKDIR}/check"
+
+"${CC}" -std=gnu11 -O0 ${PKG_CFLAGS} "${CHECKER_SRC}" ${PKG_LIBS} -o "${CHECKER}"
+"${CHECKER}" --write "${FIXTURE}"
+"${CHECKER}" --write "${FIXTURE_ANNOT}" --annot
 
 {
   printf '%s\tapplication/pdf\t%s\tapplication/pdf\tGeneric\tPDF Color 2\t1\t1\tapplication/pdf\t42\tsplit-user\tsplit-content-streams\t1\tmedia-size=letter\tpdftopdf\n' \
@@ -67,8 +67,6 @@ CHECKER="${WORKDIR}/check"
 } > "${CASES}"
 
 "${TESTFILTERS}" "${CASES}"
-
-"${CC}" -std=gnu11 -O0 ${PKG_CFLAGS} "${CHECKER_SRC}" ${PKG_LIBS} -o "${CHECKER}"
 
 status=0
 for out in "${OUTPUT}" "${OUTPUT_ANNOT}"; do

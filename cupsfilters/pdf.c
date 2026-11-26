@@ -300,10 +300,6 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
 
   pdfioStreamWrite(new_stream, buf, len);
 
-  // Separate the prepended content and each content stream so tokens at
-  // the boundary don't merge (e.g. "Q" + "Q" -> "QQ", Issue #293)...
-  pdfioStreamPuts(new_stream, "\n");
-
   for (size_t i = 0, count = pdfioPageGetNumStreams(page); i < count; i ++)
   {
     fprintf(stderr, "DEBUG: Opening content stream %u/%u...\n", (unsigned)i + 1, (unsigned)count);
@@ -311,12 +307,16 @@ cfPDFPrependStream1(cf_pdf_t *pdf,		// I - Pointer to PDF file
     if ((st = pdfioPageOpenStream(page, i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
+
+      // Separate this stream from the previous content so tokens at the
+      // boundary don't merge (e.g. "Q" + "Q" -> "QQ", Issue #293)...
+      pdfioStreamPuts(new_stream, "\n");
+
       while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
       {
         pdfioStreamWrite(new_stream, buffer, (size_t)bytes);
       }
 
-      pdfioStreamPuts(new_stream, "\n");
       pdfioStreamClose(st);
     }
   }

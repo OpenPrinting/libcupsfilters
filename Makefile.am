@@ -509,8 +509,6 @@ EXTRA_DIST += \
 	cupsfilters/test_files/gen-symbol-only-font.py \
 	cupsfilters/test_files/form_english.pdf \
 	cupsfilters/test_files/inherited_mediabox.pdf \
-	cupsfilters/test_files/split_content_streams.pdf \
-	cupsfilters/test_files/split_content_streams_annot.pdf \
 	cupsfilters/test_files/jpeg-no-app-marker.jpg \
 	cupsfilters/test_files/link-annots-no-appearance.pdf \
 	cupsfilters/test_files/malformed.pdf \

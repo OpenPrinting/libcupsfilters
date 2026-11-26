@@ -2434,14 +2434,16 @@ flatten_pdf(xform_prepare_t *p,			// I - Preparation data
     if ((st = pdfioPageOpenStream(outpage->input[pg], i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u\n", (unsigned)i + 1);
+
+      // Separate this stream from the previous content so tokens at the
+      // boundary don't merge (e.g. "Q" + "Q" -> "QQ", Issue #293)...
+      pdfioStreamPuts(outpage->output, "\n");
+
       while ((bytes = pdfioStreamRead(st, buffer, sizeof(buffer))) > 0)
       {
         pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
       }
 
-      // Separate content streams so tokens at the boundary don't merge
-      // (e.g. "Q" + "Q" -> "QQ", Issue #293)...
-      pdfioStreamPuts(outpage->output, "\n");
       pdfioStreamClose(st);
     }
   }
@@ -2680,6 +2682,11 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
     if ((st = pdfioPageOpenStream(outpage->input[layout], i, true)) != NULL)
     {
       fprintf(stderr, "DEBUG: Opened stream %u, resmap[%u]=%p\n", (unsigned)i + 1, (unsigned)layout, (void *)outpage->resmap[layout]);
+
+      // Separate this stream from the previous content so tokens at the
+      // boundary don't merge (e.g. "Q" + "Q" -> "QQ", Issue #293)...
+      pdfioStreamPuts(outpage->output, "\n");
+
       if (outpage->resmap[layout])
       {
         // Need to map resource names...
@@ -2865,9 +2872,6 @@ copy_page(xform_prepare_t *p,		// I - Preparation data
           pdfioStreamWrite(outpage->output, buffer, (size_t)bytes);
       }
 
-      // Separate content streams so tokens at the boundary don't merge
-      // (e.g. "Q" + "Q" -> "QQ", Issue #293)...
-      pdfioStreamPuts(outpage->output, "\n");
       pdfioStreamClose(st);
     }
   }
