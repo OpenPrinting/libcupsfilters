@@ -1,0 +1,118 @@
+# Visual Output Quality CI for libcupsfilters
+# =============================================
+# Runs visual regression tests on every push and PR.
+# Tests exercise the texttopdf, imagetopdf filter binaries, then
+# render their PDF output to PNG via Ghostscript and compare against
+# committed reference images using SSIM.
+#
+# Key tests:
+#   • ascii_text_to_pdf    — plain text → PDF layout check
+#   • unicode_text_to_pdf  — UTF-8 Unicode → PDF, .notdef box detection
+#   • image_png_to_pdf     — PNG image → PDF colour/resolution check
+#
+# Reference images live in tests/visual_references/ and are committed
+# to the repository.  To regenerate them after an intentional change:
+#
+#   python3 tests/generate_references.py   # on a good build
+#   git add tests/visual_references/
+#   git commit -m "tests: update visual references"
+
+name: Visual Output Quality Analysis
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-analysis:
+    name: Visual Output Quality Tests (x86_64)
+    # Visual tests only run on x86_64 native runners.
+    # SSIM is architecture-independent; we don't need QEMU here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------------------
+      # Build libcupsfilters the same way the main CI does
+      # -------------------------------------------------------------------
+      - name: Install build dependencies
+        env:
+          CUPS_KIND: system-2x
+          EMULATED: "0"
+        run: |
+          set -ex
+          sh ci/ci-setup.sh deps
+          sh ci/ci-setup.sh cups system-2x
+          sh ci/ci-setup.sh pdfio
+          sh ci/ci-setup.sh build-libcupsfilters
+
+      # -------------------------------------------------------------------
+      # Install Python + image-analysis tools for the visual tests
+      # -------------------------------------------------------------------
+      - name: Install visual test dependencies
+        run: |
+          set -ex
+          sh ci/install-visual-deps.sh
+
+      # -------------------------------------------------------------------
+      # Run the visual quality tests
+      # -------------------------------------------------------------------
+      - name: Generate test inputs (if not committed)
+        run: |
+          # Create sample_ascii.txt and sample_unicode.txt if missing.
+          # sample_image.png must be committed (requires Pillow to generate).
+          python3 - <<'EOF'
+from pathlib import Path
+import sys, os
+inputs = Path("tests/visual_inputs")
+inputs.mkdir(parents=True, exist_ok=True)
+ascii_p = inputs / "sample_ascii.txt"
+uni_p   = inputs / "sample_unicode.txt"
+if not ascii_p.exists():
+    ascii_p.write_text(
+        "LibcupsFilters Visual Test\n\n"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n"
+        "0123456789  !@#$%^&*()\n"
+        "The quick brown fox jumps over the lazy dog.\n"
+    )
+if not uni_p.exists():
+    uni_p.write_text(
+        "LibcupsFilters Unicode Test\n\n"
+        "Latin extended : Ä Ö Ü ä ö ü ß é è ê ë à â ç ñ\n"
+        "Greek          : Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π\n"
+        "Cyrillic       : А Б В Г Д Е Ё Ж З И К Л М Н О П\n"
+        "Symbols        : © ® ™ € £ ¥ ± × ÷ ≤ ≥ ≠ ∞ → ← ↑ ↓ ✓ ✗\n",
+        encoding="utf-8",
+    )
+print("Input files ready.")
+EOF
+
+      - name: Run visual quality tests
+        run: |
+          set -ex
+          python3 tests/run_visual_tests.py \
+            --report-dir visual-report \
+            --verbose
+
+      # -------------------------------------------------------------------
+      # Upload full report as a CI artifact (always, even on failure)
+      # -------------------------------------------------------------------
+      - name: Upload visual test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-test-report-${{ github.run_id }}
+          path: |
+            visual-report/
+          if-no-files-found: ignore
+          retention-days: 30

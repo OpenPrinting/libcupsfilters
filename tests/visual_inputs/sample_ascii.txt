@@ -1,0 +1,21 @@
+LibcupsFilters Visual Test — ASCII Sample
+==========================================
+
+This document verifies that texttopdf converts plain text to PDF
+without layout or glyph regressions.
+
+Alphabet  : ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
+Digits    : 0 1 2 3 4 5 6 7 8 9
+Symbols   : ! @ # $ % ^ & * ( ) _ + - = [ ] { } | ; : , . < > / ?
+Sentence  : The quick brown fox jumps over the lazy dog.
+Long line : Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!
+
+Columns test:
+  Name            Value       Unit
+  ────────────    ────────    ────
+  line_pitch      6           lpi
+  char_pitch      10          cpi
+  page_width      612         points
+  page_height     792         points
+
+End of ASCII test document.
