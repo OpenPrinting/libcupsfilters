@@ -65,14 +65,14 @@ jobs:
             ghostscript \
             cppcheck
 
-      - name: Install pdfio >= 1.6.4
+      - name: Install pdfio >= 1.6.7
         env:
           PDFIO_PREFIX: ${{ runner.temp }}/pdfio
         run: |
           cd ..
-          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.4/pdfio-1.6.4.tar.gz
-          tar -xzf pdfio-1.6.4.tar.gz
-          cd pdfio-1.6.4
+          wget -q https://github.com/michaelrsweet/pdfio/releases/download/v1.6.7/pdfio-1.6.7.tar.gz
+          tar -xzf pdfio-1.6.7.tar.gz
+          cd pdfio-1.6.7
           ./configure --prefix="$PDFIO_PREFIX" --enable-shared
           make all
           make test
@@ -90,7 +90,7 @@ jobs:
 
       - name: Build for CodeQL
         run: |
-          pkg-config --atleast-version=1.6.4 pdfio
+          pkg-config --atleast-version=1.6.7 pdfio
           ./autogen.sh
           ./configure
           make -j"$(nproc)"

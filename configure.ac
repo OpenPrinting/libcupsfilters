@@ -384,7 +384,7 @@ AS_IF([test x"$with_fontconfig" != "xno" && test "x$enable_texttopdf" != "xno"],
 	AC_DEFINE([HAVE_FONTCONFIG], [1], [Defines if we are using fontconfig.])
   PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.0.0])
 ])
-PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.6.4])
+PKG_CHECK_MODULES([LIBPDFIO], [pdfio >= 1.6.7])
 
 
 # ===============
