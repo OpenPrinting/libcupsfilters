@@ -1,0 +1,31 @@
+LibcupsFilters Visual Test — Unicode / Multi-Script Sample
+===========================================================
+
+This document tests multi-script Unicode support in texttopdf.
+A regression (issue #224) causes characters outside the base
+font's charset to be printed as empty .notdef boxes.
+
+If this file is converted correctly, every line below should be
+fully visible with real characters — no empty squares.
+
+Latin-1 Supplement
+  Ä Ö Ü ä ö ü ß  é è ê ë  à â ç  ñ Ñ  ø Ø  å Å  æ Æ
+
+Latin Extended-A / B
+  Ā ā  Ć ć  Č č  Ď ď  Ě ě  Ğ ğ  Ħ ħ  Ĩ ĩ  Ĺ ĺ  Ń ń  Ő ő  Ř ř  Ś ś  Ť ť  Ű ű  Ź ź
+
+Greek
+  Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
+  α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+
+Cyrillic
+  А Б В Г Д Е Ё Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я
+  а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я
+
+Currency & Math symbols
+  € £ ¥ ¢ ¤  ± × ÷ √ ∞ ≈ ≠ ≤ ≥  ∑ ∏ ∂ ∫  °  ½ ¼ ¾
+
+Arrows & Misc
+  → ← ↑ ↓ ↔  ⇒ ⇐ ⇑ ⇓  ✓ ✗ ✦ ★ ♦ ♠ ♣ ♥  © ® ™
+
+End of Unicode test document.

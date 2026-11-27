@@ -1,0 +1,50 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 279 >>
+stream
+q
+0.6 G
+0 122 m 792 122 l S
+0 244 m 792 244 l S
+0 367 m 792 367 l S
+0 489 m 792 489 l S
+198 0 m 198 612 l S
+396 0 m 396 612 l S
+594 0 m 594 612 l S
+Q
+BT
+/F1 28 Tf
+50 532 Td
+(Landscape page 1 of 1  (792x612 pts)) Tj
+/F1 16 Tf
+0 -36 Td
+(libcupsfilters visual regression test) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000577 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+647
+%%EOF

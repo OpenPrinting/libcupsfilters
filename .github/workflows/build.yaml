@@ -6,6 +6,10 @@
 #                  master), 3.x (OpenPrinting/libcups master)
 # All the per-combination work lives in ci/ci-setup.sh so the legs differ only
 # in which CUPS is provided and whether they run under emulation.
+#
+# Visual output quality tests run after the functional tests in every native
+# job and (best-effort) in every emulated job, exercising the full
+# architecture × CUPS-version matrix as requested.
 name: Build and Test (Multi-Architecture, Multi-CUPS)
 
 on:
@@ -74,6 +78,31 @@ jobs:
           set -ex
           make test-autopkgtest V=1
 
+      # ------------------------------------------------------------------
+      # Visual output quality tests (native) — runs in the full matrix so
+      # architecture- and CUPS-version-specific rendering regressions are caught.
+      # continue-on-error so a visual failure never blocks a build failure.
+      # ------------------------------------------------------------------
+      - name: Install visual test dependencies (Native)
+        if: matrix.use-qemu == false
+        run: |
+          set -ex
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+              ghostscript \
+              poppler-utils \
+              python3-numpy \
+              python3-pil \
+              python3-skimage
+
+      - name: Run visual output quality tests (Native)
+        if: matrix.use-qemu == false
+        continue-on-error: true
+        run: |
+          set -ex
+          python3 tests/run_visual_tests.py \
+            --report-dir visual-report-${{ matrix.arch }}-${{ matrix.cups }} \
+            --verbose
+
       - name: Upload test artifacts (Native)
         if: matrix.use-qemu == false && always()
         continue-on-error: true
@@ -85,6 +114,7 @@ jobs:
             config.log
             test-suite.log
             cupsfilters/*.log
+            visual-report-${{ matrix.arch }}-${{ matrix.cups }}/
           if-no-files-found: ignore
 
       # ==========================================
@@ -100,6 +130,9 @@ jobs:
           install: |
             apt-get update --fix-missing -y
             DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata ca-certificates git
+            # Visual test deps (best-effort; don't abort if unavailable)
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+                ghostscript poppler-utils python3-numpy python3-pil python3-skimage || true
           run: |
             set -ex
             export CUPS_KIND="${{ matrix.cups }}"
@@ -109,6 +142,8 @@ jobs:
             sh ci/ci-setup.sh pdfio
             sh ci/ci-setup.sh build-libcupsfilters
             make test-autopkgtest V=1
+            # Visual quality tests — best-effort on emulated architectures
+            python3 tests/run_visual_tests.py --report-dir visual-report || true
 
       - name: Upload test artifacts (Emulated)
         if: matrix.use-qemu == true && always()
@@ -121,4 +156,5 @@ jobs:
             config.log
             test-suite.log
             cupsfilters/*.log
+            visual-report/
           if-no-files-found: ignore
