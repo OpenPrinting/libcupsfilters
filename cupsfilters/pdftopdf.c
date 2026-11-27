@@ -3295,8 +3295,17 @@ prepare_documents(
       outdir  = 1;
     }
 
+    // The fast copy keeps every page at its own size. That is only right
+    // when no page size got requested: with print-scaling=none and a
+    // requested page size the pages have to be centered on that media
+    // without scaling, turned if their orientation does not match, and
+    // cropped if they are larger, like crop-to-fit in libcupsfilters
+    // 2.1.x. Otherwise a landscape page goes out as a landscape sheet
+    // and the rasterizer shrinks it onto the portrait media (Issues #261,
+    // #274)...
     if (p.num_layout == 1 &&
         options->print_scaling == CF_FILTER_SCALING_NONE &&
+	!options->pagesize_requested &&
 	!p.auto_cropfit &&
 	strcasecmp(outformat, "image/pwg-raster") &&
 	strcasecmp(outformat, "image/urf") && 

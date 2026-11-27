@@ -102,6 +102,7 @@ check_SCRIPTS = \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
+	cupsfilters/test-pdftopdf-print-scaling-none-landscape.sh \
 	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-pdftopdf-copies.sh \
@@ -162,6 +163,7 @@ TESTS = \
 	cupsfilters/test-pdftopdf-no-appearance.sh \
 	cupsfilters/test-image-jpeg-no-app-marker.sh \
 	cupsfilters/test-pdftopdf-print-scaling-none.sh \
+	cupsfilters/test-pdftopdf-print-scaling-none-landscape.sh \
 	cupsfilters/test-pdftopdf-print-scaling-auto.sh \
 	cupsfilters/test-pdftopdf-job-sheets.sh \
 	cupsfilters/test-pdftopdf-copies.sh \
