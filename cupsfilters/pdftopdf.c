@@ -3102,7 +3102,7 @@ prepare_documents(
           fprintf(stderr, "DEBUG: No Resources for page %u.\n", (unsigned)pg);
 
 	flattened_page->output = NULL;
-	flatten_pdf(&p, flattened_page, pg, an_print, 0);
+	flatten_pdf(&p, flattened_page, pg, an_print, an_hidden);
 
 	if (flattened_page->output)
 	  pdfioStreamClose(flattened_page->output);
