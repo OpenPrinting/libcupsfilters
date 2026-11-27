@@ -23,7 +23,7 @@
 # runners; it detects which automatically.
 set -eu
 
-PDFIO_VER=1.6.4
+PDFIO_VER=1.6.7
 
 SUDO=""
 [ "$(id -u)" -eq 0 ] || SUDO="sudo"
