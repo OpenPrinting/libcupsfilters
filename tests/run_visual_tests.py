@@ -79,12 +79,16 @@ LOG = logging.getLogger("visual_tests")
 # Pure-Python minimal PDF generator (no external deps)
 # ---------------------------------------------------------------------------
 
-def _make_pdf(pages: int = 1, landscape: bool = False, text_prefix: str = "Page") -> bytes:
+def _make_pdf(pages: int = 1, landscape: bool = False, text_prefix: str = "Page",
+              pw: int | None = None, ph: int | None = None) -> bytes:
     """
     Generate a minimal valid multi-page PDF using only Python stdlib.
-    Each page contains a visible grid + label so blank/black-page checks work.
+    pw/ph override the default page dimensions (points).
+    Each page contains a visible grid, corner marks, and label so
+    blank/black-page and cut-margin checks work reliably.
     """
-    pw, ph = (792, 612) if landscape else (612, 792)   # points (Letter)
+    if pw is None or ph is None:
+        pw, ph = (792, 612) if landscape else (612, 792)   # points (Letter)
 
     n = pages
     # Object numbering (1-based):
@@ -120,13 +124,19 @@ def _make_pdf(pages: int = 1, landscape: bool = False, text_prefix: str = "Page"
     # Content streams — grid lines + page label
     for idx in range(n):
         label = f"{text_prefix} {idx + 1} of {n}  ({pw}x{ph} pts)"
-        # Draw a 4×4 grid in grey, then write the label
+        # Draw a 4×4 grid in grey, plus dark corner boxes 18pt from edges
         lines = ["q", "0.6 G"]
         for j in range(1, 5):
             lines.append(f"0 {ph * j // 5:.0f} m {pw} {ph * j // 5:.0f} l S")
         for j in range(1, 4):
             lines.append(f"{pw * j // 4:.0f} 0 m {pw * j // 4:.0f} {ph} l S")
         lines += [
+            "Q",
+            "q", "0 G", "2 w",
+            f"18 18 24 24 re f",
+            f"{pw - 42} 18 24 24 re f",
+            f"18 {ph - 42} 24 24 re f",
+            f"{pw - 42} {ph - 42} 24 24 re f",
             "Q",
             "BT", "/F1 28 Tf",
             f"50 {ph - 80:.0f} Td", f"({label}) Tj",
@@ -175,6 +185,11 @@ def _setup_pdf_inputs() -> None:
         ("sample_4page.pdf",    dict(pages=4, landscape=False, text_prefix="Portrait page")),
         ("sample_landscape.pdf", dict(pages=1, landscape=True,  text_prefix="Landscape page")),
         ("sample_2page.pdf",    dict(pages=2, landscape=False, text_prefix="Page")),
+        # A3 oversized page (841 x 1190 pts ≈ 11.7 x 16.5 in) with corner marks —
+        # used to test that pdftopdf does not cut margins when scaling to Letter.
+        ("sample_a3_corners.pdf", dict(pages=1, landscape=False,
+                                       pw=841, ph=1190,
+                                       text_prefix="A3 Corner")),
     ]
     for fname, kwargs in specs:
         p = INPUTS_DIR / fname
@@ -270,6 +285,17 @@ TEST_CASES: list[dict] = [
         "options": "",
         "blank_page_check": True,
     },
+    {
+        "name": "pdftopdf_cut_margins",
+        "description": "A3 PDF scaled to Letter → pdftopdf → all 4 corner marks preserved (no cut margins)",
+        "input": "sample_a3_corners.pdf",
+        "input_mime": "application/pdf",
+        "output_mime": "application/pdf",
+        "filter": "pdftopdf",
+        "options": "fit-to-page PageSize=Letter",
+        "blank_page_check": True,
+        "margin_check": True,
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -288,8 +314,18 @@ def _run(cmd: list[str], stdin_bytes: bytes | None = None, timeout: int = 90) ->
 
 def _find_filter(name: str) -> str | None:
     destdir = os.environ.get("DESTDIR", "").rstrip("/")
+    # Also check GitHub Actions workspace staging directory, which ci-setup.sh
+    # commonly uses when it does `make install DESTDIR=$GITHUB_WORKSPACE/staging`
+    ws = os.environ.get("GITHUB_WORKSPACE", "")
+    staging_candidates = []
+    if ws:
+        staging_candidates = [
+            f"{ws}/staging/usr/lib/cups/filter/{name}",
+            f"{ws}/staging/usr/local/lib/cups/filter/{name}",
+        ]
     candidates = [
         f"{destdir}/usr/lib/cups/filter/{name}",
+        *staging_candidates,
         f"/usr/lib/cups/filter/{name}",
         f"/usr/local/lib/cups/filter/{name}",
         f"/usr/lib/x86_64-linux-gnu/cups/filter/{name}",
@@ -460,6 +496,36 @@ def check_no_blank_or_black_pages(pdf_bytes: bytes) -> tuple[bool, str]:
             return False, "Blank/black pages: " + "; ".join(problems)
         return True, f"All {len(pngs)} page(s) have visible content ✓"
 
+
+def check_margins_intact(pdf_bytes: bytes) -> tuple[bool, str]:
+    """
+    Verify that all 4 corner regions of page 1 contain dark ink (corner marks
+    drawn 18pt inside the source page), catching cut-margin / mis-scaling bugs.
+    """
+    png_bytes = pdf_to_png(pdf_bytes, dpi=72)
+    if png_bytes is None:
+        return True, "Ghostscript unavailable — skipping margin check"
+    if not (HAS_NUMPY and HAS_PIL):
+        return True, "numpy/PIL not available — skipping margin check"
+
+    arr = _load_gray(png_bytes)
+    if arr is None:
+        return True, "Could not decode PNG — skipping margin check"
+
+    h, w = arr.shape
+    # Sample outer 15% corner strips on all 4 corners
+    cw, ch = max(int(w * 0.15), 10), max(int(h * 0.15), 10)
+    corners = {
+        "top-left":     arr[:ch, :cw],
+        "top-right":    arr[:ch, w - cw:],
+        "bottom-left":  arr[h - ch:, :cw],
+        "bottom-right": arr[h - ch:, w - cw:],
+    }
+    missing = [name for name, patch in corners.items() if int((patch < 128).sum()) < 5]
+    if missing:
+        return False, f"Cut margin(s) detected — missing corner marks in: {', '.join(missing)}"
+    return True, "All 4 corner margins intact ✓"
+
 # ---------------------------------------------------------------------------
 # Image-quality comparison (SSIM)
 # ---------------------------------------------------------------------------
@@ -590,6 +656,14 @@ class VisualTestRunner:
             if tc.get("blank_page_check"):
                 ok, msg = check_no_blank_or_black_pages(output_bytes)
                 result["extra_checks"].append({"check": "blank_black", "passed": ok, "msg": msg})
+                if not ok:
+                    result["passed"] = False
+                    result["message"] = msg
+                    return result
+
+            if tc.get("margin_check"):
+                ok, msg = check_margins_intact(output_bytes)
+                result["extra_checks"].append({"check": "margins", "passed": ok, "msg": msg})
                 if not ok:
                     result["passed"] = False
                     result["message"] = msg
